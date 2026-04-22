@@ -36,6 +36,33 @@ const CATEGORIES = [
   '抗真菌薬','抗アレルギー薬','解熱鎮痛薬','その他',
 ]
 
+// ============================================================
+// 疾患マスターデータ
+// ============================================================
+
+const DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','その他']
+
+const DISEASES = [
+  // 疾患データは先生が追加・確認することで表示されます
+  // 例: 下記の構造で追加してください
+  // {
+  //   id: 'cap',
+  //   name: '市中肺炎',
+  //   englishName: 'Community-acquired pneumonia',
+  //   abbreviation: 'CAP',
+  //   category: '呼吸器',
+  //   tags: ['肺炎', 'CAP'],
+  //   points: ['ポイント1', 'ポイント2'],
+  //   sections: [
+  //     { title: '診断', content: '内容' },
+  //     { title: '治療', content: '内容' },
+  //   ],
+  //   relatedDrugIds: ['azithromycin'],
+  //   references: ['参考文献'],
+  //   notes: ''
+  // },
+]
+
 const DRUGS = [
   // 抗ウイルス薬
   { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
@@ -256,6 +283,44 @@ function searchDrugsQ(q) {
 }
 
 // ============================================================
+// 疾患データアクセス
+// ============================================================
+
+const loadCustomDiseases = () => LS.get('custom_diseases', '[]')
+const saveCustomDiseases = d => LS.set('custom_diseases', d)
+const loadPendingDiseases = () => LS.get('pending_diseases', '[]')
+const savePendingDiseases = d => LS.set('pending_diseases', d)
+const loadConfirmedMasterDiseases = () => new Set(LS.get('confirmed_master_diseases', '[]'))
+const confirmMasterDisease = id => { const s = loadConfirmedMasterDiseases(); s.add(id); LS.set('confirmed_master_diseases', [...s]) }
+
+function getPendingMasterDiseases() {
+  const confirmed = loadConfirmedMasterDiseases()
+  return DISEASES.filter(d => !confirmed.has(d.id))
+}
+function getAllPendingDiseases() {
+  return [...loadPendingDiseases(), ...getPendingMasterDiseases()]
+}
+function getAllDiseases() {
+  const confirmed = loadConfirmedMasterDiseases()
+  const hidden = new Set(LS.get('hidden_diseases','[]'))
+  return [
+    ...DISEASES.filter(d => confirmed.has(d.id) && !hidden.has(d.id)),
+    ...loadCustomDiseases().filter(d => !hidden.has(d.id)),
+  ]
+}
+function getDiseaseById(id) { return getAllDiseases().find(d => d.id === id) || getAllPendingDiseases().find(d => d.id === id) }
+function getDiseasesByCategory(cat) { return getAllDiseases().filter(d => d.category === cat) }
+function searchDiseasesQ(q) {
+  const lq = q.toLowerCase()
+  return getAllDiseases().filter(d =>
+    d.name.toLowerCase().includes(lq) ||
+    (d.englishName||'').toLowerCase().includes(lq) ||
+    (d.abbreviation||'').toLowerCase().includes(lq) ||
+    (d.tags||[]).some(t => t.toLowerCase().includes(lq))
+  )
+}
+
+// ============================================================
 // 計算
 // ============================================================
 
@@ -288,6 +353,11 @@ let state = {
   category: getCategories()[0],
   query: '',
   favorites: new Set(LS.get('favorites','[]')),
+  // タブ切り替え（薬剤 / 疾患）
+  mainTab: 'drugs',
+  // 疾患
+  diseaseCat: null,
+  diseaseId: null,
   // detail
   drugId: null,
   weight: '', age: '', ageUnit: 'years', tab: 'calc',
@@ -297,6 +367,8 @@ let state = {
   // add drug
   addForm: null,
   addDoses: [],
+  // add disease
+  addDiseaseForm: null,
   // create/edit set
   setDraft: null,
   setQuery: '',
@@ -327,6 +399,8 @@ function render() {
   else if (s==='add-drug')   { app.innerHTML=renderAddDrug(); attachAddDrug() }
   else if (s==='create-set') { app.innerHTML=renderCreateSet(); attachCreateSet() }
   else if (s==='manage-categories') { app.innerHTML=renderManageCategories(); attachManageCategories() }
+  else if (s==='disease-detail') { app.innerHTML=renderDiseaseDetail(getDiseaseById(state.diseaseId)); attachDiseaseDetail() }
+  else if (s==='add-disease')    { app.innerHTML=renderAddDisease(); attachAddDisease() }
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -417,48 +491,113 @@ function filteredDoses(drug) {
 
 // ── リスト画面 ────────────────────────────────────────────
 
+function drugListItem(d) {
+  return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+      <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
+    </div>
+    <button data-fav="${d.id}" class="text-xl shrink-0 px-1 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
+  </button></li>`
+}
+function diseaseListItem(d, showPendingBadge=false) {
+  return `<li><button data-disease="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1.5">
+        <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
+        ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
+      </div>
+      <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
+    </div>
+    <span class="text-gray-300 text-lg">›</span>
+  </button></li>`
+}
+
 function buildListBodyHTML(query) {
   const isSearch = query.trim()!==''
+
+  // ── 検索時: 薬剤・疾患を同時表示 ──────────────────────────
+  if (isSearch) {
+    const drugResults = searchDrugsQ(query)
+    const diseaseResults = searchDiseasesQ(query)
+    const drugSection = drugResults.length > 0
+      ? `<div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">💊 薬剤 (${drugResults.length}件)</div><ul class="bg-white">${drugResults.map(drugListItem).join('')}</ul>`
+      : ''
+    const diseaseSection = diseaseResults.length > 0
+      ? `<div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">🏥 疾患 (${diseaseResults.length}件)</div><ul class="bg-white">${diseaseResults.map(diseaseListItem).join('')}</ul>`
+      : ''
+    const empty = drugResults.length===0 && diseaseResults.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">🔍</span><span>見つかりません</span></div>` : ''
+    return `<main class="flex-1 overflow-y-auto bg-white">${drugSection}${diseaseSection}${empty}</main>`
+  }
+
+  // ── 疾患タブ ─────────────────────────────────────────────
+  if (state.mainTab === 'diseases') {
+    const pendingDiseases = getAllPendingDiseases()
+    const isPendingDiseaseCat = state.diseaseCat === '__pending_diseases__'
+    const diseaseSidebar = [
+      ...DISEASE_CATEGORIES.map(cat =>
+        `<button data-disease-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.diseaseCat===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`
+      ),
+      `<button data-disease-cat="__pending_diseases__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${isPendingDiseaseCat?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingDiseases.length>0?('<br><b class="text-orange-500">'+pendingDiseases.length+'</b>'):''}
+</button>`,
+    ].join('')
+
+    let diseaseList, headerTitle, headerColor
+    if (isPendingDiseaseCat) {
+      diseaseList = pendingDiseases; headerTitle = '未確認の疾患'; headerColor = 'bg-orange-500'
+    } else if (state.diseaseCat) {
+      diseaseList = getDiseasesByCategory(state.diseaseCat); headerTitle = state.diseaseCat; headerColor = 'bg-blue-600'
+    } else {
+      diseaseList = getAllDiseases(); headerTitle = '全疾患'; headerColor = 'bg-blue-600'
+    }
+
+    const diseaseItems = diseaseList.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">🏥</span><span>${isPendingDiseaseCat?'未確認の疾患はありません':'疾患がありません'}</span></div>`
+      : diseaseList.map(d => diseaseListItem(d, isPendingDiseaseCat)).join('')
+
+    return `
+      <aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${diseaseSidebar}</aside>
+      <main class="flex-1 overflow-y-auto bg-white">
+        <div class="px-4 py-2 ${headerColor} flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white">${headerTitle}</h2>
+          ${!isPendingDiseaseCat ? '<button id="btn-add-disease" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 疾患追加</button>' : `<span class="text-xs text-white opacity-80">${pendingDiseases.length}件</span>`}
+        </div>
+        <ul class="bg-white">${diseaseItems}</ul>
+      </main>`
+  }
+
+  // ── 薬剤タブ（既存） ──────────────────────────────────────
   const isFav = state.category==='__favorites__'
   const isSets = state.category==='__sets__'
   const isPending = state.category === '__pending__'
   const sets = loadSets()
-
-  let drugs=[], showSets=false, showPending=false
-  if (isSets) { showSets=true }
-  else if (isPending) { showPending=true }
-  else if (isSearch) { drugs=searchDrugsQ(query) }
-  else if (isFav) { drugs=getAllDrugs().filter(d=>state.favorites.has(d.id)) }
-  else { drugs=getDrugsByCategory(state.category) }
-
   const pending = getAllPendingDrugs()
   const pendingCount = pending.length
-
   const userCats = getCategories()
+
   const sidebarItems = [
     `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">⭐️<br>お気に入り</button>`,
     `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">📋<br>セット</button>`,
-    ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat&&!isSearch?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
+    ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
     `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
 </button>`,
     `<div class="flex justify-center py-1 border-t border-gray-100"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button></div>`,
   ].join('')
 
   let mainContent = ''
-  if (showSets) {
+  if (isSets) {
     const setItems = sets.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📋</span><span>セットがありません</span></div>`
       : sets.map(s => {
           const drugNames = s.drugIds.map(id => getDrugById(id)?.abbreviation || getDrugById(id)?.genericName || '?').join(' + ')
-          return `<li>
-            <button data-set="${s.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 text-left gap-3 border-b border-gray-100">
-              <div class="flex-1 min-w-0">
-                <div class="font-medium text-gray-900 text-sm">${esc(s.name)}</div>
-                <div class="text-xs text-gray-500 truncate">${esc(drugNames)}</div>
-              </div>
-              <button data-del-set="${s.id}" class="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
-            </button>
-          </li>`
+          return `<li><button data-set="${s.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 text-left gap-3 border-b border-gray-100">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-900 text-sm">${esc(s.name)}</div>
+              <div class="text-xs text-gray-500 truncate">${esc(drugNames)}</div>
+            </div>
+            <button data-del-set="${s.id}" class="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
+          </button></li>`
         }).join('')
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
@@ -466,11 +605,10 @@ function buildListBodyHTML(query) {
         <button id="btn-create-set" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ セット作成</button>
       </div>
       <ul class="bg-white">${setItems}</ul>`
-  } else if (showPending) {
-    const pendingDrugs = getAllPendingDrugs()
-    const pendingItems = pendingDrugs.length===0
+  } else if (isPending) {
+    const pendingItems = pending.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📝</span><span>未確認の薬剤はありません</span></div>`
-      : pendingDrugs.map(d => `
+      : pending.map(d => `
           <li class="border-b border-gray-100">
             <div class="flex items-start px-4 py-3 gap-3">
               <div class="flex-1 min-w-0">
@@ -487,33 +625,24 @@ function buildListBodyHTML(query) {
     mainContent = `
       <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
-        <span class="text-xs text-white opacity-80">${pendingDrugs.length}件</span>
+        <span class="text-xs text-white opacity-80">${pending.length}件</span>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
   } else {
+    let drugs = isFav ? getAllDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
     const items = drugs.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
-      : drugs.map(d => `
-        <li>
-          <button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
-              <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
-            </div>
-            <button data-fav="${d.id}" class="text-xl shrink-0 px-1 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
-          </button>
-        </li>`).join('')
-    const header = isSearch
-      ? `<div class="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">検索結果: ${drugs.length}件</div>`
-      : `<div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
-           <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
-           <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 薬剤追加</button>
-         </div>`
-    mainContent = `${header}<ul class="bg-white">${items}</ul>`
+      : drugs.map(drugListItem).join('')
+    mainContent = `
+      <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
+        <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 薬剤追加</button>
+      </div>
+      <ul class="bg-white">${items}</ul>`
   }
 
   return `
-    ${!isSearch?`<aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${sidebarItems}</aside>`:''}
+    <aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${sidebarItems}</aside>
     <main class="flex-1 overflow-y-auto bg-white">${mainContent}</main>`
 }
 
@@ -545,8 +674,8 @@ function attachListBody() {
   })
   app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
     const drugId = b.dataset.confirmDrug
-    // マスターデータのpending薬剤の場合
-    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+    // マスターデータの薬剤の場合（全てが確認制）
+    if (DRUGS.find(d => d.id === drugId)) {
       confirmMasterDrug(drugId)
       render()
       return
@@ -564,8 +693,8 @@ function attachListBody() {
   app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('この薬剤を削除しますか？')) return
     const drugId = b.dataset.delPending
-    // マスターデータのpending薬剤は非表示にする
-    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+    // マスターデータの薬剤は非表示にする
+    if (DRUGS.find(d => d.id === drugId)) {
       hideDrug(drugId)
       render()
       return
@@ -573,6 +702,22 @@ function attachListBody() {
     savePendingDrugs(loadPendingDrugs().filter(d => d.id !== drugId))
     render()
   }))
+  // 疾患カテゴリ
+  app.querySelectorAll('[data-disease-cat]').forEach(b => b.addEventListener('click', () => {
+    const cat = b.dataset.diseaseCat
+    const newCat = state.diseaseCat === cat ? null : cat
+    state.diseaseCat = newCat
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  // 疾患アイテム
+  app.querySelectorAll('[data-disease]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'disease-detail', diseaseId: b.dataset.disease})
+  }))
+  // 疾患追加
+  document.getElementById('btn-add-disease')?.addEventListener('click', () => {
+    setState({screen:'add-disease'})
+  })
   document.getElementById('btn-edit-cats')?.addEventListener('click', () => setState({screen:'manage-categories'}))
 }
 
@@ -580,9 +725,13 @@ function renderList() {
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
       <h1 class="text-lg font-bold text-gray-900">小児薬用量</h1>
+      <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
+        <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">💊 薬剤</button>
+        <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">🏥 疾患</button>
+      </div>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-        <input id="search-input" type="search" placeholder="薬剤名・商品名・略称で検索"
+        <input id="search-input" type="search" placeholder="薬剤名・疾患名を検索"
           class="w-full bg-gray-100 rounded-full pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
     </div>
@@ -604,6 +753,16 @@ function attachList() {
       }
     })
   }
+  document.getElementById('main-tab-drugs')?.addEventListener('click', () => {
+    if (state.mainTab === 'drugs') return
+    state.query = ''
+    setState({mainTab:'drugs'})
+  })
+  document.getElementById('main-tab-diseases')?.addEventListener('click', () => {
+    if (state.mainTab === 'diseases') return
+    state.query = ''
+    setState({mainTab:'diseases'})
+  })
   attachListBody()
 }
 
@@ -1161,6 +1320,227 @@ function attachAddDrug() {
     pending.push(drug)
     savePendingDrugs(pending)
     setState({screen:'list', category:'__pending__', addForm:null, addDoses:[]})
+  })
+}
+
+// ── 疾患詳細画面 ──────────────────────────────────────────────
+
+function renderDiseaseDetail(disease) {
+  if (!disease) return '<div class="p-8 text-center text-gray-400">疾患が見つかりません</div>'
+  const isPending = getAllPendingDiseases().some(d => d.id === disease.id)
+  const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
+
+  const pointsHtml = (disease.points || []).length > 0 ? `
+    <div class="bg-blue-50 rounded-xl p-4">
+      <h3 class="text-sm font-semibold text-blue-800 mb-2">ポイント</h3>
+      <ul class="space-y-1">${(disease.points).map(p =>
+        `<li class="text-sm text-blue-700 flex gap-2"><span class="shrink-0 text-blue-400">•</span><span>${esc(p)}</span></li>`
+      ).join('')}</ul>
+    </div>` : ''
+
+  const sectionsHtml = (disease.sections || []).map(sec => `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <h3 class="text-sm font-semibold text-gray-800 mb-2">${esc(sec.title)}</h3>
+      <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${esc(sec.content)}</p>
+    </div>`).join('')
+
+  const relatedDrugsHtml = relatedDrugs.length > 0 ? `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">関連薬剤</h3>
+      <div class="space-y-2">${relatedDrugs.map(d => `
+        <button data-drug="${d.id}" class="w-full flex items-center px-3 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-left gap-3">
+          <span class="text-lg">💊</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-gray-900 truncate">${esc(d.genericName)}</div>
+            <div class="text-xs text-gray-500 truncate">${esc(d.abbreviation||'')}${d.brandNames?.length?'　'+d.brandNames.join('・'):''}</div>
+          </div>
+          <span class="text-gray-400">›</span>
+        </button>`).join('')}</div>
+    </div>` : ''
+
+  const notesHtml = disease.notes ? `
+    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+      <p class="text-sm text-amber-800 leading-relaxed">${esc(disease.notes)}</p>
+    </div>` : ''
+
+  const refsHtml = (disease.references||[]).length ? `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">参考文献</h3>
+      ${disease.references.map((r,i)=>`<p class="text-xs text-gray-500">${i+1}) ${esc(r)}</p>`).join('')}
+    </div>` : ''
+
+  const confirmBtn = isPending ? `
+    <div class="flex gap-2">
+      <button id="btn-confirm-disease" class="flex-1 bg-blue-600 text-white text-sm font-semibold py-3 rounded-xl">✓ 確認済みにする</button>
+      <button id="btn-del-disease" class="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl">削除</button>
+    </div>` : `
+    <div class="flex justify-end">
+      <button id="btn-del-disease" class="text-xs text-gray-400 hover:text-red-500 px-3 py-1.5 rounded-lg border border-gray-200">🗑 削除</button>
+    </div>`
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">${esc(disease.name)}</div>
+          ${disease.englishName||disease.abbreviation
+            ? `<div class="text-xs text-gray-500">${esc(disease.englishName||'')}${disease.abbreviation?' ('+disease.abbreviation+')':''}</div>` : ''}
+        </div>
+        <div class="w-8 flex justify-end shrink-0">
+          ${isPending ? '<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-medium">未確認</span>' : ''}
+        </div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      ${pointsHtml}
+      ${sectionsHtml}
+      ${relatedDrugsHtml}
+      ${notesHtml}
+      ${refsHtml}
+      ${confirmBtn}
+      <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で診療を行ってください。</p></div>
+    </div>`
+}
+
+function attachDiseaseDetail() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+
+  document.getElementById('btn-confirm-disease')?.addEventListener('click', () => {
+    const disease = getDiseaseById(state.diseaseId)
+    if (!disease) return
+    if (DISEASES.find(d => d.id === disease.id)) {
+      confirmMasterDisease(disease.id)
+    } else {
+      const pending = loadPendingDiseases()
+      const d = pending.find(x => x.id === disease.id)
+      if (d) {
+        const custom = loadCustomDiseases(); custom.push(d)
+        saveCustomDiseases(custom)
+        savePendingDiseases(pending.filter(x => x.id !== disease.id))
+      }
+    }
+    render()
+  })
+
+  document.getElementById('btn-del-disease')?.addEventListener('click', () => {
+    if (!confirm('この疾患を削除しますか？')) return
+    const id = state.diseaseId
+    if (DISEASES.find(d => d.id === id)) {
+      // マスターは非表示フラグ（hidden_diseases）
+      const h = new Set(LS.get('hidden_diseases','[]')); h.add(id)
+      LS.set('hidden_diseases', [...h])
+    } else {
+      saveCustomDiseases(loadCustomDiseases().filter(d => d.id !== id))
+      savePendingDiseases(loadPendingDiseases().filter(d => d.id !== id))
+    }
+    setState({screen:'list', diseaseId:null})
+  })
+
+  // 関連薬剤 → 薬剤詳細へ
+  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
+  }))
+}
+
+// ── 疾患追加画面 ──────────────────────────────────────────────
+
+function renderAddDisease() {
+  const f = state.addDiseaseForm || {}
+  const cats = DISEASE_CATEGORIES
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">疾患を追加</div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">疾患名 <span class="text-red-500">*</span></label>
+          <input id="ad-name" type="text" value="${esc(f.name||'')}" placeholder="例: 市中肺炎"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">英語名</label>
+          <input id="ad-englishName" type="text" value="${esc(f.englishName||'')}" placeholder="例: Community-acquired pneumonia"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">略称</label>
+          <input id="ad-abbreviation" type="text" value="${esc(f.abbreviation||'')}" placeholder="例: CAP"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">カテゴリ</label>
+          <select id="ad-category" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${cats.map(c=>`<option value="${esc(c)}" ${(f.category||cats[0])===c?'selected':''}>${esc(c)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">ポイント（1行1項目）</label>
+        <textarea id="ad-points" rows="4" placeholder="例:\n発熱・咳嗽・胸部X線浸潤影\n入院適応はPSIスコアで判断"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc((f.points||[]).join('\n'))}</textarea>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">内容（セクション）</label>
+        <textarea id="ad-content" rows="6" placeholder="例:\n【診断】\n〇〇症状がある場合...\n【治療】\n第一選択は..."
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.content||'')}</textarea>
+        <p class="text-xs text-gray-400">【見出し】で始まる行が各セクションのタイトルになります</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">メモ・注意事項</label>
+        <textarea id="ad-notes" rows="2"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.notes||'')}</textarea>
+      </div>
+      <button id="btn-save-disease" class="w-full bg-blue-600 text-white text-sm font-semibold py-3.5 rounded-xl shadow-sm">未確認として追加</button>
+    </div>`
+}
+
+function attachAddDisease() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', addDiseaseForm:null}))
+
+  document.getElementById('btn-save-disease')?.addEventListener('click', () => {
+    const name = document.getElementById('ad-name').value.trim()
+    if (!name) { alert('疾患名を入力してください'); return }
+
+    const rawContent = document.getElementById('ad-content').value.trim()
+    // 【見出し】でセクション分割
+    const sections = []
+    let current = null
+    rawContent.split('\n').forEach(line => {
+      const m = line.match(/^【(.+?)】(.*)$/)
+      if (m) {
+        if (current) sections.push(current)
+        current = {title: m[1], content: m[2].trim()}
+      } else if (current) {
+        current.content += (current.content ? '\n' : '') + line
+      } else if (line.trim()) {
+        sections.push({title: '内容', content: line})
+      }
+    })
+    if (current) sections.push(current)
+
+    const disease = {
+      id: 'disease_' + Date.now(),
+      name,
+      englishName: document.getElementById('ad-englishName').value.trim(),
+      abbreviation: document.getElementById('ad-abbreviation').value.trim(),
+      category: document.getElementById('ad-category').value,
+      tags: [],
+      points: document.getElementById('ad-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      sections,
+      relatedDrugIds: [],
+      notes: document.getElementById('ad-notes').value.trim(),
+    }
+
+    const pending = loadPendingDiseases()
+    pending.push(disease)
+    savePendingDiseases(pending)
+    setState({screen:'list', mainTab:'diseases', addDiseaseForm:null, diseaseCat:null})
   })
 }
 
