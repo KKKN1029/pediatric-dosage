@@ -474,10 +474,7 @@ function buildListBodyHTML(query) {
           <li class="border-b border-gray-100">
             <div class="flex items-start px-4 py-3 gap-3">
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <span class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</span>
-                  ${DRUGS.find(x=>x.id===d.id)?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">マスター</span>':''}
-                </div>
+                <div class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</div>
                 <div class="text-xs text-gray-500">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).join('・')}</div>
                 <div class="text-xs text-orange-600 mt-0.5">カテゴリ: ${esc(d.category)}</div>
               </div>
