@@ -210,11 +210,11 @@ const getCategories = () => loadUserCategories()
 // マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
 const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
 const confirmMasterDrug = id => { const s = loadConfirmedMaster(); s.add(id); LS.set('confirmed_master', [...s]) }
-// マスターデータのうち未確認のもの（pending:true かつ confirmed_master に未登録）
+// マスターデータのうち未確認のもの（confirmed_master に未登録のもの全て）
 function getPendingMasterDrugs() {
   const confirmed = loadConfirmedMaster()
   const hidden = loadHiddenDrugs()
-  return DRUGS.filter(d => d.pending && !confirmed.has(d.id) && !hidden.has(d.id))
+  return DRUGS.filter(d => !confirmed.has(d.id) && !hidden.has(d.id))
 }
 // カスタム＋マスター両方の未確認薬剤を返す
 function getAllPendingDrugs() {
@@ -238,8 +238,8 @@ function getAllDrugs() {
   const hidden = loadHiddenDrugs()
   const confirmed = loadConfirmedMaster()
   return [
-    // pending:true の薬はconfirmed済みのもののみ表示
-    ...DRUGS.filter(d => !hidden.has(d.id) && (!d.pending || confirmed.has(d.id)))
+    // confirmed_master に登録済みの薬のみ表示（全薬剤が確認制）
+    ...DRUGS.filter(d => !hidden.has(d.id) && confirmed.has(d.id))
              .map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
     ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
   ]
@@ -476,7 +476,7 @@ function buildListBodyHTML(query) {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5">
                   <span class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</span>
-                  ${d.pending?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">追加</span>':''}
+                  ${DRUGS.find(x=>x.id===d.id)?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">マスター</span>':''}
                 </div>
                 <div class="text-xs text-gray-500">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).join('・')}</div>
                 <div class="text-xs text-orange-600 mt-0.5">カテゴリ: ${esc(d.category)}</div>
