@@ -207,6 +207,20 @@ const loadUserCategories = () => { const s = LS.get('user_categories', 'null'); 
 const saveUserCategories = cats => LS.set('user_categories', cats)
 const getCategories = () => loadUserCategories()
 
+// マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
+const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
+const confirmMasterDrug = id => { const s = loadConfirmedMaster(); s.add(id); LS.set('confirmed_master', [...s]) }
+// マスターデータのうち未確認のもの（pending:true かつ confirmed_master に未登録）
+function getPendingMasterDrugs() {
+  const confirmed = loadConfirmedMaster()
+  const hidden = loadHiddenDrugs()
+  return DRUGS.filter(d => d.pending && !confirmed.has(d.id) && !hidden.has(d.id))
+}
+// カスタム＋マスター両方の未確認薬剤を返す
+function getAllPendingDrugs() {
+  return [...loadPendingDrugs(), ...getPendingMasterDrugs()]
+}
+
 function deleteDrug(id) {
   if (isBuiltinDrug(id)) {
     hideDrug(id)
@@ -222,8 +236,11 @@ function deleteDrug(id) {
 function getAllDrugs() {
   const edits = loadEdits()
   const hidden = loadHiddenDrugs()
+  const confirmed = loadConfirmedMaster()
   return [
-    ...DRUGS.filter(d => !hidden.has(d.id)).map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
+    // pending:true の薬はconfirmed済みのもののみ表示
+    ...DRUGS.filter(d => !hidden.has(d.id) && (!d.pending || confirmed.has(d.id)))
+             .map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
     ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
   ]
 }
@@ -414,7 +431,7 @@ function buildListBodyHTML(query) {
   else if (isFav) { drugs=getAllDrugs().filter(d=>state.favorites.has(d.id)) }
   else { drugs=getDrugsByCategory(state.category) }
 
-  const pending = loadPendingDrugs()
+  const pending = getAllPendingDrugs()
   const pendingCount = pending.length
 
   const userCats = getCategories()
@@ -450,14 +467,17 @@ function buildListBodyHTML(query) {
       </div>
       <ul class="bg-white">${setItems}</ul>`
   } else if (showPending) {
-    const pendingDrugs = loadPendingDrugs()
+    const pendingDrugs = getAllPendingDrugs()
     const pendingItems = pendingDrugs.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📝</span><span>未確認の薬剤はありません</span></div>`
       : pendingDrugs.map(d => `
           <li class="border-b border-gray-100">
             <div class="flex items-start px-4 py-3 gap-3">
               <div class="flex-1 min-w-0">
-                <div class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</span>
+                  ${d.pending?'<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">追加</span>':''}
+                </div>
                 <div class="text-xs text-gray-500">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).join('・')}</div>
                 <div class="text-xs text-orange-600 mt-0.5">カテゴリ: ${esc(d.category)}</div>
               </div>
@@ -527,18 +547,33 @@ function attachListBody() {
     setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
   })
   app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
+    const drugId = b.dataset.confirmDrug
+    // マスターデータのpending薬剤の場合
+    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+      confirmMasterDrug(drugId)
+      render()
+      return
+    }
+    // カスタムpending薬剤の場合
     const pending = loadPendingDrugs()
-    const drug = pending.find(d => d.id === b.dataset.confirmDrug)
+    const drug = pending.find(d => d.id === drugId)
     if (!drug) return
     const custom = loadCustomDrugs()
     custom.push(drug)
     saveCustomDrugs(custom)
-    savePendingDrugs(pending.filter(d => d.id !== b.dataset.confirmDrug))
+    savePendingDrugs(pending.filter(d => d.id !== drugId))
     render()
   }))
   app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('この薬剤を削除しますか？')) return
-    savePendingDrugs(loadPendingDrugs().filter(d => d.id !== b.dataset.delPending))
+    const drugId = b.dataset.delPending
+    // マスターデータのpending薬剤は非表示にする
+    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+      hideDrug(drugId)
+      render()
+      return
+    }
+    savePendingDrugs(loadPendingDrugs().filter(d => d.id !== drugId))
     render()
   }))
   document.getElementById('btn-edit-cats')?.addEventListener('click', () => setState({screen:'manage-categories'}))
