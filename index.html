@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>小児薬用量</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="小児薬用量" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="/manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif; }
+    .h-dvh { height: 100dvh; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-gray-50">
+<div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(()=>{})
+}
+</script>
+<script type="module">
+
+// ============================================================
+// マスターデータ
+// ============================================================
+
+const CATEGORIES = [
+  '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
+  'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
+  '抗真菌薬','抗アレルギー薬','解熱鎮痛薬','その他',
+]
+
+const DRUGS = [
+  // 抗ウイルス薬
+  { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
+    pediatricDoses:[
+      {ageLabel:'新生児〜1歳未満',ageMinMonths:0,ageMaxMonths:12,purpose:'治療',dosePerKg:6,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
+      {ageLabel:'1歳以上（治療）',ageMinMonths:12,purpose:'治療',dosePerKg:4,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
+      {ageLabel:'12歳以上（予防）',ageMinMonths:144,purpose:'予防',dosePerKg:2,maxDosePerDay:75,frequency:'分1',duration:'7〜10日間'},
+    ], notes:'インフルエンザ罹患時には異常行動による事故に対する予防的対応を講じることを患者の家族に説明する。腎機能障害のある患者では投与法変更を要する。', sideEffects:'悪心、嘔吐', references:['新 小児薬用量 改訂第9版']},
+  { id:'zanamivir', genericName:'ザナミビル水和物', abbreviation:'ザナミビル', brandNames:['リレンザ'], category:'抗ウイルス薬', route:'吸入', formulations:['ドライパウダー 5mg/ブリスター'], adultDose:'治療: 20mg/日（分2・5日間）　予防: 10mg/日（分1・10日間）',
+    pediatricDoses:[
+      {ageLabel:'7歳6ヶ月以上（治療）',ageMinMonths:90,purpose:'治療',fixedDose:'10mg（2吸入）を1日2回',frequency:'分2',duration:'5日間'},
+      {ageLabel:'7歳6ヶ月以上（予防）',ageMinMonths:90,purpose:'予防',fixedDose:'10mg（2吸入）を1日1回',frequency:'分1',duration:'10日間'},
+    ], notes:'乳製品アレルギーの既往に注意。', references:['新 小児薬用量 改訂第9版']},
+  // βラクタム系
+  { id:'amoxicillin', genericName:'アモキシシリン水和物', abbreviation:'AMPC', brandNames:['サワシリン','パセトシン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'250〜500mg 1日3〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,maxDosePerDay:1500,frequency:'分3',notes:'重症例では最大90mg/kg/日'}], notes:'ペニシリンアレルギーに注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['配合錠 250RS','配合DS'], adultDose:'AMPC として 750〜1000mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:45,maxDosePerDay:1500,frequency:'分3',notes:'AMPC量として計算'}], notes:'βラクタマーゼ産生菌にも有効。', references:['新 小児薬用量 改訂第9版']},
+  // セフェム系
+  { id:'cefdinir', genericName:'セフジニル', abbreviation:'CFDN', brandNames:['セフゾン'], category:'セフェム系', route:'内服', formulations:['カプセル 100mg','細粒 10%'], adultDose:'300mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,maxDosePerDay:600,frequency:'分3',duration:'5〜7日間'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefaclor', genericName:'セファクロル', abbreviation:'CCL', brandNames:['ケフラール'], category:'セフェム系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'750mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:40,maxDosePerDay:1000,frequency:'分3'}], references:['新 小児薬用量 改訂第9版']},
+  // マクロライド系
+  { id:'azithromycin', genericName:'アジスロマイシン水和物', abbreviation:'AZM', brandNames:['ジスロマック'], category:'マクロライド系', route:'内服', formulations:['錠 250mg','細粒 10%'], adultDose:'500mg 1日1回 3日間',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:10,maxDosePerDay:500,frequency:'分1',duration:'3日間',notes:'食前または食間'}], notes:'マイコプラズマ・クラミジアに有効。', references:['新 小児薬用量 改訂第9版']},
+  { id:'clarithromycin', genericName:'クラリスロマイシン', abbreviation:'CAM', brandNames:['クラリス','クラリシッド'], category:'マクロライド系', route:'内服', formulations:['錠 200mg','DS 10%'], adultDose:'400〜800mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:10,dosePerKgMax:15,maxDosePerDay:800,frequency:'分2'}], references:['新 小児薬用量 改訂第9版']},
+  // 抗アレルギー薬
+  { id:'ketotifen', genericName:'ケトチフェンフマル酸塩', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'抗アレルギー薬', route:'内服', formulations:['シロップ 0.2mg/mL','DS 1mg/g','錠 1mg'], adultDose:'2mg/日',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKg:0.06,frequency:'分2',notes:'標準: 6ヶ月〜2歳 0.8mg/日, 3〜6歳 1.2mg/日, 7歳以上 2mg/日'}], notes:'乳幼児でけいれん・興奮等の報告あり。', sideEffects:'眠気', references:['新 小児薬用量 改訂第9版']},
+  { id:'cetirizine', genericName:'セチリジン塩酸塩', abbreviation:'セチリジン', brandNames:['ジルテック'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg・10mg','DS 1.25mg/g'], adultDose:'1日1回10mg（就寝前）[最大20mg/日]',
+    pediatricDoses:[
+      {ageLabel:'2〜6歳',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+      {ageLabel:'7〜14歳',ageMinMonths:84,ageMaxMonths:168,purpose:'治療',fixedDose:'10mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+    ], notes:'重度の腎障害に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'levocetirizine', genericName:'レボセチリジン塩酸塩', abbreviation:'レボセチリジン', brandNames:['ザイザル'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg','シロップ 0.5mg/mL'], adultDose:'1日1回5mg（就寝前）',
+    pediatricDoses:[
+      {ageLabel:'6ヶ月〜11ヶ月',ageMinMonths:6,ageMaxMonths:12,purpose:'治療',fixedDose:'1.25mg/日',frequency:'分1'},
+      {ageLabel:'1〜6歳',ageMinMonths:12,ageMaxMonths:72,purpose:'治療',fixedDose:'2.5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+      {ageLabel:'7〜14歳',ageMinMonths:84,ageMaxMonths:168,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'loratadine', genericName:'ロラタジン', abbreviation:'ロラタジン', brandNames:['クラリチン'], category:'抗アレルギー薬', route:'内服', formulations:['錠 10mg','DS 1mg/g'], adultDose:'10mg/日 分1',
+    pediatricDoses:[
+      {ageLabel:'3〜6歳',ageMinMonths:36,ageMaxMonths:72,purpose:'治療',fixedDose:'5mg/日',frequency:'分1',notes:'食後'},
+      {ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'10mg/日',frequency:'分1',notes:'食後'},
+    ], notes:'肝障害・腎障害の患者に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'olopatadine', genericName:'オロパタジン塩酸塩', abbreviation:'オロパタジン', brandNames:['アレロック'], category:'抗アレルギー薬', route:'内服', formulations:['錠 2.5mg・5mg','OD錠','顆粒 5mg/g'], adultDose:'10mg/日 分2',
+    pediatricDoses:[
+      {ageLabel:'2〜6歳',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝・就寝前'},
+      {ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'10mg/日',frequency:'分2',notes:'朝・就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'montelukast', genericName:'モンテルカストナトリウム', abbreviation:'モンテルカスト', brandNames:['シングレア','キプレス'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg・10mg','チュアブル錠 5mg','顆粒 4mg/包'], adultDose:'5〜10mg/日',
+    pediatricDoses:[
+      {ageLabel:'1〜5歳',ageMinMonths:12,ageMaxMonths:72,purpose:'治療',fixedDose:'4mg/日（顆粒）',frequency:'分1',notes:'就寝前'},
+      {ageLabel:'6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'5mg/日（チュアブル）',frequency:'分1',notes:'就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'pranlukast', genericName:'プランルカスト水和物', abbreviation:'プランルカスト', brandNames:['オノン'], category:'抗アレルギー薬', route:'内服', formulations:['カプセル 112.5mg','DS 10mg/g'], adultDose:'450mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:7,maxDosePerDay:450,frequency:'分2',notes:'朝・夕食後。体重別: 12〜17kg→100mg/日, 18〜24kg→140mg/日, 25〜34kg→200mg/日, 35〜44kg→280mg/日'}], references:['新 小児薬用量 改訂第9版']},
+  // 解熱鎮痛薬
+  { id:'acetaminophen', genericName:'アセトアミノフェン', abbreviation:'AAP', brandNames:['カロナール','アンヒバ坐剤'], category:'解熱鎮痛薬', route:'内服・坐剤', formulations:['錠 200/300/500mg','細粒 20%/50%','坐剤 100/200/400mg'], adultDose:'300〜1000mg/回 1日4回まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:10,dosePerKgMax:15,maxDosePerDay:1500,frequency:'4〜6時間ごと',notes:'1日4回まで。1回500mg上限（体重50kg未満）'}], notes:'肝障害に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'ibuprofen', genericName:'イブプロフェン', abbreviation:'IBU', brandNames:['ブルフェン'], category:'解熱鎮痛薬', route:'内服', formulations:['錠 100/200mg','細粒 10%/20%'], adultDose:'600〜1200mg/日 分3',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKgMin:5,dosePerKgMax:10,maxDosePerDay:400,frequency:'6〜8時間ごと',notes:'1日3回まで'}], notes:'水痘・インフルエンザへの投与は避ける（ライ症候群）。', references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第2世代) ──────────────────────────────
+  { id:'cefmetazole', genericName:'セフメタゾールナトリウム', abbreviation:'CMZ', brandNames:['セフメタゾン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g・2g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日まで可'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefminox', genericName:'セフミノクスナトリウム水和物', abbreviation:'CMNX', brandNames:['メイセリン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'2,000mg/日 分2 [最大6,000mg/日 分3〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第3世代) ──────────────────────────────
+  { id:'cefotaxime', genericName:'セフォタキシムナトリウム', abbreviation:'CTX', brandNames:['クラフォラン','セフォタックス'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:50,dosePerKgMax:100,frequency:'分3〜4',notes:'化膿性髄膜炎では最大300mg/kg/日まで可'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftizoxime', genericName:'セフチゾキシムナトリウム', abbreviation:'CZX', brandNames:['エボセリン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'注射', formulations:['注射用 125mg・250mg'], adultDose:'成人量なし（小児用）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:70,frequency:'分3〜4'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftriaxone', genericName:'セフトリアキソンナトリウム水和物', abbreviation:'CTRX', brandNames:['ロセフィン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分1〜2 [最大4,000mg/日 分2]',
+    pediatricDoses:[
+      {ageLabel:'新生児（日齢0〜3）',ageMinMonths:0,ageMaxMonths:0.1,purpose:'治療',fixedDose:'1回20mg/kg 1日1回',frequency:'分1',notes:'低出生体重児・新生児。日齢4以降は1日2回（増量）'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,frequency:'分1〜2',notes:'最大120mg/kg/日。重症感染症には1回40mg/kgまで増量し1日2回。高ビリルビン血症のある低出生体重児・新生児には禁忌'},
+    ], notes:'高ビリルビン血症のある低出生体重児・新生児には禁忌。', references:['新 小児薬用量 改訂第9版']},
+  { id:'cefmenoxime', genericName:'セフメノキシム塩酸塩', abbreviation:'CMX', brandNames:['ベストコール'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'重症例では160mg/kg/日、化膿性髄膜炎では200mg/kg/日まで増量可'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftazidime', genericName:'セフタジジム水和物', abbreviation:'CAZ', brandNames:['モダシン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'1回20mg/kg。日齢0〜3は1日2〜3回、日齢4以降は1日3〜4回'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日'},
+    ], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第4世代) ──────────────────────────────
+  { id:'cefpirome', genericName:'セフピロム硫酸塩', abbreviation:'CPR', brandNames:['セフピロム硫酸塩CMX'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'重症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで増量可'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefozopran', genericName:'セフォゾプラン塩酸塩', abbreviation:'CZOP', brandNames:['ファーストシン'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:80,frequency:'分1〜2',notes:'最大160mg/kg/日。日齢0は1日1〜2回、日齢1〜7は1日2〜3回、日齢8以降は1日3〜4回'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'難治重症感染症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで（最大4,000mg/日）'},
+    ], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 オキサセフェム・配合) ────────────────
+  { id:'latamoxef', genericName:'ラタモキセフナトリウム', abbreviation:'LMOX', brandNames:['シオマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'最大150mg/kg/日'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'flomoxef', genericName:'フロモキセフナトリウム', abbreviation:'FMOX', brandNames:['フルマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'最大150mg/kg/日。低出生体重児では腎が発達段階のため慎重投与'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefoperazone-sulbactam', genericName:'セフォペラゾン・スルバクタム', abbreviation:'CPZ/SBT', brandNames:['スルペラゾン'], category:'セフェム系', subcategory:'β-ラクタマーゼ阻害薬配合(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'混合物として1,000〜2,000mg/日 分2 [最大4,000mg/日 分2]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'混合物として。最大160mg/kg/日'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (経口 第1世代) ─────────────────────────────
+  { id:'cefalexin', genericName:'セファレキシン', abbreviation:'CEX', brandNames:['ケフレックス','L-ケフレックス'], category:'セフェム系', subcategory:'第1世代(経口)', route:'内服', formulations:['カプセル 250mg','DS 100mg・200mg/g','徐放顆粒 500mg/g'], adultDose:'1,000mg/日 [最大2,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,frequency:'分2（朝夕食後）',notes:'最大100mg/kg/日。カプセル・DSは6時間毎'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefuroxime-axetil', genericName:'セフロキサジン水和物', abbreviation:'CXD', brandNames:['オラスポア'], category:'セフェム系', subcategory:'第1世代(経口)', route:'内服', formulations:['小児用DS 100mg/g'], adultDose:'（成人適応なし）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:30,frequency:'分3'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (経口 β-ラクタマーゼ耐性) ─────────────────
+  { id:'cefixime', genericName:'セフィキシム水和物', abbreviation:'CFIX', brandNames:['セフスパン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['カプセル 50mg・100mg','細粒 50mg/g'], adultDose:'100〜200mg/日 [最大400mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:3,dosePerKgMax:6,frequency:'分2',notes:'最大12mg/kg/日。体重30kg以上は100〜200mg/日（最大400mg/日）'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefteram-pivoxil', genericName:'セフテラムピボキシル', abbreviation:'CFTM-PI', brandNames:['トミロン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 50mg・100mg','小児用細粒 200mg/g'], adultDose:'150〜300mg/日 [最大300〜600mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:9,dosePerKgMax:18,frequency:'分3',notes:'適応症により用量が異なるため添付文書参照。血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefpodoxime-proxetil', genericName:'セフポドキシムプロキセチル', abbreviation:'CPDX-PR', brandNames:['バナン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['DS 50mg/g','錠 100mg'], adultDose:'200mg/日 分2 [最大400mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:6,dosePerKgMax:9,frequency:'分2〜3',notes:'最大13.5mg/kg/日'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefditoren-pivoxil', genericName:'セフジトレンピボキシル', abbreviation:'CDTR-PI', brandNames:['メイアクトMS'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 100mg','小児用細粒 100mg/g'], adultDose:'300mg/日 [最大600mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,frequency:'分3',notes:'最大18mg/kg/日（600mg/日まで）。3歳未満は6mg/kgとし1日3回投与の場合、下痢・軟便の発現頻度が高い。血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefcapene-pivoxil', genericName:'セフカペンピボキシル塩酸塩水和物', abbreviation:'CFPN-PI', brandNames:['フロモックス'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 75mg・100mg','小児用細粒 100mg/g'], adultDose:'300mg/日 [最大450mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,frequency:'分3',notes:'血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── モノバクタム系 ────────────────────────────────────────
+  { id:'aztreonam', genericName:'アズトレオナム', abbreviation:'AZT', brandNames:['アザクタム'], category:'その他の抗菌薬', subcategory:'モノバクタム系', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日。低出生体重児・新生児には1回20mg/kgを生後3日まで1日2回、4日以降は1日2〜3回'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── カルバペネム系 ────────────────────────────────────────
+  { id:'imipenem-cilastatin', genericName:'イミペネム水和物・シラスタチンナトリウム', abbreviation:'IPM/CS', brandNames:['チエナム'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.5g/V','筋注用 0.5g/V','キット(生食100mL付)'], adultDose:'イミペネムとして 500〜1,000mg/日 分2〜3 [最大2,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:80,maxDosePerDay:2000,frequency:'分3〜4',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意。けいれん・意識障害等の中枢神経症状に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'panipenem-betamipron', genericName:'パニペネム・ベタミプロン', abbreviation:'PAPM/BP', brandNames:['カルベニン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V'], adultDose:'パニペネムとして1,000mg/日 分2 30分以上かけて [最大2,000mg/日 分2]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:2000,frequency:'分3',notes:'30分以上かけて点滴（最大100mg/kg/日）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'meropenem', genericName:'メロペネム水和物', abbreviation:'MEPM', brandNames:['メロペン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.5g/キット(生食100mL付)'], adultDose:'500〜1,000mg/日 分2〜3 [最大3,000mg/日 分3]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。化膿性髄膜炎では最大120mg/kg/日（6,000mg/日まで）。発熱性好中球減少症では120mg/kg/日（3,000mg/日まで）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'doripenem', genericName:'ドリペネム水和物', abbreviation:'DRPM', brandNames:['フィニバックス'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.25g/キット(生食100mL付)'], adultDose:'ドリペネムとして500〜1,500mg/日 分2〜3 [最大3,000mg/日 分3]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'tebipenem-pivoxil', genericName:'テビペネムピボキシル', abbreviation:'TBPM-PI', brandNames:['オラペネム'], category:'その他の抗菌薬', subcategory:'カルバペネム系(経口)', route:'内服', formulations:['小児用細粒 100mg/g'], adultDose:'（成人適応なし）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:8,frequency:'分2',duration:'7日間以内',notes:'食後投与。最大12mg/kg/日。バルプロ酸投与中の患者に注意。血清中カルニチンを低下させ低血糖をきたすことがある'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。経口カルバペネム。', references:['新 小児薬用量 改訂第9版']},
+]
+
+// ============================================================
+// データアクセス (localStorage)
+// ============================================================
+
+const LS = {
+  get: (k, d='{}') => { try { return JSON.parse(localStorage.getItem(k) || d) } catch { return JSON.parse(d) } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+}
+
+const loadEdits = () => LS.get('drug_edits')
+const saveEdit = (id, patch) => { const e = loadEdits(); e[id] = {...(e[id]||{}), ...patch}; LS.set('drug_edits', e) }
+const loadCustomDrugs = () => LS.get('custom_drugs', '[]')
+const saveCustomDrugs = d => LS.set('custom_drugs', d)
+const loadSets = () => LS.get('drug_sets', '[]')
+const saveSets = s => LS.set('drug_sets', s)
+const loadPendingDrugs = () => LS.get('pending_drugs', '[]')
+const savePendingDrugs = d => LS.set('pending_drugs', d)
+const loadHiddenDrugs = () => new Set(LS.get('hidden_drugs', '[]'))
+const hideDrug = id => { const h = loadHiddenDrugs(); h.add(id); LS.set('hidden_drugs', [...h]) }
+const isBuiltinDrug = id => !!DRUGS.find(d => d.id === id)
+const loadUserCategories = () => { const s = LS.get('user_categories', 'null'); return s === null ? [...CATEGORIES] : s }
+const saveUserCategories = cats => LS.set('user_categories', cats)
+const getCategories = () => loadUserCategories()
+
+function deleteDrug(id) {
+  if (isBuiltinDrug(id)) {
+    hideDrug(id)
+  } else {
+    saveCustomDrugs(loadCustomDrugs().filter(d => d.id !== id))
+  }
+  // お気に入りからも削除
+  const f = new Set(state.favorites); f.delete(id)
+  LS.set('favorites', [...f])
+  setState({screen:'list', favorites:f})
+}
+
+function getAllDrugs() {
+  const edits = loadEdits()
+  const hidden = loadHiddenDrugs()
+  return [
+    ...DRUGS.filter(d => !hidden.has(d.id)).map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
+    ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
+  ]
+}
+function getDrugById(id) { return getAllDrugs().find(d => d.id === id) }
+function getDrugsByCategory(cat) { return getAllDrugs().filter(d => d.category === cat) }
+function searchDrugsQ(q) {
+  const lq = q.toLowerCase()
+  return getAllDrugs().filter(d =>
+    d.genericName.toLowerCase().includes(lq) ||
+    (d.abbreviation||'').toLowerCase().includes(lq) ||
+    d.brandNames.some(b => b.toLowerCase().includes(lq))
+  )
+}
+
+// ============================================================
+// 計算
+// ============================================================
+
+function round1(n) { return Math.round(n*10)/10 }
+function calcDoseResult(dose, weight) {
+  if (!weight || weight <= 0) return null
+  if (dose.fixedDose) return {text: dose.fixedDose, perDose: null}
+  const unit = dose.unit || 'mg'
+  let text, min, max
+  if (dose.dosePerKg) {
+    const t = round1(Math.min(dose.dosePerKg*weight, dose.maxDosePerDay??Infinity))
+    text=`${t} ${unit}/日`; min=max=t
+  } else if (dose.dosePerKgMin!=null && dose.dosePerKgMax!=null) {
+    const lo=round1(Math.min(dose.dosePerKgMin*weight, dose.maxDosePerDay??Infinity))
+    const hi=round1(Math.min(dose.dosePerKgMax*weight, dose.maxDosePerDay??Infinity))
+    text = lo===hi ? `${lo} ${unit}/日` : `${lo}〜${hi} ${unit}/日`; min=lo; max=hi
+  } else return null
+  let perDose=null
+  const m=dose.frequency?.match(/分(\d+)/)
+  if (m) { const n=parseInt(m[1]); perDose=min===max?`1回 ${round1(min/n)} ${unit}`:`1回 ${round1(min/n)}〜${round1(max/n)} ${unit}` }
+  return {text, perDose}
+}
+
+// ============================================================
+// 状態
+// ============================================================
+
+let state = {
+  screen: 'list',
+  category: getCategories()[0],
+  query: '',
+  favorites: new Set(LS.get('favorites','[]')),
+  // detail
+  drugId: null,
+  weight: '', age: '', ageUnit: 'years', tab: 'calc',
+  editMode: false, editDraft: null,
+  // set detail
+  setId: null, setTab: 'calc',
+  // add drug
+  addForm: null,
+  addDoses: [],
+  // create/edit set
+  setDraft: null,
+  setQuery: '',
+  editSetId: null,
+}
+
+function setState(patch) { Object.assign(state, patch); render() }
+function toggleFav(id) {
+  const f=new Set(state.favorites); f.has(id)?f.delete(id):f.add(id)
+  LS.set('favorites',[...f]); setState({favorites:f})
+}
+function ageToMonths() {
+  if (state.age==='') return undefined
+  const v=parseFloat(state.age)
+  return state.ageUnit==='years' ? v*12 : v
+}
+
+// ============================================================
+// レンダリング
+// ============================================================
+
+const app = document.getElementById('app')
+function render() {
+  const s=state.screen
+  if (s==='list')        { app.innerHTML=renderList();        attachList() }
+  else if (s==='detail') { app.innerHTML=renderDetail(getDrugById(state.drugId)); attachDetail() }
+  else if (s==='set-detail') { app.innerHTML=renderSetDetail(); attachSetDetail() }
+  else if (s==='add-drug')   { app.innerHTML=renderAddDrug(); attachAddDrug() }
+  else if (s==='create-set') { app.innerHTML=renderCreateSet(); attachCreateSet() }
+  else if (s==='manage-categories') { app.innerHTML=renderManageCategories(); attachManageCategories() }
+}
+
+// ── ヘルパー ────────────────────────────────────────────────
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+
+// IME対応テキスト入力: 日本語変換中は再描画しない
+function bindTextInput(id, callback) {
+  const el = document.getElementById(id)
+  if (!el) return
+  let composing = false
+  el.addEventListener('compositionstart', () => { composing = true })
+  el.addEventListener('compositionend', e => { composing = false; callback(e.target.value) })
+  el.addEventListener('input', e => { if (!composing) callback(e.target.value) })
+}
+
+// 数値入力 (年齢・体重): IME不要だが統一のため同ヘルパー経由
+function bindNumericInput(id, callback) {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.addEventListener('input', e => callback(e.target.value))
+}
+const purposeBadge = p => p&&p!=='両方' ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium ${p==='治療'?'bg-blue-100 text-blue-700':'bg-green-100 text-green-700'}">${p}</span>` : ''
+const infoRow = (l,v) => `<div class="flex px-4 py-3 gap-3"><span class="text-sm text-gray-500 w-20 shrink-0">${l}</span><span class="text-sm text-gray-800">${esc(v)}</span></div>`
+
+function doseCard(dose, weight, compact=false) {
+  const result = calcDoseResult(dose, weight)
+  const unit = dose.unit || 'mg'
+  const prescText = dose.fixedDose ? dose.fixedDose
+    : dose.dosePerKg ? `${dose.dosePerKg} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
+    : dose.dosePerKgMin!=null ? `${dose.dosePerKgMin}〜${dose.dosePerKgMax} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
+    : ''
+  const resultHtml = result
+    ? `<div class="bg-blue-50 rounded-lg p-3 mt-2">
+        <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
+        ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
+      </div>`
+    : parseFloat(weight)>0 ? `<div class="text-gray-400 text-xs mt-1">この年齢では対象外</div>` : ''
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-700">${dose.ageLabel}</span>
+        ${purposeBadge(dose.purpose)}
+      </div>
+      <div class="px-4 py-3">
+        <div class="text-sm text-gray-500">${prescText}</div>
+        ${resultHtml}
+        ${dose.notes?`<div class="mt-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">${esc(dose.notes)}</div>`:''}
+      </div>
+    </div>`
+}
+
+function ageWeightInput() {
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+      <div class="flex items-center gap-3">
+        <label class="text-sm font-medium text-gray-700 w-12 shrink-0">年齢</label>
+        <div class="flex-1 relative">
+          <input id="age-input" type="number" inputmode="decimal"
+            placeholder="${state.ageUnit==='years'?'例: 3':'例: 18'}"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-20" />
+          <div class="absolute right-1 top-1/2 -translate-y-1/2 flex rounded-md overflow-hidden border border-gray-200 text-xs">
+            <button id="unit-years" class="px-2 py-1 ${state.ageUnit==='years'?'bg-blue-600 text-white':'bg-white text-gray-600'}">歳</button>
+            <button id="unit-months" class="px-2 py-1 ${state.ageUnit==='months'?'bg-blue-600 text-white':'bg-white text-gray-600'}">ヶ月</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-sm font-medium text-gray-700 w-12 shrink-0">体重</label>
+        <div class="flex-1 relative">
+          <input id="weight-input" type="number" inputmode="decimal" placeholder="例: 15"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
+          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
+        </div>
+      </div>
+    </div>`
+}
+
+function filteredDoses(drug) {
+  const am = ageToMonths()
+  if (am===undefined) return drug.pediatricDoses
+  const m = drug.pediatricDoses.filter(d => {
+    const minOk = d.ageMinMonths==null || am>=d.ageMinMonths
+    const maxOk = d.ageMaxMonths==null || am<d.ageMaxMonths
+    return minOk&&maxOk
+  })
+  return m.length>0 ? m : drug.pediatricDoses
+}
+
+// ── リスト画面 ────────────────────────────────────────────
+
+function buildListBodyHTML(query) {
+  const isSearch = query.trim()!==''
+  const isFav = state.category==='__favorites__'
+  const isSets = state.category==='__sets__'
+  const isPending = state.category === '__pending__'
+  const sets = loadSets()
+
+  let drugs=[], showSets=false, showPending=false
+  if (isSets) { showSets=true }
+  else if (isPending) { showPending=true }
+  else if (isSearch) { drugs=searchDrugsQ(query) }
+  else if (isFav) { drugs=getAllDrugs().filter(d=>state.favorites.has(d.id)) }
+  else { drugs=getDrugsByCategory(state.category) }
+
+  const pending = loadPendingDrugs()
+  const pendingCount = pending.length
+
+  const userCats = getCategories()
+  const sidebarItems = [
+    `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">⭐️<br>お気に入り</button>`,
+    `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">📋<br>セット</button>`,
+    ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat&&!isSearch?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
+    `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
+</button>`,
+    `<div class="flex justify-center py-1 border-t border-gray-100"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button></div>`,
+  ].join('')
+
+  let mainContent = ''
+  if (showSets) {
+    const setItems = sets.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📋</span><span>セットがありません</span></div>`
+      : sets.map(s => {
+          const drugNames = s.drugIds.map(id => getDrugById(id)?.abbreviation || getDrugById(id)?.genericName || '?').join(' + ')
+          return `<li>
+            <button data-set="${s.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 text-left gap-3 border-b border-gray-100">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-gray-900 text-sm">${esc(s.name)}</div>
+                <div class="text-xs text-gray-500 truncate">${esc(drugNames)}</div>
+              </div>
+              <button data-del-set="${s.id}" class="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
+            </button>
+          </li>`
+        }).join('')
+    mainContent = `
+      <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white">セット</h2>
+        <button id="btn-create-set" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ セット作成</button>
+      </div>
+      <ul class="bg-white">${setItems}</ul>`
+  } else if (showPending) {
+    const pendingDrugs = loadPendingDrugs()
+    const pendingItems = pendingDrugs.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📝</span><span>未確認の薬剤はありません</span></div>`
+      : pendingDrugs.map(d => `
+          <li class="border-b border-gray-100">
+            <div class="flex items-start px-4 py-3 gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</div>
+                <div class="text-xs text-gray-500">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).join('・')}</div>
+                <div class="text-xs text-orange-600 mt-0.5">カテゴリ: ${esc(d.category)}</div>
+              </div>
+              <div class="flex flex-col gap-1 shrink-0">
+                <button data-confirm-drug="${d.id}" class="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg font-medium">✓ 確認</button>
+                <button data-del-pending="${d.id}" class="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg">削除</button>
+              </div>
+            </div>
+          </li>`).join('')
+    mainContent = `
+      <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
+        <span class="text-xs text-white opacity-80">${pendingDrugs.length}件</span>
+      </div>
+      <ul class="bg-white">${pendingItems}</ul>`
+  } else {
+    const items = drugs.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
+      : drugs.map(d => `
+        <li>
+          <button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+              <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
+            </div>
+            <button data-fav="${d.id}" class="text-xl shrink-0 px-1 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
+          </button>
+        </li>`).join('')
+    const header = isSearch
+      ? `<div class="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">検索結果: ${drugs.length}件</div>`
+      : `<div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
+           <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
+           <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 薬剤追加</button>
+         </div>`
+    mainContent = `${header}<ul class="bg-white">${items}</ul>`
+  }
+
+  return `
+    ${!isSearch?`<aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${sidebarItems}</aside>`:''}
+    <main class="flex-1 overflow-y-auto bg-white">${mainContent}</main>`
+}
+
+function attachListBody() {
+  app.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
+    state.query = ''
+    setState({category:b.dataset.cat})
+  }))
+  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', e => {
+    if (e.target.closest('[data-fav]')) return
+    setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
+  }))
+  app.querySelectorAll('[data-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleFav(b.dataset.fav) }))
+  app.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', e => {
+    if (e.target.closest('[data-del-set]')) return
+    setState({screen:'set-detail', setId:b.dataset.set, weight:'', age:'', ageUnit:'years'})
+  }))
+  app.querySelectorAll('[data-del-set]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation()
+    if (!confirm('このセットを削除しますか？')) return
+    saveSets(loadSets().filter(s=>s.id!==b.dataset.delSet))
+    render()
+  }))
+  document.getElementById('btn-add-drug')?.addEventListener('click', () => {
+    setState({screen:'add-drug', addForm:{genericName:'',abbreviation:'',brandNames:'',category:state.category==='__favorites__'||state.category==='__sets__'||state.category==='__pending__'?getCategories()[0]:state.category,route:'内服',formulations:'',adultDose:'',notes:'',sideEffects:'',references:''}, addDoses:[newDoseEntry()]})
+  })
+  document.getElementById('btn-create-set')?.addEventListener('click', () => {
+    setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
+  })
+  app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
+    const pending = loadPendingDrugs()
+    const drug = pending.find(d => d.id === b.dataset.confirmDrug)
+    if (!drug) return
+    const custom = loadCustomDrugs()
+    custom.push(drug)
+    saveCustomDrugs(custom)
+    savePendingDrugs(pending.filter(d => d.id !== b.dataset.confirmDrug))
+    render()
+  }))
+  app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
+    if (!confirm('この薬剤を削除しますか？')) return
+    savePendingDrugs(loadPendingDrugs().filter(d => d.id !== b.dataset.delPending))
+    render()
+  }))
+  document.getElementById('btn-edit-cats')?.addEventListener('click', () => setState({screen:'manage-categories'}))
+}
+
+function renderList() {
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
+      <h1 class="text-lg font-bold text-gray-900">小児薬用量</h1>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+        <input id="search-input" type="search" placeholder="薬剤名・商品名・略称で検索"
+          class="w-full bg-gray-100 rounded-full pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+    </div>
+    <div id="list-body" class="flex flex-1 overflow-hidden">
+      ${buildListBodyHTML(state.query)}
+    </div>`
+}
+
+function attachList() {
+  const searchInput = document.getElementById('search-input')
+  if (searchInput) {
+    searchInput.value = state.query
+    searchInput.addEventListener('input', e => {
+      state.query = e.target.value
+      const listBody = document.getElementById('list-body')
+      if (listBody) {
+        listBody.innerHTML = buildListBodyHTML(state.query)
+        attachListBody()
+      }
+    })
+  }
+  attachListBody()
+}
+
+// ── 詳細画面 ──────────────────────────────────────────────
+
+function renderDetail(drug) {
+  if (!drug) return ''
+  const isFav = state.favorites.has(drug.id)
+  const doses = filteredDoses(drug)
+  const weight = state.weight
+  const calcTab = `
+    <div class="p-4 space-y-4">
+      ${ageWeightInput()}
+      <div id="dose-results">
+        <div class="flex justify-end mb-2">
+          <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+        </div>
+        ${doses.map(d => doseCard(d, weight)).join('')}
+        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
+      </div>
+    </div>`
+  const overviewTab = state.editMode ? renderEditForm(drug) : `
+    <div class="p-4 space-y-4">
+      <div class="flex justify-end">
+        <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 編集</button>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+        ${infoRow('一般名', drug.genericName)}
+        ${drug.abbreviation?infoRow('略称',drug.abbreviation):''}
+        ${infoRow('商品名', drug.brandNames.join('、'))}
+        ${drug.subcategory?infoRow('分類',drug.subcategory):''}
+        ${infoRow('投与経路', drug.route)}
+        ${drug.formulations?infoRow('規格',drug.formulations.join('、')):''}
+        ${drug.adultDose?infoRow('成人量',drug.adultDose):''}
+      </div>
+      ${drug.notes?`<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4"><h3 class="text-sm font-semibold text-gray-700 mb-2">注意事項</h3><p class="text-sm text-gray-600 leading-relaxed">${esc(drug.notes)}</p></div>`:''}
+      ${drug.sideEffects?`<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4"><h3 class="text-sm font-semibold text-gray-700 mb-2">副作用</h3><p class="text-sm text-gray-600">${esc(drug.sideEffects)}</p></div>`:''}
+      ${drug.references?.length?`<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4"><h3 class="text-sm font-semibold text-gray-700 mb-2">引用文献</h3>${drug.references.map((r,i)=>`<p class="text-xs text-gray-500">${i+1}) ${esc(r)}</p>`).join('')}</div>`:''}
+    </div>`
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight truncate">${esc(drug.genericName)}</div>
+          ${drug.abbreviation?`<div class="text-xs text-gray-500">${esc(drug.abbreviation)}（${drug.brandNames.map(b=>b+'®').join('・')}）</div>`:''}
+        </div>
+        <button id="btn-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-300'}">★</button>
+        <button id="btn-delete-drug" class="text-xl w-8 shrink-0 text-gray-300 hover:text-red-400 transition-colors">🗑</button>
+      </div>
+      <div class="flex mt-3 border-b border-gray-200 -mb-px">
+        ${['calc','overview'].map(t=>`<button data-tab="${t}" class="flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${state.tab===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${t==='calc'?'投与量計算':'概要'}</button>`).join('')}
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto">${state.tab==='calc'?calcTab:overviewTab}</div>`
+}
+
+function renderEditForm(drug) {
+  const d = state.editDraft || drug
+  return `
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-700">編集モード</span>
+        <div class="flex gap-2">
+          <button id="btn-cancel-edit" class="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">キャンセル</button>
+          <button id="btn-save-edit" class="text-sm text-white bg-blue-600 px-3 py-1.5 rounded-lg font-medium">保存</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        ${ef('一般名','edit-genericName',d.genericName)}
+        ${ef('略称','edit-abbreviation',d.abbreviation||'')}
+        ${ef('商品名（カンマ区切り）','edit-brandNames',d.brandNames.join(', '))}
+        ${ef('投与経路','edit-route',d.route)}
+        ${ef('規格（カンマ区切り）','edit-formulations',(d.formulations||[]).join(', '))}
+        ${ef('成人量','edit-adultDose',d.adultDose||'')}
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">注意事項</label>
+        <textarea id="edit-notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(d.notes||'')}</textarea>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">副作用</label>
+        <input id="edit-sideEffects" type="text" value="${esc(d.sideEffects||'')}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3"><p class="text-xs text-amber-700">編集内容はこのブラウザに保存されます。投与量の変更は概要欄のみ反映されます。</p></div>
+    </div>`
+}
+const ef = (label,id,val) => `<div class="space-y-1"><label class="text-xs font-medium text-gray-600">${label}</label><input id="${id}" type="text" value="${esc(val)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>`
+
+function updateDetailDoseResults() {
+  const drug = getDrugById(state.drugId)
+  if (!drug) return
+  const el = document.getElementById('dose-results')
+  if (!el) return
+  const doses = filteredDoses(drug)
+  const weight = state.weight
+  el.innerHTML = `
+    <div class="flex justify-end mb-2">
+      <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+    </div>
+    ${doses.map(d => doseCard(d, weight)).join('')}
+    <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
+  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
+}
+
+function attachDetail() {
+  const drug = getDrugById(state.drugId)
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',editMode:false}))
+  document.getElementById('btn-fav')?.addEventListener('click', () => toggleFav(drug.id))
+  document.getElementById('btn-delete-drug')?.addEventListener('click', () => {
+    if (confirm(`「${drug.genericName}」を削除しますか？`)) deleteDrug(drug.id)
+  })
+  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setState({tab:b.dataset.tab,editMode:false})))
+  const weightInput = document.getElementById('weight-input')
+  if (weightInput) {
+    weightInput.value = state.weight
+    weightInput.addEventListener('input', e => { state.weight = e.target.value; updateDetailDoseResults() })
+  }
+  const ageInput = document.getElementById('age-input')
+  if (ageInput) {
+    ageInput.value = state.age
+    ageInput.addEventListener('input', e => { state.age = e.target.value; updateDetailDoseResults() })
+  }
+  document.getElementById('unit-years')?.addEventListener('click', () => setState({ageUnit:'years',age:''}))
+  document.getElementById('unit-months')?.addEventListener('click', () => setState({ageUnit:'months',age:''}))
+  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
+  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null}))
+  document.getElementById('btn-save-edit')?.addEventListener('click', () => {
+    saveEdit(drug.id, {
+      genericName: document.getElementById('edit-genericName').value,
+      abbreviation: document.getElementById('edit-abbreviation').value,
+      brandNames: document.getElementById('edit-brandNames').value.split(',').map(s=>s.trim()).filter(Boolean),
+      route: document.getElementById('edit-route').value,
+      formulations: document.getElementById('edit-formulations').value.split(',').map(s=>s.trim()).filter(Boolean),
+      adultDose: document.getElementById('edit-adultDose').value,
+      notes: document.getElementById('edit-notes').value,
+      sideEffects: document.getElementById('edit-sideEffects').value,
+    })
+    setState({editMode:false,editDraft:null})
+  })
+}
+
+// ── セット詳細画面 ─────────────────────────────────────────
+
+function renderSetDetail() {
+  const sets = loadSets()
+  const set = sets.find(s=>s.id===state.setId)
+  if (!set) return ''
+  const drugs = set.drugIds.map(id=>getDrugById(id)).filter(Boolean)
+  const weight = state.weight
+  const tab = state.setTab || 'calc'
+
+  const calcContent = `
+    <div class="p-4 space-y-4">
+      ${ageWeightInput()}
+      <div id="set-dose-results">
+        ${drugs.map(drug => {
+          const doses = filteredDoses(drug)
+          return `
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 px-1">
+                <button data-drug-link="${drug.id}" class="font-bold text-gray-800 text-sm hover:text-blue-600">${esc(drug.genericName)}</button>
+                <span class="text-xs text-gray-400">${drug.abbreviation?'('+drug.abbreviation+')':''}</span>
+              </div>
+              ${doses.map(d=>doseCard(d,weight,true)).join('')}
+            </div>`
+        }).join('<div class="border-t border-gray-200 my-1"></div>')}
+        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
+      </div>
+    </div>`
+
+  const overviewContent = `
+    <div class="p-4 space-y-4">
+      ${drugs.map(drug => `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center gap-2">
+            <button data-drug-link="${drug.id}" class="font-bold text-gray-800 text-sm hover:text-blue-600">${esc(drug.genericName)}</button>
+            ${drug.abbreviation?`<span class="text-xs text-gray-400">(${esc(drug.abbreviation)})</span>`:''}
+          </div>
+          <div class="divide-y divide-gray-100">
+            ${infoRow('商品名', drug.brandNames.join('、'))}
+            ${infoRow('投与経路', drug.route)}
+            ${drug.formulations?infoRow('規格', drug.formulations.join('、')):''}
+            ${drug.adultDose?infoRow('成人量', drug.adultDose):''}
+          </div>
+          ${drug.notes?`<div class="px-4 py-3 border-t border-gray-100"><p class="text-xs text-gray-600 leading-relaxed">${esc(drug.notes)}</p></div>`:''}
+          ${drug.sideEffects?`<div class="px-4 py-2 border-t border-gray-100"><span class="text-xs text-gray-400">副作用: </span><span class="text-xs text-gray-600">${esc(drug.sideEffects)}</span></div>`:''}
+        </div>`).join('')}
+    </div>`
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center">
+          <div class="font-bold text-gray-900 text-base">📋 ${esc(set.name)}</div>
+          <div class="text-xs text-gray-500">${drugs.length}剤</div>
+        </div>
+        <button id="btn-edit-set" class="text-sm text-blue-600 font-medium">編集</button>
+      </div>
+      <div class="flex mt-3 border-b border-gray-200 -mb-px">
+        ${['calc','overview'].map(t=>`<button data-set-tab="${t}" class="flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${tab===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${t==='calc'?'投与量計算':'概要'}</button>`).join('')}
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto">${tab==='calc'?calcContent:overviewContent}</div>`
+}
+
+function updateSetDoseResults() {
+  const sets = loadSets()
+  const set = sets.find(s=>s.id===state.setId)
+  if (!set) return
+  const el = document.getElementById('set-dose-results')
+  if (!el) return
+  const drugs = set.drugIds.map(id=>getDrugById(id)).filter(Boolean)
+  const weight = state.weight
+  el.innerHTML = drugs.map(drug => {
+    const doses = filteredDoses(drug)
+    return `
+      <div class="space-y-2">
+        <div class="flex items-center gap-2 px-1">
+          <button data-drug-link="${drug.id}" class="font-bold text-gray-800 text-sm hover:text-blue-600">${esc(drug.genericName)}</button>
+          <span class="text-xs text-gray-400">${drug.abbreviation?'('+drug.abbreviation+')':''}</span>
+        </div>
+        ${doses.map(d=>doseCard(d,weight,true)).join('')}
+      </div>`
+  }).join('<div class="border-t border-gray-200 my-1"></div>') + `<div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
+  el.querySelectorAll('[data-drug-link]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'detail', drugId:b.dataset.drugLink, tab:'calc', weight:state.weight, age:state.age, ageUnit:state.ageUnit, editMode:false})
+  }))
+}
+
+function attachSetDetail() {
+  const sets = loadSets()
+  const set = sets.find(s=>s.id===state.setId)
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',category:'__sets__'}))
+  document.getElementById('btn-edit-set')?.addEventListener('click', () => {
+    setState({screen:'create-set', setDraft:{name:set.name, drugIds:[...set.drugIds]}, setQuery:'', editSetId:set.id})
+  })
+  app.querySelectorAll('[data-set-tab]').forEach(b => b.addEventListener('click', () => setState({setTab:b.dataset.setTab})))
+  const weightInput = document.getElementById('weight-input')
+  if (weightInput) {
+    weightInput.value = state.weight
+    weightInput.addEventListener('input', e => { state.weight = e.target.value; updateSetDoseResults() })
+  }
+  const ageInput = document.getElementById('age-input')
+  if (ageInput) {
+    ageInput.value = state.age
+    ageInput.addEventListener('input', e => { state.age = e.target.value; updateSetDoseResults() })
+  }
+  document.getElementById('unit-years')?.addEventListener('click', () => setState({ageUnit:'years',age:''}))
+  document.getElementById('unit-months')?.addEventListener('click', () => setState({ageUnit:'months',age:''}))
+  app.querySelectorAll('[data-drug-link]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'detail', drugId:b.dataset.drugLink, tab:'calc', weight:state.weight, age:state.age, ageUnit:state.ageUnit, editMode:false})
+  }))
+}
+
+// ── セット作成/編集画面 ────────────────────────────────────
+
+function renderCreateSet() {
+  const draft = state.setDraft || {name:'',drugIds:[]}
+  const selectedDrugs = draft.drugIds.map(id=>getDrugById(id)).filter(Boolean)
+  const isEdit = !!state.editSetId
+  const selectedHtml = selectedDrugs.length===0
+    ? `<p class="text-sm text-gray-400 text-center py-4">まだ薬が選択されていません</p>`
+    : selectedDrugs.map(d => `
+      <div class="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
+        <div>
+          <span class="text-sm font-medium text-gray-800">${esc(d.genericName)}</span>
+          ${d.abbreviation?`<span class="text-xs text-gray-500 ml-1">(${esc(d.abbreviation)})</span>`:''}
+        </div>
+        <button data-remove-drug="${d.id}" class="text-gray-400 hover:text-red-500 text-lg leading-none px-1">✕</button>
+      </div>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">${isEdit?'セットを編集':'セットを作成'}</div>
+        <button id="btn-save-set" class="text-sm text-white bg-blue-600 px-3 py-1.5 rounded-lg font-medium">保存</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">セット名</label>
+        <input id="set-name-input" type="text" placeholder="例: AMPCセット、発熱セット"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <label class="text-xs font-medium text-gray-600">薬剤を検索して追加</label>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+          <input id="set-search-input" type="search" placeholder="薬剤名・略称で検索"
+            class="w-full bg-gray-100 rounded-full pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div id="set-search-results-wrapper">${buildSetSearchResultsHTML(state.setQuery)}</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-600">選択中の薬剤</label>
+          <span class="text-xs text-gray-400">${selectedDrugs.length}剤</span>
+        </div>
+        <div class="space-y-2">${selectedHtml}</div>
+      </div>
+    </div>`
+}
+
+function buildSetSearchResultsHTML(query) {
+  const draft = state.setDraft || {drugIds:[]}
+  const searchResults = query.trim()
+    ? searchDrugsQ(query).filter(d=>!draft.drugIds.includes(d.id)).slice(0,8)
+    : []
+  if (!query.trim()) return ''
+  if (searchResults.length===0) return `<div id="set-search-results"><p class="text-sm text-gray-400 text-center py-2">見つかりません</p></div>`
+  return `<div id="set-search-results" class="space-y-1">${searchResults.map(d=>`
+    <button data-add-drug="${d.id}" class="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 rounded-lg text-left">
+      <div><span class="text-sm text-gray-800">${esc(d.genericName)}</span>${d.abbreviation?`<span class="text-xs text-gray-500 ml-1">${esc(d.abbreviation)}</span>`:''}</div>
+      <span class="text-blue-600 text-sm font-medium">追加</span>
+    </button>`).join('')}</div>`
+}
+
+function attachCreateSet() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',category:'__sets__'}))
+
+  const setNameInput = document.getElementById('set-name-input')
+  if (setNameInput) {
+    setNameInput.value = state.setDraft?.name || ''
+  }
+
+  const setSearchInput = document.getElementById('set-search-input')
+  if (setSearchInput) {
+    setSearchInput.value = state.setQuery
+    setSearchInput.addEventListener('input', e => {
+      state.setQuery = e.target.value
+      const resultsContainer = document.getElementById('set-search-results-wrapper')
+      if (resultsContainer) {
+        resultsContainer.innerHTML = buildSetSearchResultsHTML(state.setQuery)
+        attachSetSearchResults()
+      }
+    })
+  }
+
+  attachSetSearchResults()
+
+  app.querySelectorAll('[data-remove-drug]').forEach(b => b.addEventListener('click', () => {
+    const ids = (state.setDraft?.drugIds||[]).filter(id=>id!==b.dataset.removeDrug)
+    setState({setDraft:{...state.setDraft, drugIds:ids}})
+  }))
+
+  document.getElementById('btn-save-set')?.addEventListener('click', () => {
+    const name = document.getElementById('set-name-input')?.value?.trim() || ''
+    const draft = state.setDraft
+    if (!name) { alert('セット名を入力してください'); return }
+    if (!draft || draft.drugIds.length<1) { alert('薬剤を1つ以上選択してください'); return }
+    const sets = loadSets()
+    if (state.editSetId) {
+      const idx = sets.findIndex(s=>s.id===state.editSetId)
+      if (idx>=0) sets[idx] = {...sets[idx], name, drugIds:draft.drugIds}
+    } else {
+      sets.push({id:'set_'+Date.now(), name, drugIds:draft.drugIds})
+    }
+    saveSets(sets)
+    setState({screen:'list', category:'__sets__', setDraft:null, editSetId:null})
+  })
+}
+
+function attachSetSearchResults() {
+  app.querySelectorAll('[data-add-drug]').forEach(b => b.addEventListener('click', () => {
+    const ids = [...(state.setDraft?.drugIds||[]), b.dataset.addDrug]
+    state.setQuery = ''
+    setState({setDraft:{...state.setDraft, drugIds:ids}})
+  }))
+}
+
+// ── 薬剤追加画面 ──────────────────────────────────────────
+
+function newDoseEntry() {
+  return {_id:Date.now()+Math.random(), ageLabel:'', ageMinYears:'', ageMaxYears:'', purpose:'治療', doseType:'weight', unit:'mg', dosePerKg:'', dosePerKgMin:'', dosePerKgMax:'', fixedDose:'', maxDosePerDay:'', frequency:'', duration:'', notes:''}
+}
+
+function renderAddDrug() {
+  const f = state.addForm || {}
+  const doses = state.addDoses || []
+  const doseRows = doses.map((d,i) => `
+    <div class="border border-gray-200 rounded-xl p-3 space-y-2" data-dose-idx="${i}">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-600">用量エントリ ${i+1}</span>
+        <button data-remove-dose="${i}" class="text-gray-400 hover:text-red-500 text-sm">削除</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">年齢ラベル（表示名）</label>
+          <input type="text" data-dose="${i}" data-field="ageLabel" value="${esc(d.ageLabel)}" placeholder="例: 1歳以上" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）以上</label>
+          <input type="number" data-dose="${i}" data-field="ageMinYears" value="${esc(d.ageMinYears)}" placeholder="例: 1" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）未満</label>
+          <input type="number" data-dose="${i}" data-field="ageMaxYears" value="${esc(d.ageMaxYears)}" placeholder="上限なし" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量タイプ</label>
+          <div class="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+            ${['weight','range','fixed'].map(t=>`<button data-dose-type="${i}" data-type="${t}" class="flex-1 py-1.5 ${d.doseType===t?'bg-blue-600 text-white':'bg-white text-gray-600'}">${t==='weight'?(d.unit||'mg')+'/kg(単一)':t==='range'?(d.unit||'mg')+'/kg(範囲)':'固定量'}</button>`).join('')}
+          </div>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">単位</label>
+          <select data-dose="${i}" data-field="unit" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['mg','g','μg','mL','IU','包','カプセル'].map(u=>`<option ${(d.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+        ${d.doseType==='weight'?`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量 (${d.unit||'mg'}/kg/日)</label>
+          <input type="number" data-dose="${i}" data-field="dosePerKg" value="${esc(d.dosePerKg)}" placeholder="例: 4" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:d.doseType==='range'?`
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最小 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-dose="${i}" data-field="dosePerKgMin" value="${esc(d.dosePerKgMin)}" placeholder="例: 25" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-dose="${i}" data-field="dosePerKgMax" value="${esc(d.dosePerKgMax)}" placeholder="例: 50" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">固定量</label>
+          <input type="text" data-dose="${i}" data-field="fixedDose" value="${esc(d.fixedDose)}" placeholder="例: 5mg/日" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`}
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大投与量(${d.unit||'mg'}/日)</label>
+          <input type="number" data-dose="${i}" data-field="maxDosePerDay" value="${esc(d.maxDosePerDay)}" placeholder="例: 150" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与回数</label>
+          <input type="text" data-dose="${i}" data-field="frequency" value="${esc(d.frequency)}" placeholder="分2" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与期間</label>
+          <input type="text" data-dose="${i}" data-field="duration" value="${esc(d.duration)}" placeholder="5日間" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">目的</label>
+          <select data-dose="${i}" data-field="purpose" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['治療','予防','両方'].map(p=>`<option ${d.purpose===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">備考</label>
+          <input type="text" data-dose="${i}" data-field="notes" value="${esc(d.notes)}" placeholder="任意" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+    </div>`).join('')
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">薬剤を追加</div>
+        <button id="btn-save-drug" class="text-sm text-white bg-blue-600 px-3 py-1.5 rounded-lg font-medium">保存</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">基本情報</p>
+        ${ef('一般名（必須）','add-genericName',f.genericName||'')}
+        ${ef('略称','add-abbreviation',f.abbreviation||'')}
+        ${ef('商品名（カンマ区切り）','add-brandNames',f.brandNames||'')}
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">カテゴリ</label>
+          <select id="add-category" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${getCategories().map(c=>`<option ${f.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        ${ef('投与経路','add-route',f.route||'内服')}
+        ${ef('規格（カンマ区切り）','add-formulations',f.formulations||'')}
+        ${ef('成人量','add-adultDose',f.adultDose||'')}
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">注意事項</label>
+          <textarea id="add-notes" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.notes||'')}</textarea>
+        </div>
+        ${ef('副作用','add-sideEffects',f.sideEffects||'')}
+        ${ef('引用文献','add-references',f.references||'')}
+      </div>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">小児用量エントリ</p>
+          <button id="btn-add-dose" class="text-xs text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">＋ エントリ追加</button>
+        </div>
+        ${doseRows}
+      </div>
+    </div>`
+}
+
+function attachAddDrug() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+  document.getElementById('btn-add-dose')?.addEventListener('click', () => setState({addDoses:[...(state.addDoses||[]), newDoseEntry()]}))
+  app.querySelectorAll('[data-remove-dose]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.removeDose)
+    setState({addDoses: state.addDoses.filter((_,i)=>i!==idx)})
+  }))
+  app.querySelectorAll('[data-dose][data-field]').forEach(input => {
+    input.addEventListener('input', e => {
+      const idx = parseInt(e.target.dataset.dose)
+      const field = e.target.dataset.field
+      const doses = [...state.addDoses]
+      doses[idx] = {...doses[idx], [field]: e.target.value}
+      setState({addDoses: doses})
+    })
+    input.addEventListener('change', e => {
+      const idx = parseInt(e.target.dataset.dose)
+      const field = e.target.dataset.field
+      const doses = [...state.addDoses]
+      doses[idx] = {...doses[idx], [field]: e.target.value}
+      setState({addDoses: doses})
+    })
+  })
+  app.querySelectorAll('[data-dose-type]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.doseType)
+    const doses = [...state.addDoses]
+    doses[idx] = {...doses[idx], doseType: b.dataset.type}
+    setState({addDoses: doses})
+  }))
+  document.getElementById('btn-save-drug')?.addEventListener('click', () => {
+    const gname = document.getElementById('add-genericName').value.trim()
+    if (!gname) { alert('一般名を入力してください'); return }
+    const drug = {
+      id: 'custom_' + Date.now(),
+      genericName: gname,
+      abbreviation: document.getElementById('add-abbreviation').value.trim(),
+      brandNames: document.getElementById('add-brandNames').value.split(',').map(s=>s.trim()).filter(Boolean),
+      category: document.getElementById('add-category').value,
+      route: document.getElementById('add-route').value.trim() || '内服',
+      formulations: document.getElementById('add-formulations').value.split(',').map(s=>s.trim()).filter(Boolean),
+      adultDose: document.getElementById('add-adultDose').value.trim(),
+      notes: document.getElementById('add-notes').value.trim(),
+      sideEffects: document.getElementById('add-sideEffects').value.trim(),
+      references: document.getElementById('add-references').value.split(',').map(s=>s.trim()).filter(Boolean),
+      pediatricDoses: state.addDoses.map(d => {
+        const entry = {ageLabel: d.ageLabel || '全年齢', purpose: d.purpose || '治療'}
+        if (d.ageMinYears!=='') entry.ageMinMonths = parseFloat(d.ageMinYears)*12
+        if (d.ageMaxYears!=='') entry.ageMaxMonths = parseFloat(d.ageMaxYears)*12
+        if (d.doseType==='weight' && d.dosePerKg!=='') entry.dosePerKg = parseFloat(d.dosePerKg)
+        else if (d.doseType==='range') { if (d.dosePerKgMin!=='') entry.dosePerKgMin=parseFloat(d.dosePerKgMin); if (d.dosePerKgMax!=='') entry.dosePerKgMax=parseFloat(d.dosePerKgMax) }
+        else if (d.fixedDose) entry.fixedDose = d.fixedDose
+        if (d.maxDosePerDay!=='') entry.maxDosePerDay = parseFloat(d.maxDosePerDay)
+        if (d.unit && d.unit !== 'mg') entry.unit = d.unit
+        if (d.frequency) entry.frequency = d.frequency
+        if (d.duration) entry.duration = d.duration
+        if (d.notes) entry.notes = d.notes
+        return entry
+      }),
+    }
+    const pending = loadPendingDrugs()
+    pending.push(drug)
+    savePendingDrugs(pending)
+    setState({screen:'list', category:'__pending__', addForm:null, addDoses:[]})
+  })
+}
+
+// ── カテゴリ管理画面 ──────────────────────────────────────────
+
+function renderManageCategories() {
+  const cats = getCategories()
+  const catRows = cats.map((cat, i) => `
+    <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
+      <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
+      <button data-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
+      <button data-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
+    </div>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">カテゴリ管理</div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <p class="text-xs text-gray-500">カテゴリの追加・削除・並び替えができます。</p>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        ${catRows}
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">新しいカテゴリを追加</label>
+        <div class="flex gap-2">
+          <input id="new-cat-input" type="text" placeholder="例: 循環器薬"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button id="btn-add-cat" class="text-sm text-white bg-blue-600 px-3 py-2 rounded-lg font-medium shrink-0">追加</button>
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+        <p class="text-xs text-amber-700">カテゴリを削除してもそのカテゴリの薬剤は残ります。初期化ボタンで標準カテゴリに戻せます。</p>
+        <button id="btn-reset-cats" class="text-xs text-amber-700 border border-amber-300 bg-white px-3 py-1.5 rounded-lg">初期化（標準に戻す）</button>
+      </div>
+    </div>`
+}
+
+function attachManageCategories() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+
+  app.querySelectorAll('[data-move-up]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.moveUp)
+    const cats = getCategories()
+    if (i === 0) return
+    const c = [...cats];[c[i-1], c[i]] = [c[i], c[i-1]]
+    saveUserCategories(c); render()
+  }))
+
+  app.querySelectorAll('[data-move-down]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.moveDown)
+    const cats = getCategories()
+    if (i === cats.length-1) return
+    const c = [...cats];[c[i], c[i+1]] = [c[i+1], c[i]]
+    saveUserCategories(c); render()
+  }))
+
+  app.querySelectorAll('[data-delete-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.deleteCat)
+    const cats = getCategories()
+    if (cats.length <= 1) { alert('カテゴリは最低1つ必要です'); return }
+    if (!confirm(`「${cats[i]}」を削除しますか？`)) return
+    saveUserCategories(cats.filter((_,idx) => idx !== i)); render()
+  }))
+
+  document.getElementById('btn-add-cat')?.addEventListener('click', () => {
+    const input = document.getElementById('new-cat-input')
+    const name = input?.value?.trim()
+    if (!name) return
+    const cats = getCategories()
+    if (cats.includes(name)) { alert('そのカテゴリはすでに存在します'); return }
+    saveUserCategories([...cats, name]); render()
+  })
+
+  document.getElementById('btn-reset-cats')?.addEventListener('click', () => {
+    if (!confirm('カテゴリを標準に戻しますか？')) return
+    localStorage.removeItem('user_categories'); render()
+  })
+}
+
+render()
+</script>
+</body>
+</html>
