@@ -502,7 +502,7 @@ function drugListItem(d) {
       <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
       <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
     </div>
-    ${state.favorites.has(d.id)?'<span class="text-yellow-400 text-base shrink-0">★</span>':'<span class="text-gray-200 text-base shrink-0">›</span>'}
+    <span class="text-gray-300 text-lg shrink-0">›</span>
   </button></li>`
 }
 function diseaseListItem(d, showPendingBadge=false) {
@@ -514,7 +514,7 @@ function diseaseListItem(d, showPendingBadge=false) {
       </div>
       <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
     </div>
-    ${state.diseaseFavorites.has(d.id)?'<span class="text-yellow-400 text-base shrink-0">★</span>':'<span class="text-gray-200 text-base shrink-0">›</span>'}
+    <span class="text-gray-300 text-lg shrink-0">›</span>
   </button></li>`
 }
 
@@ -824,7 +824,7 @@ function renderDetail(drug) {
           <div class="font-bold text-gray-900 text-base leading-tight truncate">${esc(drug.genericName)}</div>
           ${drug.abbreviation?`<div class="text-xs text-gray-500">${esc(drug.abbreviation)}（${drug.brandNames.map(b=>b+'®').join('・')}）</div>`:''}
         </div>
-        <button id="btn-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-300'}">★</button>
+        <button id="btn-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-400'}">${isFav?'★':'☆'}</button>
         <button id="btn-delete-drug" class="text-xl w-8 shrink-0 text-gray-300 hover:text-red-400 transition-colors">🗑</button>
       </div>
       <div class="flex mt-3 border-b border-gray-200 -mb-px">
@@ -1610,7 +1610,7 @@ function renderDiseaseDetail(disease) {
           ${disease.englishName||disease.abbreviation
             ? `<div class="text-xs text-gray-500">${esc(disease.englishName||'')}${disease.abbreviation?' ('+disease.abbreviation+')':''}</div>` : ''}
         </div>
-        <button id="btn-dis-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-300'}">★</button>
+        <button id="btn-dis-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-400'}">${isFav?'★':'☆'}</button>
       </div>
       ${isPending ? '<div class="mt-1 text-center"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">未確認</span></div>' : ''}
     </div>
