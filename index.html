@@ -353,6 +353,7 @@ let state = {
   category: getCategories()[0],
   query: '',
   favorites: new Set(LS.get('favorites','[]')),
+  diseaseFavorites: new Set(LS.get('disease_favorites','[]')),
   // タブ切り替え（薬剤 / 疾患）
   mainTab: 'drugs',
   // 疾患
@@ -361,7 +362,7 @@ let state = {
   // detail
   drugId: null,
   weight: '', age: '', ageUnit: 'years', tab: 'calc',
-  editMode: false, editDraft: null,
+  editMode: false, editDraft: null, editDoses: [],
   // set detail
   setId: null, setTab: 'calc',
   // add drug
@@ -379,6 +380,10 @@ function setState(patch) { Object.assign(state, patch); render() }
 function toggleFav(id) {
   const f=new Set(state.favorites); f.has(id)?f.delete(id):f.add(id)
   LS.set('favorites',[...f]); setState({favorites:f})
+}
+function toggleDiseaseFav(id) {
+  const f=new Set(state.diseaseFavorites); f.has(id)?f.delete(id):f.add(id)
+  LS.set('disease_favorites',[...f]); setState({diseaseFavorites:f})
 }
 function ageToMonths() {
   if (state.age==='') return undefined
@@ -492,25 +497,29 @@ function filteredDoses(drug) {
 // ── リスト画面 ────────────────────────────────────────────
 
 function drugListItem(d) {
-  return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
-    <div class="flex-1 min-w-0">
-      <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
-      <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
-    </div>
-    <button data-fav="${d.id}" class="text-xl shrink-0 px-1 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
-  </button></li>`
+  return `<li class="flex items-center border-b border-gray-100">
+    <button data-drug="${d.id}" class="flex-1 flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 min-w-0">
+      <div class="flex-1 min-w-0">
+        <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+        <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
+      </div>
+    </button>
+    <button data-fav="${d.id}" class="text-xl shrink-0 px-3 py-3 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
+  </li>`
 }
 function diseaseListItem(d, showPendingBadge=false) {
-  return `<li><button data-disease="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-1.5">
-        <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
-        ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
+  return `<li class="flex items-center border-b border-gray-100">
+    <button data-disease="${d.id}" class="flex-1 flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 min-w-0">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
+          ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
+        </div>
+        <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
       </div>
-      <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
-    </div>
-    <span class="text-gray-300 text-lg">›</span>
-  </button></li>`
+    </button>
+    <button data-dis-fav="${d.id}" class="text-xl shrink-0 px-3 py-3 ${state.diseaseFavorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
+  </li>`
 }
 
 function buildListBodyHTML(query) {
@@ -656,6 +665,7 @@ function attachListBody() {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
   }))
   app.querySelectorAll('[data-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleFav(b.dataset.fav) }))
+  app.querySelectorAll('[data-dis-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleDiseaseFav(b.dataset.disFav) }))
   app.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', e => {
     if (e.target.closest('[data-del-set]')) return
     setState({screen:'set-detail', setId:b.dataset.set, weight:'', age:'', ageUnit:'years'})
@@ -773,21 +783,32 @@ function renderDetail(drug) {
   const isFav = state.favorites.has(drug.id)
   const doses = filteredDoses(drug)
   const weight = state.weight
-  const calcTab = `
+  const editDosesHTML = state.editMode && state.tab === 'calc' ? renderEditDoses(drug) : ''
+  const calcTab = state.editMode && state.tab === 'calc' ? `
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-700">投与量を編集</span>
+        <div class="flex gap-2">
+          <button id="btn-cancel-edit" class="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">キャンセル</button>
+          <button id="btn-save-doses" class="text-sm text-white bg-blue-600 px-3 py-1.5 rounded-lg font-medium">保存</button>
+        </div>
+      </div>
+      ${editDosesHTML}
+    </div>` : `
     <div class="p-4 space-y-4">
       ${ageWeightInput()}
       <div id="dose-results">
         <div class="flex justify-end mb-2">
-          <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+          <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
         </div>
         ${doses.map(d => doseCard(d, weight)).join('')}
         <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
       </div>
     </div>`
-  const overviewTab = state.editMode ? renderEditForm(drug) : `
+  const overviewTab = state.editMode && state.tab === 'overview' ? renderEditForm(drug) : `
     <div class="p-4 space-y-4">
       <div class="flex justify-end">
-        <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 編集</button>
+        <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 概要を編集</button>
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
         ${infoRow('一般名', drug.genericName)}
@@ -818,6 +839,88 @@ function renderDetail(drug) {
       </div>
     </div>
     <div class="flex-1 overflow-y-auto">${state.tab==='calc'?calcTab:overviewTab}</div>`
+}
+
+// 投与量インライン編集フォーム（calcタブ内で使用）
+function renderEditDoses(drug) {
+  const doses = state.editDoses || []
+  const doseRows = doses.map((d,i) => `
+    <div class="border border-gray-200 rounded-xl p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-600">用量エントリ ${i+1}</span>
+        <button data-rm-dose="${i}" class="text-gray-400 hover:text-red-500 text-sm">削除</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">年齢ラベル</label>
+          <input type="text" data-ed="${i}" data-field="ageLabel" value="${esc(d.ageLabel)}" placeholder="例: 1歳以上" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）以上</label>
+          <input type="number" data-ed="${i}" data-field="ageMinYears" value="${esc(d.ageMinYears??'')}" placeholder="例: 1" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）未満</label>
+          <input type="number" data-ed="${i}" data-field="ageMaxYears" value="${esc(d.ageMaxYears??'')}" placeholder="上限なし" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">単位</label>
+          <select data-ed="${i}" data-field="unit" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['mg','g','μg','mL','IU','包','カプセル'].map(u=>`<option ${(d.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量タイプ</label>
+          <div class="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+            ${['weight','range','fixed'].map(t=>`<button data-ed-type="${i}" data-type="${t}" class="flex-1 py-1.5 ${d.doseType===t?'bg-blue-600 text-white':'bg-white text-gray-600'}">${t==='weight'?(d.unit||'mg')+'/kg(単一)':t==='range'?(d.unit||'mg')+'/kg(範囲)':'固定量'}</button>`).join('')}
+          </div>
+        </div>
+        ${d.doseType==='weight'?`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量 (${d.unit||'mg'}/kg/日)</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKg" value="${esc(d.dosePerKg??'')}" placeholder="例: 4" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:d.doseType==='range'?`
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最小 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKgMin" value="${esc(d.dosePerKgMin??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKgMax" value="${esc(d.dosePerKgMax??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">固定量テキスト</label>
+          <input type="text" data-ed="${i}" data-field="fixedDose" value="${esc(d.fixedDose||'')}" placeholder="例: 5mg/日" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`}
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大(${d.unit||'mg'}/日)</label>
+          <input type="number" data-ed="${i}" data-field="maxDosePerDay" value="${esc(d.maxDosePerDay??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与回数</label>
+          <input type="text" data-ed="${i}" data-field="frequency" value="${esc(d.frequency||'')}" placeholder="分2" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与期間</label>
+          <input type="text" data-ed="${i}" data-field="duration" value="${esc(d.duration||'')}" placeholder="5日間" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">目的</label>
+          <select data-ed="${i}" data-field="purpose" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['治療','予防','両方'].map(p=>`<option ${(d.purpose||'治療')===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">備考</label>
+          <input type="text" data-ed="${i}" data-field="notes" value="${esc(d.notes||'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+    </div>`).join('')
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+      ${doseRows}
+      <button id="btn-add-ed-dose" class="w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500">＋ 用量エントリを追加</button>
+    </div>`
 }
 
 function renderEditForm(drug) {
@@ -852,6 +955,27 @@ function renderEditForm(drug) {
 }
 const ef = (label,id,val) => `<div class="space-y-1"><label class="text-xs font-medium text-gray-600">${label}</label><input id="${id}" type="text" value="${esc(val)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>`
 
+// 既存の投与量データをeditDoses形式に変換
+function dosesToEditForm(doses) {
+  return doses.map(d => ({
+    _id: Math.random(),
+    ageLabel: d.ageLabel || '',
+    ageMinYears: d.ageMinMonths != null ? d.ageMinMonths / 12 : '',
+    ageMaxYears: d.ageMaxMonths != null ? d.ageMaxMonths / 12 : '',
+    purpose: d.purpose || '治療',
+    doseType: d.fixedDose ? 'fixed' : (d.dosePerKgMin != null ? 'range' : 'weight'),
+    unit: d.unit || 'mg',
+    dosePerKg: d.dosePerKg ?? '',
+    dosePerKgMin: d.dosePerKgMin ?? '',
+    dosePerKgMax: d.dosePerKgMax ?? '',
+    fixedDose: d.fixedDose || '',
+    maxDosePerDay: d.maxDosePerDay ?? '',
+    frequency: d.frequency || '',
+    duration: d.duration || '',
+    notes: d.notes || '',
+  }))
+}
+
 function updateDetailDoseResults() {
   const drug = getDrugById(state.drugId)
   if (!drug) return
@@ -861,21 +985,24 @@ function updateDetailDoseResults() {
   const weight = state.weight
   el.innerHTML = `
     <div class="flex justify-end mb-2">
-      <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+      <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
     </div>
     ${doses.map(d => doseCard(d, weight)).join('')}
     <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
-  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
+  document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
+    const drug = getDrugById(state.drugId)
+    setState({editMode:true, editDoses:dosesToEditForm(drug.pediatricDoses||[]), tab:'calc'})
+  })
 }
 
 function attachDetail() {
   const drug = getDrugById(state.drugId)
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',editMode:false}))
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',editMode:false,editDoses:[]}))
   document.getElementById('btn-fav')?.addEventListener('click', () => toggleFav(drug.id))
   document.getElementById('btn-delete-drug')?.addEventListener('click', () => {
     if (confirm(`「${drug.genericName}」を削除しますか？`)) deleteDrug(drug.id)
   })
-  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setState({tab:b.dataset.tab,editMode:false})))
+  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setState({tab:b.dataset.tab,editMode:false,editDoses:[]})))
   const weightInput = document.getElementById('weight-input')
   if (weightInput) {
     weightInput.value = state.weight
@@ -888,8 +1015,71 @@ function attachDetail() {
   }
   document.getElementById('unit-years')?.addEventListener('click', () => setState({ageUnit:'years',age:''}))
   document.getElementById('unit-months')?.addEventListener('click', () => setState({ageUnit:'months',age:''}))
-  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
-  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null}))
+
+  // calcタブ：投与量編集ボタン
+  document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
+    setState({editMode:true, editDoses:dosesToEditForm(drug.pediatricDoses||[]), tab:'calc'})
+  })
+
+  // calcタブ：投与量編集 キャンセル / 保存
+  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null,editDoses:[]}))
+  document.getElementById('btn-save-doses')?.addEventListener('click', () => {
+    // editDosesフォームからデータ収集
+    const newDoses = state.editDoses.map((d,i) => {
+      const entry = {
+        ageLabel: document.querySelector(`[data-ed="${i}"][data-field="ageLabel"]`)?.value || d.ageLabel || '全年齢',
+        purpose: document.querySelector(`[data-ed="${i}"][data-field="purpose"]`)?.value || '治療',
+      }
+      const minY = document.querySelector(`[data-ed="${i}"][data-field="ageMinYears"]`)?.value
+      const maxY = document.querySelector(`[data-ed="${i}"][data-field="ageMaxYears"]`)?.value
+      if (minY) entry.ageMinMonths = parseFloat(minY)*12
+      if (maxY) entry.ageMaxMonths = parseFloat(maxY)*12
+      if (d.doseType==='weight') {
+        const v = document.querySelector(`[data-ed="${i}"][data-field="dosePerKg"]`)?.value
+        if (v) entry.dosePerKg = parseFloat(v)
+      } else if (d.doseType==='range') {
+        const lo = document.querySelector(`[data-ed="${i}"][data-field="dosePerKgMin"]`)?.value
+        const hi = document.querySelector(`[data-ed="${i}"][data-field="dosePerKgMax"]`)?.value
+        if (lo) entry.dosePerKgMin = parseFloat(lo)
+        if (hi) entry.dosePerKgMax = parseFloat(hi)
+      } else {
+        entry.fixedDose = document.querySelector(`[data-ed="${i}"][data-field="fixedDose"]`)?.value || ''
+      }
+      const maxD = document.querySelector(`[data-ed="${i}"][data-field="maxDosePerDay"]`)?.value
+      if (maxD) entry.maxDosePerDay = parseFloat(maxD)
+      const unit = document.querySelector(`[data-ed="${i}"][data-field="unit"]`)?.value
+      if (unit && unit !== 'mg') entry.unit = unit
+      const freq = document.querySelector(`[data-ed="${i}"][data-field="frequency"]`)?.value
+      if (freq) entry.frequency = freq
+      const dur = document.querySelector(`[data-ed="${i}"][data-field="duration"]`)?.value
+      if (dur) entry.duration = dur
+      const notes = document.querySelector(`[data-ed="${i}"][data-field="notes"]`)?.value
+      if (notes) entry.notes = notes
+      return entry
+    })
+    saveEdit(drug.id, {pediatricDoses: newDoses})
+    setState({editMode:false, editDoses:[]})
+  })
+
+  // calcタブ：用量タイプ切り替え（editDoses）
+  app.querySelectorAll('[data-ed-type]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.edType)
+    const doses = [...state.editDoses]
+    doses[idx] = {...doses[idx], doseType: b.dataset.type}
+    setState({editDoses: doses})
+  }))
+  // calcタブ：用量エントリ削除
+  app.querySelectorAll('[data-rm-dose]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.rmDose)
+    setState({editDoses: state.editDoses.filter((_,i)=>i!==idx)})
+  }))
+  // calcタブ：用量エントリ追加
+  document.getElementById('btn-add-ed-dose')?.addEventListener('click', () => {
+    setState({editDoses: [...state.editDoses, {_id:Math.random(),ageLabel:'',ageMinYears:'',ageMaxYears:'',purpose:'治療',doseType:'weight',unit:'mg',dosePerKg:'',dosePerKgMin:'',dosePerKgMax:'',fixedDose:'',maxDosePerDay:'',frequency:'',duration:'',notes:''}]})
+  })
+
+  // overviewタブ：概要編集
+  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true, editDraft:{...drug}, tab:'overview'}))
   document.getElementById('btn-save-edit')?.addEventListener('click', () => {
     saveEdit(drug.id, {
       genericName: document.getElementById('edit-genericName').value,
@@ -1323,39 +1513,78 @@ function attachAddDrug() {
   })
 }
 
+// ── 疾患セクションコンテンツ レンダラー ──────────────────────
+
+function renderSectionContent(content) {
+  if (!content) return ''
+  return content.split('\n').map(line => {
+    if (!line.trim()) return '<div class="h-2"></div>'
+    if (line.match(/^[•・]/))
+      return `<div class="flex gap-2 my-0.5"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(line.replace(/^[•・]\s*/,''))}</span></div>`
+    if (line.match(/^[×✕]/))
+      return `<div class="flex gap-2 my-0.5"><span class="shrink-0 text-red-500 font-bold">×</span><span>${esc(line.replace(/^[×✕]\s*/,''))}</span></div>`
+    return `<p class="my-0.5">${esc(line)}</p>`
+  }).join('')
+}
+
 // ── 疾患詳細画面 ──────────────────────────────────────────────
 
 function renderDiseaseDetail(disease) {
   if (!disease) return '<div class="p-8 text-center text-gray-400">疾患が見つかりません</div>'
   const isPending = getAllPendingDiseases().some(d => d.id === disease.id)
+  const isFav = state.diseaseFavorites.has(disease.id)
   const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
 
   const pointsHtml = (disease.points || []).length > 0 ? `
-    <div class="bg-blue-50 rounded-xl p-4">
-      <h3 class="text-sm font-semibold text-blue-800 mb-2">ポイント</h3>
-      <ul class="space-y-1">${(disease.points).map(p =>
-        `<li class="text-sm text-blue-700 flex gap-2"><span class="shrink-0 text-blue-400">•</span><span>${esc(p)}</span></li>`
-      ).join('')}</ul>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="flex">
+        <div class="w-1.5 bg-blue-500 shrink-0 rounded-l-xl"></div>
+        <div class="flex-1 p-4">
+          <h3 class="text-base font-bold text-gray-900 mb-3">ポイント</h3>
+          <ul class="space-y-2">${(disease.points).map(p =>
+            `<li class="text-sm text-gray-700 flex gap-2"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(p)}</span></li>`
+          ).join('')}</ul>
+        </div>
+      </div>
+    </div>` : ''
+
+  const imagesHtml = (disease.images || []).length > 0 ? `
+    <div class="grid grid-cols-2 gap-2">
+      ${(disease.images).map((img,i) => `
+        <div class="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+          <img src="${img.dataUrl}" alt="${esc(img.caption||'画像'+(i+1))}" class="w-full object-cover max-h-48" />
+          ${img.caption ? `<p class="text-xs text-gray-500 px-2 py-1 truncate">${esc(img.caption)}</p>` : ''}
+        </div>`).join('')}
     </div>` : ''
 
   const sectionsHtml = (disease.sections || []).map(sec => `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-      <h3 class="text-sm font-semibold text-gray-800 mb-2">${esc(sec.title)}</h3>
-      <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${esc(sec.content)}</p>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="flex">
+        <div class="w-1.5 bg-blue-500 shrink-0 rounded-l-xl"></div>
+        <div class="flex-1 p-4">
+          <h3 class="text-base font-bold text-gray-900 mb-3">${esc(sec.title)}</h3>
+          <div class="text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
+        </div>
+      </div>
     </div>`).join('')
 
   const relatedDrugsHtml = relatedDrugs.length > 0 ? `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">関連薬剤</h3>
-      <div class="space-y-2">${relatedDrugs.map(d => `
-        <button data-drug="${d.id}" class="w-full flex items-center px-3 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-left gap-3">
-          <span class="text-lg">💊</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-900 truncate">${esc(d.genericName)}</div>
-            <div class="text-xs text-gray-500 truncate">${esc(d.abbreviation||'')}${d.brandNames?.length?'　'+d.brandNames.join('・'):''}</div>
-          </div>
-          <span class="text-gray-400">›</span>
-        </button>`).join('')}</div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="flex">
+        <div class="w-1.5 bg-green-500 shrink-0 rounded-l-xl"></div>
+        <div class="flex-1 p-4">
+          <h3 class="text-base font-bold text-gray-900 mb-3">関連薬剤</h3>
+          <div class="space-y-2">${relatedDrugs.map(d => `
+            <button data-drug="${d.id}" class="w-full flex items-center px-3 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-left gap-3">
+              <span class="text-lg">💊</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate">${esc(d.genericName)}</div>
+                <div class="text-xs text-gray-500 truncate">${esc(d.abbreviation||'')}${d.brandNames?.length?'　'+d.brandNames.join('・'):''}</div>
+              </div>
+              <span class="text-gray-400">›</span>
+            </button>`).join('')}</div>
+        </div>
+      </div>
     </div>` : ''
 
   const notesHtml = disease.notes ? `
@@ -1369,12 +1598,13 @@ function renderDiseaseDetail(disease) {
       ${disease.references.map((r,i)=>`<p class="text-xs text-gray-500">${i+1}) ${esc(r)}</p>`).join('')}
     </div>` : ''
 
-  const confirmBtn = isPending ? `
+  const actionBtns = isPending ? `
     <div class="flex gap-2">
       <button id="btn-confirm-disease" class="flex-1 bg-blue-600 text-white text-sm font-semibold py-3 rounded-xl">✓ 確認済みにする</button>
       <button id="btn-del-disease" class="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl">削除</button>
     </div>` : `
-    <div class="flex justify-end">
+    <div class="flex justify-end gap-2">
+      <button id="btn-edit-disease" class="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">✏️ 編集</button>
       <button id="btn-del-disease" class="text-xs text-gray-400 hover:text-red-500 px-3 py-1.5 rounded-lg border border-gray-200">🗑 削除</button>
     </div>`
 
@@ -1387,27 +1617,28 @@ function renderDiseaseDetail(disease) {
           ${disease.englishName||disease.abbreviation
             ? `<div class="text-xs text-gray-500">${esc(disease.englishName||'')}${disease.abbreviation?' ('+disease.abbreviation+')':''}</div>` : ''}
         </div>
-        <div class="w-8 flex justify-end shrink-0">
-          ${isPending ? '<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-medium">未確認</span>' : ''}
-        </div>
+        <button id="btn-dis-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-300'}">★</button>
       </div>
+      ${isPending ? '<div class="mt-1 text-center"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">未確認</span></div>' : ''}
     </div>
     <div class="flex-1 overflow-y-auto p-4 space-y-4">
       ${pointsHtml}
+      ${imagesHtml}
       ${sectionsHtml}
       ${relatedDrugsHtml}
       ${notesHtml}
       ${refsHtml}
-      ${confirmBtn}
+      ${actionBtns}
       <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で診療を行ってください。</p></div>
     </div>`
 }
 
 function attachDiseaseDetail() {
+  const disease = getDiseaseById(state.diseaseId)
   document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+  document.getElementById('btn-dis-fav')?.addEventListener('click', () => { if (disease) toggleDiseaseFav(disease.id) })
 
   document.getElementById('btn-confirm-disease')?.addEventListener('click', () => {
-    const disease = getDiseaseById(state.diseaseId)
     if (!disease) return
     if (DISEASES.find(d => d.id === disease.id)) {
       confirmMasterDisease(disease.id)
@@ -1423,11 +1654,22 @@ function attachDiseaseDetail() {
     render()
   })
 
+  document.getElementById('btn-edit-disease')?.addEventListener('click', () => {
+    if (!disease) return
+    // 編集フォームに既存データをセット
+    const contentStr = (disease.sections||[]).map(s => `【${s.title}】\n${s.content}`).join('\n\n')
+    setState({screen:'add-disease', addDiseaseForm:{
+      ...disease,
+      points: disease.points||[],
+      content: contentStr,
+      _editId: disease.id,
+    }})
+  })
+
   document.getElementById('btn-del-disease')?.addEventListener('click', () => {
     if (!confirm('この疾患を削除しますか？')) return
     const id = state.diseaseId
     if (DISEASES.find(d => d.id === id)) {
-      // マスターは非表示フラグ（hidden_diseases）
       const h = new Set(LS.get('hidden_diseases','[]')); h.add(id)
       LS.set('hidden_diseases', [...h])
     } else {
@@ -1437,22 +1679,23 @@ function attachDiseaseDetail() {
     setState({screen:'list', diseaseId:null})
   })
 
-  // 関連薬剤 → 薬剤詳細へ
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
   }))
 }
 
-// ── 疾患追加画面 ──────────────────────────────────────────────
+// ── 疾患追加・編集画面 ──────────────────────────────────────────────
 
 function renderAddDisease() {
   const f = state.addDiseaseForm || {}
   const cats = DISEASE_CATEGORIES
+  const isEdit = !!f._editId
+  const imgs = f.images || []
   return `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-2">
         <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
-        <div class="flex-1 text-center font-bold text-gray-900 text-base">疾患を追加</div>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">${isEdit?'疾患を編集':'疾患を追加'}</div>
         <div class="w-8"></div>
       </div>
     </div>
@@ -1487,28 +1730,70 @@ function renderAddDisease() {
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
         <label class="text-xs font-medium text-gray-600">内容（セクション）</label>
-        <textarea id="ad-content" rows="6" placeholder="例:\n【診断】\n〇〇症状がある場合...\n【治療】\n第一選択は..."
+        <textarea id="ad-content" rows="8" placeholder="【診断】\n症状がある場合...\n\n【治療】\n第一選択は..."
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.content||'')}</textarea>
-        <p class="text-xs text-gray-400">【見出し】で始まる行が各セクションのタイトルになります</p>
+        <p class="text-xs text-gray-400">【見出し】で始まる行がセクションのタイトルになります</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-600">画像所見</label>
+          <label id="lbl-add-img" class="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer">＋ 画像追加</label>
+          <input id="inp-img" type="file" accept="image/*" multiple class="hidden" />
+        </div>
+        ${imgs.length > 0 ? `<div class="grid grid-cols-2 gap-2" id="img-preview">
+          ${imgs.map((img,i) => `
+            <div class="relative rounded-xl overflow-hidden border border-gray-200">
+              <img src="${img.dataUrl}" class="w-full object-cover h-28" />
+              <button data-del-img="${i}" class="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center">✕</button>
+              <input data-img-cap="${i}" type="text" value="${esc(img.caption||'')}" placeholder="キャプション"
+                class="w-full border-t border-gray-200 px-2 py-1 text-xs focus:outline-none" />
+            </div>`).join('')}
+        </div>` : '<div id="img-preview" class="text-xs text-gray-400">画像が追加されていません</div>'}
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
         <label class="text-xs font-medium text-gray-600">メモ・注意事項</label>
         <textarea id="ad-notes" rows="2"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.notes||'')}</textarea>
       </div>
-      <button id="btn-save-disease" class="w-full bg-blue-600 text-white text-sm font-semibold py-3.5 rounded-xl shadow-sm">未確認として追加</button>
+      <button id="btn-save-disease" class="w-full bg-blue-600 text-white text-sm font-semibold py-3.5 rounded-xl shadow-sm">${isEdit?'変更を保存':'未確認として追加'}</button>
     </div>`
 }
 
 function attachAddDisease() {
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', addDiseaseForm:null}))
+  const f = state.addDiseaseForm || {}
+  document.getElementById('btn-back')?.addEventListener('click', () => {
+    setState({screen: f._editId ? 'disease-detail' : 'list', addDiseaseForm:null})
+  })
+
+  // 画像追加
+  document.getElementById('lbl-add-img')?.addEventListener('click', () => document.getElementById('inp-img')?.click())
+  document.getElementById('inp-img')?.addEventListener('change', e => {
+    const files = [...e.target.files]
+    if (!files.length) return
+    const currentImgs = (state.addDiseaseForm||{}).images || []
+    let loaded = 0
+    const newImgs = [...currentImgs]
+    files.forEach(file => {
+      if (file.size > 3*1024*1024) { alert(`「${file.name}」は3MB以上のため追加できません`); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}); return }
+      const reader = new FileReader()
+      reader.onload = ev => { newImgs.push({dataUrl:ev.target.result,caption:''}); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}) }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  })
+  app.querySelectorAll('[data-del-img]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.delImg)
+    const imgs = [...((state.addDiseaseForm||{}).images||[])]
+    imgs.splice(idx,1)
+    setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:imgs}})
+  }))
 
   document.getElementById('btn-save-disease')?.addEventListener('click', () => {
     const name = document.getElementById('ad-name').value.trim()
     if (!name) { alert('疾患名を入力してください'); return }
 
-    const rawContent = document.getElementById('ad-content').value.trim()
     // 【見出し】でセクション分割
+    const rawContent = document.getElementById('ad-content').value.trim()
     const sections = []
     let current = null
     rawContent.split('\n').forEach(line => {
@@ -1524,8 +1809,15 @@ function attachAddDisease() {
     })
     if (current) sections.push(current)
 
+    // 画像キャプション収集
+    const images = (state.addDiseaseForm?.images||[]).map((img,i) => ({
+      dataUrl: img.dataUrl,
+      caption: (document.querySelector(`[data-img-cap="${i}"]`)?.value||'').trim()
+    }))
+
+    const editId = f._editId
     const disease = {
-      id: 'disease_' + Date.now(),
+      id: editId || 'disease_' + Date.now(),
       name,
       englishName: document.getElementById('ad-englishName').value.trim(),
       abbreviation: document.getElementById('ad-abbreviation').value.trim(),
@@ -1533,14 +1825,27 @@ function attachAddDisease() {
       tags: [],
       points: document.getElementById('ad-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
       sections,
-      relatedDrugIds: [],
+      relatedDrugIds: editId ? (getDiseaseById(editId)?.relatedDrugIds||[]) : [],
+      images,
       notes: document.getElementById('ad-notes').value.trim(),
     }
 
-    const pending = loadPendingDiseases()
-    pending.push(disease)
-    savePendingDiseases(pending)
-    setState({screen:'list', mainTab:'diseases', addDiseaseForm:null, diseaseCat:null})
+    if (editId) {
+      const custom = loadCustomDiseases()
+      const ci = custom.findIndex(d => d.id === editId)
+      if (ci >= 0) { custom[ci] = disease; saveCustomDiseases(custom) }
+      else {
+        const pend = loadPendingDiseases()
+        const pi = pend.findIndex(d => d.id === editId)
+        if (pi >= 0) { pend[pi] = disease; savePendingDiseases(pend) }
+      }
+      setState({screen:'disease-detail', diseaseId:editId, addDiseaseForm:null})
+    } else {
+      const pending = loadPendingDiseases()
+      pending.push(disease)
+      savePendingDiseases(pending)
+      setState({screen:'list', mainTab:'diseases', addDiseaseForm:null, diseaseCat:null})
+    }
   })
 }
 
