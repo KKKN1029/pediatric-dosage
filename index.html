@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>小児薬用量</title>
+  <title>Pocket Wiki</title>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="小児薬用量" />
+  <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <link rel="manifest" href="/manifest.json" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -41,6 +41,76 @@ const CATEGORIES = [
 // ============================================================
 
 const DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','その他']
+
+const IV_FLUID_TABLES = [
+  {
+    category: '細胞外液補充液',
+    notes: ['※1 グルコン酸 3mEq/L、クエン酸 6mEq/L、添加物に塩酸を含有', '※2 重炭酸 28mEq/L、クエン酸 4mEq/L'],
+    fluids: [
+      {name:'生理食塩液', volume:'-', Na:154, K:'-', Ca:'-', Mg:'-', Cl:154, glucose:'-'},
+      {name:'リンゲル液', volume:'-', Na:147, K:4, Ca:4.5, Mg:'-', Cl:'155.5', glucose:'-'},
+      {name:'ソルラクト（乳酸リンゲル）', volume:'250/500/1000', Na:131, K:4, Ca:3, Mg:'-', Cl:110, glucose:'-'},
+      {name:'ラクテックD（乳酸リンゲル）', volume:'500', Na:130, K:4, Ca:3, Mg:'-', Cl:109, glucose:5},
+      {name:'ソルラクトS（乳酸リンゲル）', volume:'250/500', Na:131, K:4, Ca:3, Mg:'-', Cl:110, glucose:5},
+      {name:'ソルアセトF（酢酸リンゲル）', volume:'500/1000', Na:131, K:4, Ca:3, Mg:'-', Cl:109, glucose:'-'},
+      {name:'フィジオ140（酢酸リンゲル）', volume:'250/500', Na:140, K:4, Ca:3, Mg:2, Cl:115, glucose:1},
+      {name:'ヴィーンD（酢酸リンゲル）', volume:'200/500', Na:130, K:4, Ca:3, Mg:'-', Cl:109, glucose:5},
+      {name:'ビカネイト（重炭酸リンゲル）', volume:'500/1000', Na:130, K:4, Ca:3, Mg:2, Cl:109, glucose:'-'},
+    ]
+  },
+  {
+    category: '糖液剤',
+    notes: [],
+    fluids: [
+      {name:'5%ブドウ糖液', volume:'-', Na:'-', K:'-', Ca:'-', Mg:'-', Cl:'-', glucose:5},
+      {name:'10%ブドウ糖液', volume:'-', Na:'-', K:'-', Ca:'-', Mg:'-', Cl:'-', glucose:10},
+    ]
+  },
+  {
+    category: '1号液［開始液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T1号', volume:'200/500', Na:90, K:'-', Ca:'-', Mg:'-', Cl:70, glucose:2.6},
+      {name:'ソルデム1', volume:'200/500', Na:90, K:'-', Ca:'-', Mg:'-', Cl:70, glucose:2.6},
+      {name:'リプラス1号', volume:'200/500', Na:'90.8', K:'-', Ca:'-', Mg:'-', Cl:'70.8', glucose:2.6},
+      {name:'KN1号', volume:'200/500', Na:77, K:'-', Ca:'-', Mg:'-', Cl:77, glucose:2.5},
+    ]
+  },
+  {
+    category: '2号液［脱水補給液］',
+    notes: ['※1 添加物としてL-乳酸 8mEq/Lを含む（乳酸濃度28mEq/L）', '※2 P 10mmol/L', '※3 P 6.5mmol/L'],
+    fluids: [
+      {name:'ソリタ-T2号', volume:'200/500', Na:84, K:20, Ca:'-', Mg:'-', Cl:'66', glucose:3.2},
+      {name:'ソルデム2', volume:'200/500', Na:'77.5', K:30, Ca:'-', Mg:'-', Cl:59, glucose:'1.45'},
+      {name:'KN2号', volume:'500', Na:60, K:25, Ca:'-', Mg:2, Cl:49, glucose:'2.35'},
+    ]
+  },
+  {
+    category: '3号液［維持液］',
+    notes: ['※1 P 8mmol/L', '※2 P 10mmol/L、グルコン酸 5mEq/L', '※3 P 10mmol/L、クエン酸 14mEq/L、Zn 5μmol/L'],
+    fluids: [
+      {name:'ソリタ-T3号', volume:'200/500', Na:35, K:20, Ca:'-', Mg:'-', Cl:35, glucose:4.3},
+      {name:'KN3号', volume:'200/500', Na:50, K:20, Ca:'-', Mg:'-', Cl:50, glucose:2.7},
+      {name:'EL-3号 ※1', volume:'500', Na:40, K:35, Ca:'-', Mg:'-', Cl:40, glucose:5},
+      {name:'ヴィーン3G', volume:'200/500', Na:45, K:17, Ca:'-', Mg:5, Cl:37, glucose:5},
+      {name:'リプラス3号', volume:'200/500', Na:40, K:20, Ca:'-', Mg:'-', Cl:40, glucose:5},
+      {name:'フィジオゾール3号', volume:'500', Na:35, K:20, Ca:'-', Mg:3, Cl:38, glucose:10},
+      {name:'ソリタ-T3号G', volume:'200/500', Na:35, K:20, Ca:'-', Mg:'-', Cl:35, glucose:7.5},
+      {name:'KNMG3号', volume:'500', Na:50, K:20, Ca:'-', Mg:'-', Cl:50, glucose:10},
+      {name:'フィジオ35 ※2', volume:'250/500', Na:35, K:20, Ca:5, Mg:3, Cl:28, glucose:10},
+      {name:'トリフリード ※3', volume:'500/1000', Na:35, K:20, Ca:5, Mg:5, Cl:35, glucose:'10.5'},
+    ]
+  },
+  {
+    category: '4号液［術後回復液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T4号', volume:'200/500', Na:30, K:20, Ca:'-', Mg:'-', Cl:22, glucose:4.3},
+      {name:'ソルデム4', volume:'200/500', Na:30, K:20, Ca:'-', Mg:'-', Cl:22, glucose:4.3},
+      {name:'KN4号', volume:'500', Na:30, K:20, Ca:'-', Mg:'-', Cl:28, glucose:4.3},
+    ]
+  },
+]
 
 const DISEASES = [
   // 疾患データは先生が追加・確認することで表示されます
@@ -233,6 +303,9 @@ const isBuiltinDrug = id => !!DRUGS.find(d => d.id === id)
 const loadUserCategories = () => { const s = LS.get('user_categories', 'null'); return s === null ? [...CATEGORIES] : s }
 const saveUserCategories = cats => LS.set('user_categories', cats)
 const getCategories = () => loadUserCategories()
+const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categories', 'null'); return s === null ? [...DISEASE_CATEGORIES] : s }
+const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
+const getDiseaseCategories = () => loadUserDiseaseCategories()
 
 // マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
 const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
@@ -354,8 +427,10 @@ let state = {
   query: '',
   favorites: new Set(LS.get('favorites','[]')),
   diseaseFavorites: new Set(LS.get('disease_favorites','[]')),
-  // タブ切り替え（薬剤 / 疾患）
+  // タブ切り替え（薬剤 / 疾患 / 輸液）
   mainTab: 'drugs',
+  ivSubTab: 'calc',
+  ivWeight: '',
   // 疾患
   diseaseCat: null,
   diseaseId: null,
@@ -406,6 +481,7 @@ function render() {
   else if (s==='manage-categories') { app.innerHTML=renderManageCategories(); attachManageCategories() }
   else if (s==='disease-detail') { app.innerHTML=renderDiseaseDetail(getDiseaseById(state.diseaseId)); attachDiseaseDetail() }
   else if (s==='add-disease')    { app.innerHTML=renderAddDisease(); attachAddDisease() }
+  else if (s==='manage-disease-categories') { app.innerHTML=renderManageDiseaseCategories(); attachManageDiseaseCategories() }
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -518,6 +594,129 @@ function diseaseListItem(d, showPendingBadge=false) {
   </button></li>`
 }
 
+function calcHolidaySegar(weight) {
+  if (!weight || weight <= 0) return null
+  const w = parseFloat(weight)
+  if (isNaN(w) || w <= 0) return null
+  let daily
+  if (w <= 10) { daily = w * 100 }
+  else if (w <= 20) { daily = 1000 + (w - 10) * 50 }
+  else { daily = 1500 + (w - 20) * 20 }
+  const hourly = daily / 24
+  return {
+    daily: Math.round(daily),
+    hourly: Math.round(hourly * 10) / 10,
+    na: Math.round(daily / 1000 * 30 * 10) / 10,
+    k: Math.round(daily / 1000 * 20 * 10) / 10,
+  }
+}
+
+function buildIVFluidsHTML() {
+  const sub = state.ivSubTab || 'calc'
+  const subTabs = `
+    <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+      ${[['calc','計算'],['list','製剤一覧']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+    </div>`
+
+  if (sub === 'calc') {
+    const result = calcHolidaySegar(state.ivWeight)
+    const mode = state.ivMode || 'daily'
+    const resultHtml = result ? `
+      <div class="bg-blue-50 rounded-xl p-4 space-y-2">
+        <div class="text-blue-800 font-bold text-2xl">${mode==='daily' ? result.daily + ' mL/日' : result.hourly + ' mL/時'}</div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="bg-white rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">Na補充量</div>
+            <div class="font-bold text-gray-800">${mode==='daily'?result.na:Math.round(result.na/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
+          </div>
+          <div class="bg-white rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">K補充量</div>
+            <div class="font-bold text-gray-800">${mode==='daily'?result.k:Math.round(result.k/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
+          </div>
+        </div>
+      </div>` : ''
+    return `${subTabs}
+      <div class="p-4 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-14 shrink-0">表示</label>
+            <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm flex-1">
+              <button data-iv-mode="daily" class="flex-1 py-2 font-medium transition-colors ${mode==='daily'?'bg-blue-600 text-white':'bg-white text-gray-500'}">1日毎</button>
+              <button data-iv-mode="hourly" class="flex-1 py-2 font-medium transition-colors ${mode==='hourly'?'bg-blue-600 text-white':'bg-white text-gray-500'}">1時間毎</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-14 shrink-0">体重</label>
+            <div class="flex-1 relative">
+              <input id="iv-weight" type="number" inputmode="decimal" value="${esc(state.ivWeight)}" placeholder="例: 15"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
+            </div>
+          </div>
+        </div>
+        ${resultHtml || (state.ivWeight ? '<div class="text-center text-gray-400 text-sm py-4">体重を正しく入力してください</div>' : '')}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">Holliday-Segar式（4-2-1ルール）</h3></div></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead><tr class="bg-gray-50 border-b border-gray-200">
+                <th class="px-3 py-2 text-left font-medium text-gray-600">体重</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">mL/日</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">mL/時</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">Na (mEq/L)</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">K (mEq/L)</th>
+              </tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">0〜10kg</td><td class="px-3 py-2 text-center">×100</td><td class="px-3 py-2 text-center">×4</td><td class="px-3 py-2 text-center" rowspan="3">30</td><td class="px-3 py-2 text-center" rowspan="3">20</td></tr>
+                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">11〜20kg</td><td class="px-3 py-2 text-center">1000+×50</td><td class="px-3 py-2 text-center">40+×2</td></tr>
+                <tr><td class="px-3 py-2 font-medium">20kg超</td><td class="px-3 py-2 text-center">1500+×20</td><td class="px-3 py-2 text-center">60+×1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で輸液管理を行ってください。</p></div>
+      </div>`
+  }
+
+  // 製剤一覧
+  const tableHtml = IV_FLUID_TABLES.map(section => {
+    const rows = section.fluids.map(f => `
+      <tr class="border-b border-gray-100 last:border-0">
+        <td class="px-2 py-2 text-xs font-medium text-gray-900 whitespace-nowrap">${esc(f.name)}</td>
+        <td class="px-2 py-2 text-xs text-gray-600 text-center whitespace-nowrap">${esc(String(f.volume))}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.Na!=='-'?'text-gray-800':'text-gray-300'}">${f.Na}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.K!=='-'?'text-gray-800':'text-gray-300'}">${f.K}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.Ca!=='-'?'text-gray-800':'text-gray-300'}">${f.Ca}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.Mg!=='-'?'text-gray-800':'text-gray-300'}">${f.Mg}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.Cl!=='-'?'text-gray-800':'text-gray-300'}">${f.Cl}</td>
+        <td class="px-2 py-2 text-xs text-center ${f.glucose!=='-'?'font-medium text-gray-800':'text-gray-300'}">${f.glucose}</td>
+      </tr>`).join('')
+    const notesHtml = section.notes.length > 0 ? `<div class="px-3 py-2 text-xs text-gray-500 leading-relaxed">${section.notes.map(n=>`<div>${esc(n)}</div>`).join('')}</div>` : ''
+    return `
+      <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+        <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">${esc(section.category)}</h3></div></div>
+        <div class="overflow-x-auto bg-white">
+          <table class="w-full text-xs border-collapse min-w-max">
+            <thead><tr class="bg-blue-50 border-b border-blue-100">
+              <th class="px-2 py-1.5 text-left font-medium text-gray-600 whitespace-nowrap">製品名</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600 whitespace-nowrap">容量</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">Na</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">K</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">Ca</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">Mg</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">Cl</th>
+              <th class="px-2 py-1.5 text-center font-medium text-gray-600">糖質%</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${notesHtml}
+      </div>`
+  }).join('')
+
+  return `${subTabs}<div class="p-4 space-y-4">${tableHtml}</div>`
+}
+
 function buildListBodyHTML(query) {
   const isSearch = query.trim()!==''
 
@@ -536,16 +735,23 @@ function buildListBodyHTML(query) {
     return `<main class="flex-1 overflow-y-auto bg-white">${drugSection}${diseaseSection}${empty}</main>`
   }
 
+  // ── 輸液タブ ─────────────────────────────────────────────
+  if (state.mainTab === 'ivfluids') {
+    return `<main class="flex-1 overflow-y-auto bg-white">${buildIVFluidsHTML()}</main>`
+  }
+
   // ── 疾患タブ ─────────────────────────────────────────────
   if (state.mainTab === 'diseases') {
     const pendingDiseases = getAllPendingDiseases()
     const isPendingDiseaseCat = state.diseaseCat === '__pending_diseases__'
+    const userDiseaseCats = getDiseaseCategories()
     const diseaseSidebar = [
-      ...DISEASE_CATEGORIES.map(cat =>
+      ...userDiseaseCats.map(cat =>
         `<button data-disease-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.diseaseCat===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`
       ),
       `<button data-disease-cat="__pending_diseases__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${isPendingDiseaseCat?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingDiseases.length>0?('<br><b class="text-orange-500">'+pendingDiseases.length+'</b>'):''}
 </button>`,
+      `<div class="flex justify-center py-1 border-t border-gray-100"><button id="btn-edit-disease-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button></div>`,
     ].join('')
 
     let diseaseList, headerTitle, headerColor
@@ -722,15 +928,32 @@ function attachListBody() {
     setState({screen:'add-disease'})
   })
   document.getElementById('btn-edit-cats')?.addEventListener('click', () => setState({screen:'manage-categories'}))
+  document.getElementById('btn-edit-disease-cats')?.addEventListener('click', () => setState({screen:'manage-disease-categories'}))
+  app.querySelectorAll('[data-iv-tab]').forEach(b => b.addEventListener('click', () => {
+    state.ivSubTab = b.dataset.ivTab
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  app.querySelectorAll('[data-iv-mode]').forEach(b => b.addEventListener('click', () => {
+    state.ivMode = b.dataset.ivMode
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  document.getElementById('iv-weight')?.addEventListener('input', e => {
+    state.ivWeight = e.target.value
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  })
 }
 
 function renderList() {
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
-      <h1 class="text-lg font-bold text-gray-900">小児薬用量</h1>
+      <h1 class="text-lg font-bold text-gray-900">Pocket Wiki</h1>
       <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
         <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">💊 薬剤</button>
         <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">🏥 疾患</button>
+        <button id="main-tab-iv" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='ivfluids'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">💧 輸液</button>
       </div>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
@@ -765,6 +988,11 @@ function attachList() {
     if (state.mainTab === 'diseases') return
     state.query = ''
     setState({mainTab:'diseases'})
+  })
+  document.getElementById('main-tab-iv')?.addEventListener('click', () => {
+    if (state.mainTab === 'ivfluids') return
+    state.query = ''
+    setState({mainTab:'ivfluids'})
   })
   attachListBody()
 }
@@ -1548,7 +1776,7 @@ function renderDiseaseDetail(disease) {
     <div class="grid grid-cols-2 gap-2">
       ${(disease.images).map((img,i) => `
         <div class="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-          <img src="${img.dataUrl}" alt="${esc(img.caption||'画像'+(i+1))}" class="w-full object-cover max-h-48" />
+          <img src="${img.dataUrl}" alt="${esc(img.caption||'画像'+(i+1))}" onclick="openLightbox(this.src)" class="w-full object-cover max-h-48 cursor-pointer" />
           ${img.caption ? `<p class="text-xs text-gray-500 px-2 py-1 truncate">${esc(img.caption)}</p>` : ''}
         </div>`).join('')}
     </div>` : ''
@@ -1862,6 +2090,73 @@ function attachAddDisease() {
   })
 }
 
+// ── 疾患カテゴリ管理画面 ──────────────────────────────────────
+
+function renderManageDiseaseCategories() {
+  const cats = getDiseaseCategories()
+  const catRows = cats.map((cat, i) => `
+    <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
+      <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-dis-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
+      <button data-dis-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
+      <button data-dis-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
+    </div>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">疾患カテゴリ管理</div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <p class="text-xs text-gray-500">疾患カテゴリの追加・削除・並び替えができます。</p>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">${catRows}</div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">新しいカテゴリを追加</label>
+        <div class="flex gap-2">
+          <input id="new-dis-cat-input" type="text" placeholder="例: 内分泌"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button id="btn-add-dis-cat" class="text-sm text-white bg-blue-600 px-3 py-2 rounded-lg font-medium shrink-0">追加</button>
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+        <p class="text-xs text-amber-700">カテゴリを削除しても疾患データは残ります。初期化で標準カテゴリに戻せます。</p>
+        <button id="btn-reset-dis-cats" class="text-xs text-amber-700 border border-amber-300 bg-white px-3 py-1.5 rounded-lg">初期化（標準に戻す）</button>
+      </div>
+    </div>`
+}
+
+function attachManageDiseaseCategories() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', mainTab:'diseases'}))
+  app.querySelectorAll('[data-dis-move-up]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disMoveUp); const cats = getDiseaseCategories(); if (i===0) return
+    const c=[...cats];[c[i-1],c[i]]=[c[i],c[i-1]]; saveUserDiseaseCategories(c); render()
+  }))
+  app.querySelectorAll('[data-dis-move-down]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disMoveDown); const cats = getDiseaseCategories(); if (i===cats.length-1) return
+    const c=[...cats];[c[i],c[i+1]]=[c[i+1],c[i]]; saveUserDiseaseCategories(c); render()
+  }))
+  app.querySelectorAll('[data-dis-delete-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disDeleteCat); const cats = getDiseaseCategories()
+    if (cats.length<=1) { alert('カテゴリは最低1つ必要です'); return }
+    if (!confirm(`「${cats[i]}」を削除しますか？`)) return
+    saveUserDiseaseCategories(cats.filter((_,idx)=>idx!==i)); render()
+  }))
+  document.getElementById('btn-add-dis-cat')?.addEventListener('click', () => {
+    const input = document.getElementById('new-dis-cat-input')
+    const name = input?.value?.trim()
+    if (!name) return
+    const cats = getDiseaseCategories()
+    if (cats.includes(name)) { alert('そのカテゴリはすでに存在します'); return }
+    saveUserDiseaseCategories([...cats, name]); render()
+  })
+  document.getElementById('btn-reset-dis-cats')?.addEventListener('click', () => {
+    if (!confirm('疾患カテゴリを標準に戻しますか？')) return
+    localStorage.removeItem('user_disease_categories'); render()
+  })
+}
+
 // ── カテゴリ管理画面 ──────────────────────────────────────────
 
 function renderManageCategories() {
@@ -1943,7 +2238,16 @@ function attachManageCategories() {
   })
 }
 
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox')
+  document.getElementById('lightbox-img').src = src
+  lb.style.display = 'flex'
+}
+
 render()
 </script>
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;" onclick="document.getElementById('lightbox').style.display='none'">
+  <img id="lightbox-img" style="max-width:100%;max-height:100%;object-fit:contain;padding:16px;" />
+</div>
 </body>
 </html>
