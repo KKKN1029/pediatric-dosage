@@ -610,6 +610,15 @@ function diseaseListItem(d, showPendingBadge=false) {
   </button></li>`
 }
 
+// IV fluid overrides stored in localStorage
+function getIVOverrides() { return LS.get('iv_fluid_overrides', '{}') }
+function getFluidVal(fluid, field) {
+  const ov = getIVOverrides()
+  if (ov[fluid.name] && ov[fluid.name][field] !== undefined) return String(ov[fluid.name][field])
+  const v = fluid[field]
+  return (v === undefined || v === null) ? '-' : String(v)
+}
+
 function calcHolidaySegar(weight) {
   if (!weight || weight <= 0) return null
   const w = parseFloat(weight)
@@ -761,13 +770,11 @@ function buildIVFluidsHTML() {
                 <th class="px-3 py-2 text-left font-medium text-gray-600">体重</th>
                 <th class="px-3 py-2 text-center font-medium text-gray-600">mL/日</th>
                 <th class="px-3 py-2 text-center font-medium text-gray-600">mL/時</th>
-                <th class="px-3 py-2 text-center font-medium text-gray-600">Na (mEq/L)</th>
-                <th class="px-3 py-2 text-center font-medium text-gray-600">K (mEq/L)</th>
               </tr></thead>
               <tbody>
-                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">0〜10kg</td><td class="px-3 py-2 text-center">×100</td><td class="px-3 py-2 text-center">×4</td><td class="px-3 py-2 text-center" rowspan="3">30</td><td class="px-3 py-2 text-center" rowspan="3">20</td></tr>
+                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">0〜10kg</td><td class="px-3 py-2 text-center">×100</td><td class="px-3 py-2 text-center">×4</td></tr>
                 <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">11〜20kg</td><td class="px-3 py-2 text-center">1000+×50</td><td class="px-3 py-2 text-center">40+×2</td></tr>
-                <tr><td class="px-3 py-2 font-medium">20kg超</td><td class="px-3 py-2 text-center">1500+×20</td><td class="px-3 py-2 text-center">60+×1</td></tr>
+                <tr><td class="px-3 py-2 font-medium">20kg&lt;</td><td class="px-3 py-2 text-center">1500+×20</td><td class="px-3 py-2 text-center">60+×1</td></tr>
               </tbody>
             </table>
           </div>
@@ -779,20 +786,16 @@ function buildIVFluidsHTML() {
   // 製剤一覧
   const tableHtml = IV_FLUID_TABLES.map(section => {
     const rows = section.fluids.map(f => {
-      const la = f.lactate??'-', ac = f.acetate??'-', ph = f.phosphate??'-'
+      const ec = (field, extra='') => {
+        const v = getFluidVal(f, field)
+        const empty = v === '-'
+        return `<td data-iv-edit data-iv-fluid="${esc(f.name)}" data-iv-field="${field}" data-iv-val="${esc(v)}"
+          class="px-2 py-2 text-xs text-center cursor-pointer active:bg-blue-50 ${empty?'text-gray-300':'text-gray-800'} ${extra}">${v}</td>`
+      }
       return `
       <tr class="border-b border-gray-100 last:border-0">
         <td class="px-2 py-2 text-xs font-medium text-gray-900 whitespace-nowrap">${esc(f.name)}</td>
-        <td class="px-2 py-2 text-xs text-gray-600 text-center whitespace-nowrap">${esc(String(f.volume))}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.Na!=='-'?'text-gray-800':'text-gray-300'}">${f.Na}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.K!=='-'?'text-gray-800':'text-gray-300'}">${f.K}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.Ca!=='-'?'text-gray-800':'text-gray-300'}">${f.Ca}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.Mg!=='-'?'text-gray-800':'text-gray-300'}">${f.Mg}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.Cl!=='-'?'text-gray-800':'text-gray-300'}">${f.Cl}</td>
-        <td class="px-2 py-2 text-xs text-center ${la!=='-'?'text-gray-800':'text-gray-300'}">${la}</td>
-        <td class="px-2 py-2 text-xs text-center ${ac!=='-'?'text-gray-800':'text-gray-300'}">${ac}</td>
-        <td class="px-2 py-2 text-xs text-center ${ph!=='-'?'text-gray-800':'text-gray-300'}">${ph}</td>
-        <td class="px-2 py-2 text-xs text-center ${f.glucose!=='-'?'font-medium text-gray-800':'text-gray-300'}">${f.glucose}</td>
+        ${ec('Na')}${ec('K')}${ec('Ca')}${ec('Mg')}${ec('Cl')}${ec('lactate')}${ec('acetate')}${ec('phosphate')}${ec('glucose','font-medium')}
       </tr>`}).join('')
     const notesHtml = section.notes.length > 0 ? `<div class="px-3 py-2 text-xs text-gray-500 leading-relaxed">${section.notes.map(n=>`<div>${esc(n)}</div>`).join('')}</div>` : ''
     return `
@@ -803,7 +806,6 @@ function buildIVFluidsHTML() {
             <thead>
               <tr class="bg-blue-50 border-b border-blue-100">
                 <th class="px-2 py-1 text-left font-medium text-gray-600 whitespace-nowrap" rowspan="2">製品名</th>
-                <th class="px-2 py-1 text-center font-medium text-gray-600 whitespace-nowrap" rowspan="2">容量<br/><span class="font-normal text-xs">(mL)</span></th>
                 <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs" colspan="8">電解質 (mEq/L)</th>
                 <th class="px-2 py-1 text-center font-medium text-gray-600 whitespace-nowrap" rowspan="2">糖質<br/><span class="font-normal text-xs">(%)</span></th>
               </tr>
@@ -815,7 +817,7 @@ function buildIVFluidsHTML() {
                 <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs">Cl</th>
                 <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs">乳酸</th>
                 <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs">酢酸</th>
-                <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs">燐酸</th>
+                <th class="px-2 py-1 text-center font-medium text-gray-600 text-xs">リン酸</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -1070,6 +1072,67 @@ function attachListBody() {
     const listBody = document.getElementById('list-body')
     if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
   }))
+  // IV 製剤一覧 セル編集
+  app.querySelectorAll('[data-iv-edit]').forEach(td => {
+    td.addEventListener('click', () => {
+      const fluidName = td.dataset.ivFluid
+      const field = td.dataset.ivField
+      const value = td.dataset.ivVal
+      const fieldLabels = {Na:'Na',K:'K',Ca:'Ca',Mg:'Mg',Cl:'Cl',lactate:'乳酸',acetate:'酢酸',phosphate:'リン酸',glucose:'糖質(%)'}
+      const existing = document.getElementById('iv-edit-overlay')
+      if (existing) existing.remove()
+      const modal = document.createElement('div')
+      modal.id = 'iv-edit-overlay'
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:flex-end;justify-content:center'
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:1.25rem 1.25rem 0 0;width:100%;max-width:32rem;padding:1.5rem;box-shadow:0 -4px 24px rgba(0,0,0,.15)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+            <span style="font-size:.875rem;font-weight:700;color:#111">${esc(fluidName)}</span>
+            <span style="font-size:.75rem;color:#6b7280;background:#f3f4f6;padding:.2rem .6rem;border-radius:.5rem">${fieldLabels[field]||field}</span>
+          </div>
+          <input id="iv-edit-input" type="number" inputmode="decimal"
+            value="${value !== '-' ? value : ''}"
+            placeholder="${value !== '-' ? value : '数値を入力'}"
+            style="width:100%;border:2px solid #e5e7eb;border-radius:.75rem;padding:.75rem 1rem;font-size:1.5rem;text-align:center;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:1rem"
+            onfocus="this.style.borderColor='#2563eb'"
+            onblur="this.style.borderColor='#e5e7eb'" />
+          <div style="display:flex;gap:.75rem">
+            <button id="iv-edit-reset" style="padding:.75rem 1rem;border-radius:.75rem;background:#f3f4f6;color:#6b7280;font-size:.875rem;font-weight:600;border:none;cursor:pointer">リセット</button>
+            <button id="iv-edit-cancel" style="flex:1;padding:.75rem;border-radius:.75rem;border:1.5px solid #e5e7eb;background:#fff;color:#374151;font-weight:600;cursor:pointer">キャンセル</button>
+            <button id="iv-edit-save" style="flex:1;padding:.75rem;border-radius:.75rem;background:#2563eb;color:#fff;font-weight:600;border:none;cursor:pointer">保存</button>
+          </div>
+        </div>`
+      document.body.appendChild(modal)
+      setTimeout(() => { const inp = document.getElementById('iv-edit-input'); inp?.focus(); inp?.select() }, 60)
+      const closeModal = () => modal.remove()
+      document.getElementById('iv-edit-cancel').onclick = closeModal
+      modal.addEventListener('click', e => { if (e.target === modal) closeModal() })
+      document.getElementById('iv-edit-reset').onclick = () => {
+        const ov = getIVOverrides()
+        if (ov[fluidName]) { delete ov[fluidName][field]; if (!Object.keys(ov[fluidName]).length) delete ov[fluidName] }
+        LS.set('iv_fluid_overrides', ov)
+        closeModal()
+        const main = document.querySelector('main.flex-1.overflow-y-auto'); const st = main?.scrollTop||0
+        const listBody = document.getElementById('list-body')
+        if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+        setTimeout(()=>{ const m=document.querySelector('main.flex-1.overflow-y-auto'); if(m) m.scrollTop=st }, 0)
+      }
+      document.getElementById('iv-edit-save').onclick = () => {
+        const rawVal = document.getElementById('iv-edit-input')?.value?.trim()
+        const ov = getIVOverrides()
+        if (!ov[fluidName]) ov[fluidName] = {}
+        if (rawVal === '' || rawVal === undefined) { ov[fluidName][field] = '-' }
+        else { const num = parseFloat(rawVal); ov[fluidName][field] = isNaN(num) ? rawVal : num }
+        LS.set('iv_fluid_overrides', ov)
+        closeModal()
+        // Update cell in-place without scroll reset
+        td.dataset.ivVal = String(ov[fluidName][field])
+        td.textContent = String(ov[fluidName][field])
+        const isEmpty = String(ov[fluidName][field]) === '-'
+        td.className = td.className.replace(isEmpty ? 'text-gray-800' : 'text-gray-300', isEmpty ? 'text-gray-300' : 'text-gray-800')
+      }
+    })
+  })
 }
 
 function renderList() {
