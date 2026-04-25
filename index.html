@@ -431,6 +431,9 @@ let state = {
   mainTab: 'drugs',
   ivSubTab: 'calc',
   ivWeight: '',
+  ivMode: 'daily',
+  girWeight: '', girGlucose: '', girRate: '', girTargetGir: '', girMode: 'forward',
+  noteContent: LS.get('user_note', ''),
   // 疾患
   diseaseCat: null,
   diseaseId: null,
@@ -456,6 +459,17 @@ function toggleFav(id) {
   const f=new Set(state.favorites); f.has(id)?f.delete(id):f.add(id)
   LS.set('favorites',[...f]); setState({favorites:f})
 }
+// ============================================================
+// SVGアイコン
+// ============================================================
+const ICON = {
+  medicine: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2A3.5 3.5 0 0 0 3 5.5v5A3.5 3.5 0 0 0 10 10.5v-5A3.5 3.5 0 0 0 6.5 2z"/><line x1="3" y1="8" x2="10" y2="8"/><circle cx="17.5" cy="7" r="3.5"/><line x1="14.2" y1="7" x2="20.8" y2="7"/><circle cx="15" cy="17" r="3"/><line x1="12.3" y1="17" x2="17.7" y2="17"/></svg>`,
+  pathogen: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="7"/><circle cx="12" cy="2" r="1" fill="currentColor" stroke="none"/><line x1="12" y1="17" x2="12" y2="22"/><circle cx="12" cy="22" r="1" fill="currentColor" stroke="none"/><line x1="2" y1="12" x2="7" y2="12"/><circle cx="2" cy="12" r="1" fill="currentColor" stroke="none"/><line x1="17" y1="12" x2="22" y2="12"/><circle cx="22" cy="12" r="1" fill="currentColor" stroke="none"/><line x1="5.6" y1="5.6" x2="9" y2="9"/><circle cx="4.9" cy="4.9" r="1" fill="currentColor" stroke="none"/><line x1="15" y1="15" x2="18.4" y2="18.4"/><circle cx="19.1" cy="19.1" r="1" fill="currentColor" stroke="none"/><line x1="18.4" y1="5.6" x2="15" y2="9"/><circle cx="19.1" cy="4.9" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="15" x2="5.6" y2="18.4"/><circle cx="4.9" cy="19.1" r="1" fill="currentColor" stroke="none"/></svg>`,
+  ivDrip: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M8 3c0 0-3 2-3 6v5a5 5 0 0 0 10 0V9c0-4-3-6-3-6"/><circle cx="9.5" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="9.5" r="1" fill="currentColor" stroke="none"/><path d="M10 13.5q2 1.5 4 0" stroke-width="1.5"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="18" x2="14" y2="18"/><line x1="12" y1="18" x2="12" y2="21"/><circle cx="12" cy="21.5" r="0.7" fill="currentColor" stroke="none"/></svg>`,
+  notebook: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="15" height="20" rx="2"/><path d="M18 2h3v20h-3"/><line x1="7" y1="7" x2="14" y2="7"/><line x1="7" y1="11" x2="14" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/><line x1="18" y1="7" x2="21" y2="7"/><line x1="18" y1="11" x2="21" y2="11"/><line x1="18" y1="15" x2="21" y2="15"/></svg>`,
+  star: (f=false)=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+}
+
 function toggleDiseaseFav(id) {
   const f=new Set(state.diseaseFavorites); f.has(id)?f.delete(id):f.add(id)
   LS.set('disease_favorites',[...f]); setState({diseaseFavorites:f})
@@ -611,6 +625,17 @@ function calcHolidaySegar(weight) {
   }
 }
 
+function calcGIR(glc, rate, weight) {
+  const g = parseFloat(glc), r = parseFloat(rate), w = parseFloat(weight)
+  if (!g || !r || !w || g<=0 || r<=0 || w<=0) return null
+  return Math.round(g * 10 * r / (w * 60) * 100) / 100
+}
+function calcGIRRate(gir, glc, weight) {
+  const t = parseFloat(gir), g = parseFloat(glc), w = parseFloat(weight)
+  if (!t || !g || !w || t<=0 || g<=0 || w<=0) return null
+  return Math.round(t * w * 60 / (g * 10) * 10) / 10
+}
+
 function buildIVCalcResultHTML() {
   const result = calcHolidaySegar(state.ivWeight)
   const mode = state.ivMode || 'daily'
@@ -637,8 +662,70 @@ function buildIVFluidsHTML() {
   const sub = state.ivSubTab || 'calc'
   const subTabs = `
     <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
-      ${[['calc','計算'],['list','製剤一覧']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      ${[['calc','計算'],['gir','GIR'],['list','製剤一覧']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
     </div>`
+
+  if (sub === 'gir') {
+    const gm = state.girMode || 'forward'
+    const girResult = gm==='forward' ? calcGIR(state.girGlucose, state.girRate, state.girWeight) : calcGIRRate(state.girTargetGir, state.girGlucose, state.girWeight)
+    const resultHtml = girResult !== null ? `
+      <div class="bg-blue-50 rounded-xl p-4 text-center">
+        <div class="text-xs text-gray-500 mb-1">${gm==='forward'?'GIR':'投与速度'}</div>
+        <div class="text-blue-800 font-bold text-3xl">${girResult}</div>
+        <div class="text-sm text-blue-600 mt-1">${gm==='forward'?'mg/kg/min':'mL/時'}</div>
+      </div>` : `<div class="text-center text-gray-400 text-sm py-4">値を入力してください</div>`
+    return `${subTabs}
+      <div class="p-4 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+          <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
+            <button data-gir-mode="forward" class="flex-1 py-2 font-medium transition-colors ${gm==='forward'?'bg-blue-600 text-white':'bg-white text-gray-500'}">GIR計算</button>
+            <button data-gir-mode="reverse" class="flex-1 py-2 font-medium transition-colors ${gm==='reverse'?'bg-blue-600 text-white':'bg-white text-gray-500'}">速度計算</button>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">体重</label>
+            <div class="flex-1 relative">
+              <input id="gir-weight" type="number" inputmode="decimal" value="${esc(state.girWeight)}" placeholder="例: 10"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">糖濃度</label>
+            <div class="flex-1 relative">
+              <input id="gir-glucose" type="number" inputmode="decimal" value="${esc(state.girGlucose)}" placeholder="例: 10"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
+            </div>
+          </div>
+          ${gm==='forward' ? `
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">投与速度</label>
+            <div class="flex-1 relative">
+              <input id="gir-rate" type="number" inputmode="decimal" value="${esc(state.girRate)}" placeholder="例: 5"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-14" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">mL/時</span>
+            </div>
+          </div>` : `
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">目標GIR</label>
+            <div class="flex-1 relative">
+              <input id="gir-target" type="number" inputmode="decimal" value="${esc(state.girTargetGir)}" placeholder="例: 6"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-24" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">mg/kg/min</span>
+            </div>
+          </div>`}
+        </div>
+        <div id="gir-result">${resultHtml}</div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">GIR計算式</h3></div></div>
+          <div class="px-4 py-3 text-xs text-gray-700 space-y-1.5">
+            <div class="font-mono bg-gray-50 rounded p-2 text-center text-sm">GIR = 糖濃度(%) × 10 × 速度(mL/時) ÷ (体重(kg) × 60)</div>
+            <div class="text-gray-500">単位: mg/kg/min　目標GIR: 新生児 4〜8、乳幼児 3〜5 mg/kg/min</div>
+          </div>
+        </div>
+        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で輸液管理を行ってください。</p></div>
+      </div>`
+  }
 
   if (sub === 'calc') {
     const mode = state.ivMode || 'daily'
@@ -759,6 +846,18 @@ function buildListBodyHTML(query) {
   if (state.mainTab === 'ivfluids') {
     return `<main class="flex-1 overflow-y-auto bg-white">${buildIVFluidsHTML()}</main>`
   }
+  if (state.mainTab === 'notes') {
+    return `<main class="flex-1 overflow-y-auto bg-white p-4">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-gray-700">メモ</h2>
+          <button id="btn-clear-note" class="text-xs text-gray-400 border border-gray-200 rounded px-2 py-0.5">クリア</button>
+        </div>
+        <textarea id="note-textarea" rows="20" placeholder="自由にメモを入力できます..."
+          class="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none leading-relaxed">${esc(state.noteContent)}</textarea>
+      </div>
+    </main>`
+  }
 
   // ── 疾患タブ ─────────────────────────────────────────────
   if (state.mainTab === 'diseases') {
@@ -808,7 +907,7 @@ function buildListBodyHTML(query) {
   const userCats = getCategories()
 
   const sidebarItems = [
-    `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">⭐️<br>お気に入り</button>`,
+    `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors flex flex-col items-center gap-0.5 ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${ICON.star(state.category==='__favorites__')}<span>お気に入り</span></button>`,
     `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">📋<br>セット</button>`,
     ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
     `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
@@ -964,6 +1063,34 @@ function attachListBody() {
     const resultDiv = document.getElementById('iv-calc-result')
     if (resultDiv) resultDiv.innerHTML = buildIVCalcResultHTML()
   })
+  // GIR inputs
+  const updateGIR = () => {
+    const d = document.getElementById('gir-result')
+    if (!d) return
+    const gm = state.girMode || 'forward'
+    const r = gm==='forward' ? calcGIR(state.girGlucose, state.girRate, state.girWeight) : calcGIRRate(state.girTargetGir, state.girGlucose, state.girWeight)
+    d.innerHTML = r !== null ? `<div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-xs text-gray-500 mb-1">${gm==='forward'?'GIR':'投与速度'}</div><div class="text-blue-800 font-bold text-3xl">${r}</div><div class="text-sm text-blue-600 mt-1">${gm==='forward'?'mg/kg/min':'mL/時'}</div></div>` : `<div class="text-center text-gray-400 text-sm py-4">値を入力してください</div>`
+  }
+  document.getElementById('gir-weight')?.addEventListener('input', e=>{state.girWeight=e.target.value; updateGIR()})
+  document.getElementById('gir-glucose')?.addEventListener('input', e=>{state.girGlucose=e.target.value; updateGIR()})
+  document.getElementById('gir-rate')?.addEventListener('input', e=>{state.girRate=e.target.value; updateGIR()})
+  document.getElementById('gir-target')?.addEventListener('input', e=>{state.girTargetGir=e.target.value; updateGIR()})
+  app.querySelectorAll('[data-gir-mode]').forEach(b=>b.addEventListener('click', ()=>{
+    state.girMode = b.dataset.girMode
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  // Note textarea
+  document.getElementById('note-textarea')?.addEventListener('input', e=>{
+    state.noteContent = e.target.value
+    LS.set('user_note', state.noteContent)
+  })
+  document.getElementById('btn-clear-note')?.addEventListener('click', ()=>{
+    if (!confirm('メモをクリアしますか？')) return
+    state.noteContent = ''; LS.set('user_note', '')
+    const ta = document.getElementById('note-textarea')
+    if (ta) ta.value = ''
+  })
 }
 
 function renderList() {
@@ -971,9 +1098,10 @@ function renderList() {
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
       <h1 class="text-lg font-bold text-gray-900">Pocket Wiki</h1>
       <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
-        <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">💊 薬剤</button>
-        <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">🏥 疾患</button>
-        <button id="main-tab-iv" class="flex-1 py-1.5 font-medium transition-colors ${state.mainTab==='ivfluids'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">💧 輸液</button>
+        <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.medicine}<span class="text-xs leading-none">薬剤</span></button>
+        <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.pathogen}<span class="text-xs leading-none">疾患</span></button>
+        <button id="main-tab-iv" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='ivfluids'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.ivDrip}<span class="text-xs leading-none">輸液</span></button>
+        <button id="main-tab-notes" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='notes'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.notebook}<span class="text-xs leading-none">ノート</span></button>
       </div>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
@@ -1013,6 +1141,10 @@ function attachList() {
     if (state.mainTab === 'ivfluids') return
     state.query = ''
     setState({mainTab:'ivfluids'})
+  })
+  document.getElementById('main-tab-notes')?.addEventListener('click', () => {
+    if (state.mainTab === 'notes') return
+    setState({mainTab:'notes'})
   })
   attachListBody()
 }
@@ -1072,7 +1204,7 @@ function renderDetail(drug) {
           <div class="font-bold text-gray-900 text-base leading-tight truncate">${esc(drug.genericName)}</div>
           ${drug.abbreviation?`<div class="text-xs text-gray-500">${esc(drug.abbreviation)}（${drug.brandNames.map(b=>b+'®').join('・')}）</div>`:''}
         </div>
-        <button id="btn-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-400'}">${isFav?'★':'☆'}</button>
+        <button id="btn-fav" class="w-8 shrink-0 flex items-center justify-center ${isFav?'text-yellow-400':'text-gray-400'}">${ICON.star(isFav)}</button>
         <button id="btn-delete-drug" class="text-xl w-8 shrink-0 text-gray-300 hover:text-red-400 transition-colors">🗑</button>
       </div>
       <div class="flex mt-3 border-b border-gray-200 -mb-px">
@@ -1864,7 +1996,7 @@ function renderDiseaseDetail(disease) {
           ${disease.englishName||disease.abbreviation
             ? `<div class="text-xs text-gray-500">${esc(disease.englishName||'')}${disease.abbreviation?' ('+disease.abbreviation+')':''}</div>` : ''}
         </div>
-        <button id="btn-dis-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-400'}">${isFav?'★':'☆'}</button>
+        <button id="btn-dis-fav" class="w-8 shrink-0 flex items-center justify-center ${isFav?'text-yellow-400':'text-gray-400'}">${ICON.star(isFav)}</button>
       </div>
       ${isPending ? '<div class="mt-1 text-center"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">未確認</span></div>' : ''}
     </div>
