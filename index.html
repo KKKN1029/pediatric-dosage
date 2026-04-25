@@ -497,29 +497,25 @@ function filteredDoses(drug) {
 // ── リスト画面 ────────────────────────────────────────────
 
 function drugListItem(d) {
-  return `<li class="flex items-center border-b border-gray-100">
-    <button data-drug="${d.id}" class="flex-1 flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 min-w-0">
-      <div class="flex-1 min-w-0">
-        <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
-        <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
-      </div>
-    </button>
-    <button data-fav="${d.id}" class="text-xl shrink-0 px-3 py-3 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
-  </li>`
+  return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+      <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
+    </div>
+    ${state.favorites.has(d.id)?'<span class="text-yellow-400 text-base shrink-0">★</span>':'<span class="text-gray-200 text-base shrink-0">›</span>'}
+  </button></li>`
 }
 function diseaseListItem(d, showPendingBadge=false) {
-  return `<li class="flex items-center border-b border-gray-100">
-    <button data-disease="${d.id}" class="flex-1 flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 min-w-0">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
-          ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
-        </div>
-        <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
+  return `<li><button data-disease="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1.5">
+        <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
+        ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
       </div>
-    </button>
-    <button data-dis-fav="${d.id}" class="text-xl shrink-0 px-3 py-3 ${state.diseaseFavorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
-  </li>`
+      <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
+    </div>
+    ${state.diseaseFavorites.has(d.id)?'<span class="text-yellow-400 text-base shrink-0">★</span>':'<span class="text-gray-200 text-base shrink-0">›</span>'}
+  </button></li>`
 }
 
 function buildListBodyHTML(query) {
@@ -660,12 +656,9 @@ function attachListBody() {
     state.query = ''
     setState({category:b.dataset.cat})
   }))
-  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', e => {
-    if (e.target.closest('[data-fav]')) return
+  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
   }))
-  app.querySelectorAll('[data-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleFav(b.dataset.fav) }))
-  app.querySelectorAll('[data-dis-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleDiseaseFav(b.dataset.disFav) }))
   app.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', e => {
     if (e.target.closest('[data-del-set]')) return
     setState({screen:'set-detail', setId:b.dataset.set, weight:'', age:'', ageUnit:'years'})
