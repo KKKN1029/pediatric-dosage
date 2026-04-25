@@ -53,7 +53,7 @@ const IV_FLUID_TABLES = [
       {name:'ラクテックD（乳酸リンゲル）', volume:'500', Na:130, K:4, Ca:3, Mg:'-', Cl:109, lactate:28, acetate:'-', phosphate:'-', glucose:5},
       {name:'ソルラクトS（乳酸リンゲル）', volume:'250/500', Na:131, K:4, Ca:3, Mg:'-', Cl:110, lactate:28, acetate:'-', phosphate:'-', glucose:5},
       {name:'ソルアセトF（酢酸リンゲル）', volume:'500/1000', Na:131, K:4, Ca:3, Mg:'-', Cl:109, lactate:'-', acetate:28, phosphate:'-', glucose:'-'},
-      {name:'フィジオ140（酢酸リンゲル）', volume:'250/500', Na:140, K:4, Ca:3, Mg:2, Cl:115, lactate:'-', acetate:27, phosphate:'-', glucose:1},
+      {name:'フィジオ140（酢酸リンゲル）※1', volume:'250/500', Na:140, K:4, Ca:3, Mg:2, Cl:115, lactate:'-', acetate:25, phosphate:'-', glucose:1},
       {name:'ヴィーンD（酢酸リンゲル）', volume:'200/500', Na:130, K:4, Ca:3, Mg:'-', Cl:109, lactate:'-', acetate:28, phosphate:'-', glucose:5},
       {name:'ビカネイト（重炭酸リンゲル）※2', volume:'500/1000', Na:130, K:4, Ca:3, Mg:2, Cl:109, lactate:'-', acetate:'-', phosphate:'-', glucose:'-'},
     ]
@@ -71,8 +71,8 @@ const IV_FLUID_TABLES = [
     notes: [],
     fluids: [
       {name:'ソリタ-T1号', volume:'200/500', Na:90, K:'-', Ca:'-', Mg:'-', Cl:70, lactate:20, acetate:'-', phosphate:'-', glucose:2.6},
-      {name:'ソルデム1', volume:'200/500', Na:90, K:'-', Ca:'-', Mg:'-', Cl:70, lactate:'-', acetate:20, phosphate:'-', glucose:2.6},
-      {name:'リプラス1号', volume:'200/500', Na:'90.8', K:'-', Ca:'-', Mg:'-', Cl:'70.8', lactate:'-', acetate:20, phosphate:'-', glucose:2.6},
+      {name:'ソルデム1', volume:'200/500', Na:90, K:'-', Ca:'-', Mg:'-', Cl:70, lactate:20, acetate:'-', phosphate:'-', glucose:2.6},
+      {name:'リプラス1号', volume:'200/500', Na:'90.8', K:'-', Ca:'-', Mg:'-', Cl:'70.8', lactate:20, acetate:'-', phosphate:'-', glucose:2.6},
       {name:'KN1号', volume:'200/500', Na:77, K:'-', Ca:'-', Mg:'-', Cl:77, lactate:'-', acetate:'-', phosphate:'-', glucose:2.5},
     ]
   },
@@ -80,9 +80,9 @@ const IV_FLUID_TABLES = [
     category: '2号液［脱水補給液］',
     notes: ['※1 添加物としてL-乳酸 8mEq/Lを含む（乳酸濃度28mEq/L）', '※2 P 10mmol/L', '※3 P 6.5mmol/L'],
     fluids: [
-      {name:'ソリタ-T2号 ※1', volume:'200/500', Na:84, K:20, Ca:'-', Mg:'-', Cl:66, lactate:28, acetate:'-', phosphate:'-', glucose:3.2},
-      {name:'ソルデム2', volume:'200/500', Na:'77.5', K:30, Ca:'-', Mg:'-', Cl:59, lactate:'-', acetate:'-', phosphate:'-', glucose:'1.45'},
-      {name:'KN2号', volume:'500', Na:60, K:25, Ca:'-', Mg:2, Cl:49, lactate:'-', acetate:'-', phosphate:'-', glucose:'2.35'},
+      {name:'ソリタ-T2号 ※1', volume:'200/500', Na:84, K:20, Ca:'-', Mg:'-', Cl:66, lactate:20, acetate:'※2', phosphate:'-', glucose:3.2},
+      {name:'ソルデム2 ※2', volume:'200/500', Na:'77.5', K:30, Ca:'-', Mg:'-', Cl:59, lactate:'48.5', acetate:'-', phosphate:'-', glucose:'1.45'},
+      {name:'KN2号 ※3', volume:'500', Na:60, K:25, Ca:'-', Mg:2, Cl:49, lactate:25, acetate:'※3', phosphate:'-', glucose:'2.35'},
     ]
   },
   {
@@ -610,14 +610,6 @@ function diseaseListItem(d, showPendingBadge=false) {
   </button></li>`
 }
 
-// IV fluid overrides stored in localStorage
-function getIVOverrides() { return LS.get('iv_fluid_overrides', '{}') }
-function getFluidVal(fluid, field) {
-  const ov = getIVOverrides()
-  if (ov[fluid.name] && ov[fluid.name][field] !== undefined) return String(ov[fluid.name][field])
-  const v = fluid[field]
-  return (v === undefined || v === null) ? '-' : String(v)
-}
 
 function calcHolidaySegar(weight) {
   if (!weight || weight <= 0) return null
@@ -786,16 +778,15 @@ function buildIVFluidsHTML() {
   // 製剤一覧
   const tableHtml = IV_FLUID_TABLES.map(section => {
     const rows = section.fluids.map(f => {
-      const ec = (field, extra='') => {
-        const v = getFluidVal(f, field)
-        const empty = v === '-'
-        return `<td data-iv-edit data-iv-fluid="${esc(f.name)}" data-iv-field="${field}" data-iv-val="${esc(v)}"
-          class="px-2 py-2 text-xs text-center cursor-pointer active:bg-blue-50 ${empty?'text-gray-300':'text-gray-800'} ${extra}">${v}</td>`
+      const cv = (v, extra='') => {
+        const s = (v === undefined || v === null) ? '-' : String(v)
+        const empty = s === '-'
+        return `<td class="px-2 py-2 text-xs text-center ${empty?'text-gray-300':'text-gray-800'} ${extra}">${s}</td>`
       }
       return `
       <tr class="border-b border-gray-100 last:border-0">
         <td class="px-2 py-2 text-xs font-medium text-gray-900 whitespace-nowrap">${esc(f.name)}</td>
-        ${ec('Na')}${ec('K')}${ec('Ca')}${ec('Mg')}${ec('Cl')}${ec('lactate')}${ec('acetate')}${ec('phosphate')}${ec('glucose','font-medium')}
+        ${cv(f.Na)}${cv(f.K)}${cv(f.Ca)}${cv(f.Mg)}${cv(f.Cl)}${cv(f.lactate)}${cv(f.acetate)}${cv(f.phosphate)}${cv(f.glucose,'font-medium')}
       </tr>`}).join('')
     const notesHtml = section.notes.length > 0 ? `<div class="px-3 py-2 text-xs text-gray-500 leading-relaxed">${section.notes.map(n=>`<div>${esc(n)}</div>`).join('')}</div>` : ''
     return `
@@ -1072,67 +1063,6 @@ function attachListBody() {
     const listBody = document.getElementById('list-body')
     if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
   }))
-  // IV 製剤一覧 セル編集
-  app.querySelectorAll('[data-iv-edit]').forEach(td => {
-    td.addEventListener('click', () => {
-      const fluidName = td.dataset.ivFluid
-      const field = td.dataset.ivField
-      const value = td.dataset.ivVal
-      const fieldLabels = {Na:'Na',K:'K',Ca:'Ca',Mg:'Mg',Cl:'Cl',lactate:'乳酸',acetate:'酢酸',phosphate:'リン酸',glucose:'糖質(%)'}
-      const existing = document.getElementById('iv-edit-overlay')
-      if (existing) existing.remove()
-      const modal = document.createElement('div')
-      modal.id = 'iv-edit-overlay'
-      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:flex-end;justify-content:center'
-      modal.innerHTML = `
-        <div style="background:#fff;border-radius:1.25rem 1.25rem 0 0;width:100%;max-width:32rem;padding:1.5rem;box-shadow:0 -4px 24px rgba(0,0,0,.15)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-            <span style="font-size:.875rem;font-weight:700;color:#111">${esc(fluidName)}</span>
-            <span style="font-size:.75rem;color:#6b7280;background:#f3f4f6;padding:.2rem .6rem;border-radius:.5rem">${fieldLabels[field]||field}</span>
-          </div>
-          <input id="iv-edit-input" type="number" inputmode="decimal"
-            value="${value !== '-' ? value : ''}"
-            placeholder="${value !== '-' ? value : '数値を入力'}"
-            style="width:100%;border:2px solid #e5e7eb;border-radius:.75rem;padding:.75rem 1rem;font-size:1.5rem;text-align:center;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:1rem"
-            onfocus="this.style.borderColor='#2563eb'"
-            onblur="this.style.borderColor='#e5e7eb'" />
-          <div style="display:flex;gap:.75rem">
-            <button id="iv-edit-reset" style="padding:.75rem 1rem;border-radius:.75rem;background:#f3f4f6;color:#6b7280;font-size:.875rem;font-weight:600;border:none;cursor:pointer">リセット</button>
-            <button id="iv-edit-cancel" style="flex:1;padding:.75rem;border-radius:.75rem;border:1.5px solid #e5e7eb;background:#fff;color:#374151;font-weight:600;cursor:pointer">キャンセル</button>
-            <button id="iv-edit-save" style="flex:1;padding:.75rem;border-radius:.75rem;background:#2563eb;color:#fff;font-weight:600;border:none;cursor:pointer">保存</button>
-          </div>
-        </div>`
-      document.body.appendChild(modal)
-      setTimeout(() => { const inp = document.getElementById('iv-edit-input'); inp?.focus(); inp?.select() }, 60)
-      const closeModal = () => modal.remove()
-      document.getElementById('iv-edit-cancel').onclick = closeModal
-      modal.addEventListener('click', e => { if (e.target === modal) closeModal() })
-      document.getElementById('iv-edit-reset').onclick = () => {
-        const ov = getIVOverrides()
-        if (ov[fluidName]) { delete ov[fluidName][field]; if (!Object.keys(ov[fluidName]).length) delete ov[fluidName] }
-        LS.set('iv_fluid_overrides', ov)
-        closeModal()
-        const main = document.querySelector('main.flex-1.overflow-y-auto'); const st = main?.scrollTop||0
-        const listBody = document.getElementById('list-body')
-        if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
-        setTimeout(()=>{ const m=document.querySelector('main.flex-1.overflow-y-auto'); if(m) m.scrollTop=st }, 0)
-      }
-      document.getElementById('iv-edit-save').onclick = () => {
-        const rawVal = document.getElementById('iv-edit-input')?.value?.trim()
-        const ov = getIVOverrides()
-        if (!ov[fluidName]) ov[fluidName] = {}
-        if (rawVal === '' || rawVal === undefined) { ov[fluidName][field] = '-' }
-        else { const num = parseFloat(rawVal); ov[fluidName][field] = isNaN(num) ? rawVal : num }
-        LS.set('iv_fluid_overrides', ov)
-        closeModal()
-        // Update cell in-place without scroll reset
-        td.dataset.ivVal = String(ov[fluidName][field])
-        td.textContent = String(ov[fluidName][field])
-        const isEmpty = String(ov[fluidName][field]) === '-'
-        td.className = td.className.replace(isEmpty ? 'text-gray-800' : 'text-gray-300', isEmpty ? 'text-gray-300' : 'text-gray-800')
-      }
-    })
-  })
 }
 
 function renderList() {
