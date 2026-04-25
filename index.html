@@ -1009,9 +1009,10 @@ function attachDetail() {
   document.getElementById('unit-years')?.addEventListener('click', () => setState({ageUnit:'years',age:''}))
   document.getElementById('unit-months')?.addEventListener('click', () => setState({ageUnit:'months',age:''}))
 
-  // calcタブ：投与量編集ボタン
+  // calcタブ：投与量編集ボタン（初期表示時。weight変更時はupdateDetailDoseResultsが担当）
   document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
-    setState({editMode:true, editDoses:dosesToEditForm(drug.pediatricDoses||[]), tab:'calc'})
+    const d = getDrugById(state.drugId)
+    setState({editMode:true, editDoses:dosesToEditForm(d?.pediatricDoses||[]), tab:'calc'})
   })
 
   // calcタブ：投与量編集 キャンセル / 保存
