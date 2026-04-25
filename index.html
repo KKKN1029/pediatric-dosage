@@ -1530,15 +1530,17 @@ function renderDiseaseDetail(disease) {
   const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
 
   const pointsHtml = (disease.points || []).length > 0 ? `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="flex">
-        <div class="w-1.5 bg-blue-500 shrink-0 rounded-l-xl"></div>
-        <div class="flex-1 p-4">
-          <h3 class="text-base font-bold text-gray-900 mb-3">ポイント</h3>
-          <ul class="space-y-2">${(disease.points).map(p =>
-            `<li class="text-sm text-gray-700 flex gap-2"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(p)}</span></li>`
-          ).join('')}</ul>
+    <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+      <div class="flex bg-blue-50">
+        <div class="w-1.5 bg-blue-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">ポイント</h3>
         </div>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <ul class="space-y-2">${(disease.points).map(p =>
+          `<li class="text-sm text-gray-700 flex gap-2"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(p)}</span></li>`
+        ).join('')}</ul>
       </div>
     </div>` : ''
 
@@ -1552,23 +1554,26 @@ function renderDiseaseDetail(disease) {
     </div>` : ''
 
   const sectionsHtml = (disease.sections || []).map(sec => `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="flex">
-        <div class="w-1.5 bg-blue-500 shrink-0 rounded-l-xl"></div>
-        <div class="flex-1 p-4">
-          <h3 class="text-base font-bold text-gray-900 mb-3">${esc(sec.title)}</h3>
-          <div class="text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
+    <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+      <div class="flex bg-blue-50">
+        <div class="w-1.5 bg-blue-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">${esc(sec.title)}</h3>
         </div>
       </div>
+      <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
     </div>`).join('')
 
   const relatedDrugsHtml = relatedDrugs.length > 0 ? `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="flex">
-        <div class="w-1.5 bg-green-500 shrink-0 rounded-l-xl"></div>
-        <div class="flex-1 p-4">
-          <h3 class="text-base font-bold text-gray-900 mb-3">関連薬剤</h3>
-          <div class="space-y-2">${relatedDrugs.map(d => `
+    <div class="rounded-xl shadow-sm border border-green-100 overflow-hidden">
+      <div class="flex bg-green-50">
+        <div class="w-1.5 bg-green-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">関連薬剤</h3>
+        </div>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <div class="space-y-2">${relatedDrugs.map(d => `
             <button data-drug="${d.id}" class="w-full flex items-center px-3 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-left gap-3">
               <span class="text-lg">💊</span>
               <div class="flex-1 min-w-0">
@@ -1576,7 +1581,7 @@ function renderDiseaseDetail(disease) {
                 <div class="text-xs text-gray-500 truncate">${esc(d.abbreviation||'')}${d.brandNames?.length?'　'+d.brandNames.join('・'):''}</div>
               </div>
               <span class="text-gray-400">›</span>
-            </button>`).join('')}</div>
+            </button>`).join('')}
         </div>
       </div>
     </div>` : ''
@@ -1768,9 +1773,9 @@ function attachAddDisease() {
     let loaded = 0
     const newImgs = [...currentImgs]
     files.forEach(file => {
-      if (file.size > 3*1024*1024) { alert(`「${file.name}」は3MB以上のため追加できません`); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}); return }
       const reader = new FileReader()
       reader.onload = ev => { newImgs.push({dataUrl:ev.target.result,caption:''}); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}) }
+      reader.onerror = () => { alert(`「${file.name}」の読み込みに失敗しました`); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}) }
       reader.readAsDataURL(file)
     })
     e.target.value = ''
@@ -1825,13 +1830,27 @@ function attachAddDisease() {
     }
 
     if (editId) {
+      // カスタム疾患を検索
       const custom = loadCustomDiseases()
       const ci = custom.findIndex(d => d.id === editId)
-      if (ci >= 0) { custom[ci] = disease; saveCustomDiseases(custom) }
-      else {
+      if (ci >= 0) {
+        custom[ci] = disease
+        saveCustomDiseases(custom)
+      } else {
+        // pending を検索
         const pend = loadPendingDiseases()
         const pi = pend.findIndex(d => d.id === editId)
-        if (pi >= 0) { pend[pi] = disease; savePendingDiseases(pend) }
+        if (pi >= 0) {
+          pend[pi] = disease
+          savePendingDiseases(pend)
+        } else {
+          // マスター疾患（DISEASES配列）→ カスタムにコピーして上書き
+          custom.push(disease)
+          saveCustomDiseases(custom)
+          // マスターを非表示にして重複を防ぐ
+          const h = new Set(LS.get('hidden_diseases','[]')); h.add(editId)
+          LS.set('hidden_diseases', [...h])
+        }
       }
       setState({screen:'disease-detail', diseaseId:editId, addDiseaseForm:null})
     } else {
