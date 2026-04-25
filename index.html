@@ -432,8 +432,10 @@ let state = {
   ivSubTab: 'calc',
   ivWeight: '',
   ivMode: 'daily',
-  girWeight: '', girGlucose: '', girRate: '', girTargetGir: '', girMode: 'forward',
-  noteContent: LS.get('user_note', '""'),
+  girWeight: '', girGlucose: '', girRate: '',
+  girTab: 'calc',
+  editingCatIdx: null,
+  editingDisCatIdx: null,
   // 疾患
   diseaseCat: null,
   diseaseId: null,
@@ -666,64 +668,66 @@ function buildIVFluidsHTML() {
     </div>`
 
   if (sub === 'gir') {
-    const gm = state.girMode || 'forward'
-    const girResult = gm==='forward' ? calcGIR(state.girGlucose, state.girRate, state.girWeight) : calcGIRRate(state.girTargetGir, state.girGlucose, state.girWeight)
-    const resultHtml = girResult !== null ? `
-      <div class="bg-blue-50 rounded-xl p-4 text-center">
-        <div class="text-xs text-gray-500 mb-1">${gm==='forward'?'GIR':'投与速度'}</div>
-        <div class="text-blue-800 font-bold text-3xl">${girResult}</div>
-        <div class="text-sm text-blue-600 mt-1">${gm==='forward'?'mg/kg/min':'mL/時'}</div>
-      </div>` : `<div class="text-center text-gray-400 text-sm py-4">値を入力してください</div>`
-    return `${subTabs}
-      <div class="p-4 space-y-4">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
-          <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
-            <button data-gir-mode="forward" class="flex-1 py-2 font-medium transition-colors ${gm==='forward'?'bg-blue-600 text-white':'bg-white text-gray-500'}">GIR計算</button>
-            <button data-gir-mode="reverse" class="flex-1 py-2 font-medium transition-colors ${gm==='reverse'?'bg-blue-600 text-white':'bg-white text-gray-500'}">速度計算</button>
+    const gt = state.girTab || 'calc'
+    const girResult = calcGIR(state.girGlucose, state.girRate, state.girWeight)
+    const girInnerTabs = `
+      <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        ${[['calc','計算'],['overview','概要']].map(([t,l])=>`<button data-gir-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${gt===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      </div>`
+    if (gt === 'overview') {
+      return `${subTabs}${girInnerTabs}
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div class="flex gap-2 flex-wrap">
+            ${['輸液','グルコース','ブドウ糖'].map(t=>`<span class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">${t}</span>`).join('')}
           </div>
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">体重</label>
-            <div class="flex-1 relative">
-              <input id="gir-weight" type="number" inputmode="decimal" value="${esc(state.girWeight)}" placeholder="例: 10"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">GIRとは</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>Glucose Infusion Rateの略で、体重あたりのブドウ糖投与速度の算出式である。</p>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">GIR = (ブドウ糖濃度 mg/mL) × (注入速度 mL/hr) ÷ (体重 kg × 60 min/hr)</div>
             </div>
           </div>
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">糖濃度</label>
-            <div class="flex-1 relative">
-              <input id="gir-glucose" type="number" inputmode="decimal" value="${esc(state.girGlucose)}" placeholder="例: 10"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8" />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">エビデンス</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">
+              <p>GIRが4〜5 mg/kg/minを超えると、高血糖のリスクが増加する¹⁾。侵襲時には高血糖リスクが上がるため²⁾、GIRを4 mg/kg/minまでに抑える必要がある³⁾。</p>
             </div>
           </div>
-          ${gm==='forward' ? `
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">投与速度</label>
-            <div class="flex-1 relative">
-              <input id="gir-rate" type="number" inputmode="decimal" value="${esc(state.girRate)}" placeholder="例: 5"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-14" />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">mL/時</span>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">出典</h3></div></div>
+            <div class="bg-white px-4 py-3 text-xs text-gray-600 space-y-2 leading-relaxed">
+              <div>1) Hyperglycemia associated with high, continuous infusion rates of total parenteral nutrition dextrose. Nutr Clin Pract. 1996;11(4):151-6. PMID: 9070016</div>
+              <div>2) Intravenous glucose intake independently related to intensive care unit and hospital mortality. Clin Endocrinol (Oxf). 2006;64(2):141-5.</div>
+              <div>3) 日本静脈経腸栄養学会. 静脈経腸栄養ガイドライン第3版</div>
             </div>
-          </div>` : `
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 w-20 shrink-0">目標GIR</label>
-            <div class="flex-1 relative">
-              <input id="gir-target" type="number" inputmode="decimal" value="${esc(state.girTargetGir)}" placeholder="例: 6"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-24" />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">mg/kg/min</span>
-            </div>
-          </div>`}
-        </div>
-        <div id="gir-result">${resultHtml}</div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">GIR計算式</h3></div></div>
-          <div class="px-4 py-3 text-xs text-gray-700 space-y-1.5">
-            <div class="font-mono bg-gray-50 rounded p-2 text-center text-sm">GIR = 糖濃度(%) × 10 × 速度(mL/時) ÷ (体重(kg) × 60)</div>
-            <div class="text-gray-500">単位: mg/kg/min　目標GIR: 新生児 4〜8、乳幼児 3〜5 mg/kg/min</div>
           </div>
-        </div>
-        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で輸液管理を行ってください。</p></div>
+          <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。担当医の判断と責任で管理を行ってください。</p></div>
+        </div>`
+    }
+    // 計算タブ
+    const resultVal = girResult !== null ? girResult : '--'
+    return `${subTabs}${girInnerTabs}
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">ブドウ糖濃度</span>
+        <input id="gir-glucose" type="number" inputmode="decimal" value="${esc(state.girGlucose)}" placeholder="例: 10"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-8 shrink-0">%</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">注入速度</span>
+        <input id="gir-rate" type="number" inputmode="decimal" value="${esc(state.girRate)}" placeholder="例: 6"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-10 shrink-0 text-right">mL/hr</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
+        <input id="gir-weight" type="number" inputmode="decimal" value="${esc(state.girWeight)}" placeholder="例: 50"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-8 shrink-0">kg</span>
+      </div>
+      <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+        <span class="text-white font-bold text-base">GIR</span>
+        <span id="gir-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">mg/kg/min</span></span>
       </div>`
   }
 
@@ -846,19 +850,6 @@ function buildListBodyHTML(query) {
   if (state.mainTab === 'ivfluids') {
     return `<main class="flex-1 overflow-y-auto bg-white">${buildIVFluidsHTML()}</main>`
   }
-  if (state.mainTab === 'notes') {
-    return `<main class="flex-1 overflow-y-auto bg-white p-4">
-      <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-bold text-gray-700">メモ</h2>
-          <button id="btn-clear-note" class="text-xs text-gray-400 border border-gray-200 rounded px-2 py-0.5">クリア</button>
-        </div>
-        <textarea id="note-textarea" rows="20" placeholder="自由にメモを入力できます..."
-          class="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none leading-relaxed">${esc(state.noteContent)}</textarea>
-      </div>
-    </main>`
-  }
-
   // ── 疾患タブ ─────────────────────────────────────────────
   if (state.mainTab === 'diseases') {
     const pendingDiseases = getAllPendingDiseases()
@@ -1063,34 +1054,22 @@ function attachListBody() {
     const resultDiv = document.getElementById('iv-calc-result')
     if (resultDiv) resultDiv.innerHTML = buildIVCalcResultHTML()
   })
-  // GIR inputs
-  const updateGIR = () => {
-    const d = document.getElementById('gir-result')
-    if (!d) return
-    const gm = state.girMode || 'forward'
-    const r = gm==='forward' ? calcGIR(state.girGlucose, state.girRate, state.girWeight) : calcGIRRate(state.girTargetGir, state.girGlucose, state.girWeight)
-    d.innerHTML = r !== null ? `<div class="bg-blue-50 rounded-xl p-4 text-center"><div class="text-xs text-gray-500 mb-1">${gm==='forward'?'GIR':'投与速度'}</div><div class="text-blue-800 font-bold text-3xl">${r}</div><div class="text-sm text-blue-600 mt-1">${gm==='forward'?'mg/kg/min':'mL/時'}</div></div>` : `<div class="text-center text-gray-400 text-sm py-4">値を入力してください</div>`
+  // GIR inputs — ボトムバーのみ更新してフォーカス維持
+  const updateGIRBar = () => {
+    const bar = document.getElementById('gir-result-bar')
+    if (!bar) return
+    const r = calcGIR(state.girGlucose, state.girRate, state.girWeight)
+    bar.textContent = (r !== null ? r : '--') + ' mg/kg/min'
   }
-  document.getElementById('gir-weight')?.addEventListener('input', e=>{state.girWeight=e.target.value; updateGIR()})
-  document.getElementById('gir-glucose')?.addEventListener('input', e=>{state.girGlucose=e.target.value; updateGIR()})
-  document.getElementById('gir-rate')?.addEventListener('input', e=>{state.girRate=e.target.value; updateGIR()})
-  document.getElementById('gir-target')?.addEventListener('input', e=>{state.girTargetGir=e.target.value; updateGIR()})
-  app.querySelectorAll('[data-gir-mode]').forEach(b=>b.addEventListener('click', ()=>{
-    state.girMode = b.dataset.girMode
+  document.getElementById('gir-glucose')?.addEventListener('input', e=>{state.girGlucose=e.target.value; updateGIRBar()})
+  document.getElementById('gir-rate')?.addEventListener('input', e=>{state.girRate=e.target.value; updateGIRBar()})
+  document.getElementById('gir-weight')?.addEventListener('input', e=>{state.girWeight=e.target.value; updateGIRBar()})
+  // GIR 内部タブ切り替え
+  app.querySelectorAll('[data-gir-tab]').forEach(b=>b.addEventListener('click', ()=>{
+    state.girTab = b.dataset.girTab
     const listBody = document.getElementById('list-body')
     if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
   }))
-  // Note textarea
-  document.getElementById('note-textarea')?.addEventListener('input', e=>{
-    state.noteContent = e.target.value
-    LS.set('user_note', state.noteContent)
-  })
-  document.getElementById('btn-clear-note')?.addEventListener('click', ()=>{
-    if (!confirm('メモをクリアしますか？')) return
-    state.noteContent = ''; LS.set('user_note', '')
-    const ta = document.getElementById('note-textarea')
-    if (ta) ta.value = ''
-  })
 }
 
 function renderList() {
@@ -1101,7 +1080,6 @@ function renderList() {
         <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.medicine}<span class="text-xs leading-none">薬剤</span></button>
         <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.pathogen}<span class="text-xs leading-none">疾患</span></button>
         <button id="main-tab-iv" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='ivfluids'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.ivDrip}<span class="text-xs leading-none">輸液</span></button>
-        <button id="main-tab-notes" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='notes'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.notebook}<span class="text-xs leading-none">ノート</span></button>
       </div>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
@@ -1141,10 +1119,6 @@ function attachList() {
     if (state.mainTab === 'ivfluids') return
     state.query = ''
     setState({mainTab:'ivfluids'})
-  })
-  document.getElementById('main-tab-notes')?.addEventListener('click', () => {
-    if (state.mainTab === 'notes') return
-    setState({mainTab:'notes'})
   })
   attachListBody()
 }
@@ -2246,13 +2220,23 @@ function attachAddDisease() {
 
 function renderManageDiseaseCategories() {
   const cats = getDiseaseCategories()
-  const catRows = cats.map((cat, i) => `
+  const editIdx = state.editingDisCatIdx
+  const catRows = cats.map((cat, i) => {
+    if (i === editIdx) return `
+      <div class="flex items-center px-3 py-2 gap-2 border-b border-gray-100 last:border-0 bg-blue-50">
+        <input id="edit-dis-cat-input" type="text" value="${esc(cat)}"
+          class="flex-1 border border-blue-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button data-save-dis-cat="${i}" class="text-white bg-blue-600 text-sm px-2.5 py-1 rounded-lg font-medium shrink-0">保存</button>
+        <button data-cancel-dis-cat class="text-gray-500 bg-gray-100 text-sm px-2 py-1 rounded-lg shrink-0">✕</button>
+      </div>`
+    return `
     <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
       <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-edit-dis-cat="${i}" class="text-gray-400 hover:text-blue-500 text-sm px-1.5 py-0.5 rounded">✎</button>
       <button data-dis-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
       <button data-dis-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
       <button data-dis-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
-    </div>`).join('')
+    </div>`}).join('')
   return `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
@@ -2280,7 +2264,22 @@ function renderManageDiseaseCategories() {
 }
 
 function attachManageDiseaseCategories() {
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', mainTab:'diseases'}))
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', mainTab:'diseases', editingDisCatIdx:null}))
+
+  app.querySelectorAll('[data-edit-dis-cat]').forEach(b => b.addEventListener('click', () => {
+    setState({editingDisCatIdx: parseInt(b.dataset.editDisCat)})
+    setTimeout(() => document.getElementById('edit-dis-cat-input')?.focus(), 50)
+  }))
+  app.querySelectorAll('[data-save-dis-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.saveDisCat)
+    const val = document.getElementById('edit-dis-cat-input')?.value?.trim()
+    if (!val) return
+    const cats = getDiseaseCategories()
+    if (cats.some((c,idx) => c===val && idx!==i)) { alert('そのカテゴリ名はすでに存在します'); return }
+    cats[i] = val; saveUserDiseaseCategories(cats); setState({editingDisCatIdx:null})
+  }))
+  app.querySelectorAll('[data-cancel-dis-cat]').forEach(b => b.addEventListener('click', () => setState({editingDisCatIdx:null})))
+
   app.querySelectorAll('[data-dis-move-up]').forEach(b => b.addEventListener('click', () => {
     const i = parseInt(b.dataset.disMoveUp); const cats = getDiseaseCategories(); if (i===0) return
     const c=[...cats];[c[i-1],c[i]]=[c[i],c[i-1]]; saveUserDiseaseCategories(c); render()
@@ -2313,13 +2312,23 @@ function attachManageDiseaseCategories() {
 
 function renderManageCategories() {
   const cats = getCategories()
-  const catRows = cats.map((cat, i) => `
+  const editIdx = state.editingCatIdx
+  const catRows = cats.map((cat, i) => {
+    if (i === editIdx) return `
+      <div class="flex items-center px-3 py-2 gap-2 border-b border-gray-100 last:border-0 bg-blue-50">
+        <input id="edit-cat-input" type="text" value="${esc(cat)}"
+          class="flex-1 border border-blue-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button data-save-cat="${i}" class="text-white bg-blue-600 text-sm px-2.5 py-1 rounded-lg font-medium shrink-0">保存</button>
+        <button data-cancel-cat class="text-gray-500 bg-gray-100 text-sm px-2 py-1 rounded-lg shrink-0">✕</button>
+      </div>`
+    return `
     <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
       <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-edit-cat="${i}" class="text-gray-400 hover:text-blue-500 text-sm px-1.5 py-0.5 rounded">✎</button>
       <button data-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
       <button data-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
       <button data-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
-    </div>`).join('')
+    </div>`}).join('')
   return `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
@@ -2349,7 +2358,21 @@ function renderManageCategories() {
 }
 
 function attachManageCategories() {
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', editingCatIdx:null}))
+
+  app.querySelectorAll('[data-edit-cat]').forEach(b => b.addEventListener('click', () => {
+    setState({editingCatIdx: parseInt(b.dataset.editCat)})
+    setTimeout(() => document.getElementById('edit-cat-input')?.focus(), 50)
+  }))
+  app.querySelectorAll('[data-save-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.saveCat)
+    const val = document.getElementById('edit-cat-input')?.value?.trim()
+    if (!val) return
+    const cats = getCategories()
+    if (cats.some((c,idx) => c===val && idx!==i)) { alert('そのカテゴリ名はすでに存在します'); return }
+    cats[i] = val; saveUserCategories(cats); setState({editingCatIdx:null})
+  }))
+  app.querySelectorAll('[data-cancel-cat]').forEach(b => b.addEventListener('click', () => setState({editingCatIdx:null})))
 
   app.querySelectorAll('[data-move-up]').forEach(b => b.addEventListener('click', () => {
     const i = parseInt(b.dataset.moveUp)
