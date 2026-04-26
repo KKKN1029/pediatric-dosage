@@ -558,8 +558,8 @@ function ageWeightInput() {
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
       <div class="flex items-center gap-3">
         <label class="text-sm font-medium text-gray-700 w-12 shrink-0">年齢</label>
-        <div class="flex-1 relative">
-          <input id="age-input" type="number" inputmode="decimal"
+        <div class="flex-1 min-w-0 relative">
+          <input id="age-input" type="text" inputmode="decimal"
             placeholder="${state.ageUnit==='years'?'例: 3':'例: 18'}"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-20" />
           <div class="absolute right-1 top-1/2 -translate-y-1/2 flex rounded-md overflow-hidden border border-gray-200 text-xs">
@@ -570,8 +570,8 @@ function ageWeightInput() {
       </div>
       <div class="flex items-center gap-3">
         <label class="text-sm font-medium text-gray-700 w-12 shrink-0">体重</label>
-        <div class="flex-1 relative">
-          <input id="weight-input" type="number" inputmode="decimal" placeholder="例: 15"
+        <div class="flex-1 min-w-0 relative">
+          <input id="weight-input" type="text" inputmode="decimal" placeholder="例: 15"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
           <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
         </div>
@@ -805,66 +805,66 @@ function buildIVFluidsHTML() {
       const r = calcMlhFromGamma(state.gammaA_drug, state.gammaA_fluid, state.gammaA_gamma, state.gammaA_weight)
       const resultVal = r !== null ? r : '--'
       return `${subTabs}${gammaInnerTabs}
-        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">薬剤量</span>
-          <input id="gamma-a-drug" type="number" inputmode="decimal" value="${esc(state.gammaA_drug)}"
-            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg</span>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 w-20 shrink-0">薬剤量</span>
+          <input id="gamma-a-drug" type="text" inputmode="decimal" value="${esc(state.gammaA_drug)}" placeholder="例：ノルアド 1"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mg</span>
         </div>
-        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">溶解液量</span>
-          <input id="gamma-a-fluid" type="number" inputmode="decimal" value="${esc(state.gammaA_fluid)}"
-            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL</span>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 w-20 shrink-0">溶解液量</span>
+          <input id="gamma-a-fluid" type="text" inputmode="decimal" value="${esc(state.gammaA_fluid)}" placeholder="例：生食 50"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL</span>
         </div>
-        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">γ</span>
-          <input id="gamma-a-gamma" type="number" inputmode="decimal" value="${esc(state.gammaA_gamma)}"
-            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">μg/kg/min</span>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 w-20 shrink-0">γ</span>
+          <input id="gamma-a-gamma" type="text" inputmode="decimal" value="${esc(state.gammaA_gamma)}" placeholder="例：0.05"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">μg/kg/min</span>
         </div>
-        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
-          <input id="gamma-a-weight" type="number" inputmode="decimal" value="${esc(state.gammaA_weight)}"
-            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 w-20 shrink-0">体重</span>
+          <input id="gamma-a-weight" type="text" inputmode="decimal" value="${esc(state.gammaA_weight)}" placeholder="例：50"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">kg</span>
         </div>
         <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
           <span class="text-white font-bold text-base">注入速度</span>
-          <span id="gamma-a-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">mL/hr</span></span>
+          <span id="gamma-a-result-bar" class="text-white font-bold text-2xl whitespace-nowrap">${resultVal} <span class="text-base font-normal">mL/hr</span></span>
         </div>`
     }
     // mL/hr→γ
     const r = calcGammaFromMlh(state.gammaB_drug, state.gammaB_fluid, state.gammaB_rate, state.gammaB_weight)
     const resultVal = r !== null ? r : '--'
     return `${subTabs}${gammaInnerTabs}
-      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">薬剤量</span>
-        <input id="gamma-b-drug" type="number" inputmode="decimal" value="${esc(state.gammaB_drug)}"
-          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg</span>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 w-20 shrink-0">薬剤量</span>
+        <input id="gamma-b-drug" type="text" inputmode="decimal" value="${esc(state.gammaB_drug)}" placeholder="例：ノルアド 1"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mg</span>
       </div>
-      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">溶解液量</span>
-        <input id="gamma-b-fluid" type="number" inputmode="decimal" value="${esc(state.gammaB_fluid)}"
-          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL</span>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 w-20 shrink-0">溶解液量</span>
+        <input id="gamma-b-fluid" type="text" inputmode="decimal" value="${esc(state.gammaB_fluid)}" placeholder="例：生食 50"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL</span>
       </div>
-      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">注入速度</span>
-        <input id="gamma-b-rate" type="number" inputmode="decimal" value="${esc(state.gammaB_rate)}"
-          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL/hr</span>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 w-20 shrink-0">注入速度</span>
+        <input id="gamma-b-rate" type="text" inputmode="decimal" value="${esc(state.gammaB_rate)}" placeholder="例：5"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL/hr</span>
       </div>
-      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
-        <input id="gamma-b-weight" type="number" inputmode="decimal" value="${esc(state.gammaB_weight)}"
-          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 w-20 shrink-0">体重</span>
+        <input id="gamma-b-weight" type="text" inputmode="decimal" value="${esc(state.gammaB_weight)}" placeholder="例：50"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">kg</span>
       </div>
       <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
         <span class="text-white font-bold text-base">γ</span>
-        <span id="gamma-b-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">μg/kg/min</span></span>
+        <span id="gamma-b-result-bar" class="text-white font-bold text-2xl whitespace-nowrap">${resultVal} <span class="text-base font-normal">μg/kg/min</span></span>
       </div>`
   }
 
@@ -882,8 +882,8 @@ function buildIVFluidsHTML() {
           </div>
           <div class="flex items-center gap-3">
             <label class="text-sm font-medium text-gray-700 w-14 shrink-0">体重</label>
-            <div class="flex-1 relative">
-              <input id="iv-weight" type="number" inputmode="decimal" value="${esc(state.ivWeight)}" placeholder="例: 15"
+            <div class="flex-1 min-w-0 relative">
+              <input id="iv-weight" type="text" inputmode="decimal" value="${esc(state.ivWeight)}" placeholder="例: 15"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
             </div>
