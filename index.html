@@ -436,8 +436,8 @@ let state = {
   girTab: 'calc',
   // ガンマ計算
   gammaTab: 'to_mlh',
-  gammaA_weight: '', gammaA_conc: '', gammaA_gamma: '',
-  gammaB_weight: '', gammaB_conc: '', gammaB_rate: '',
+  gammaA_drug: '', gammaA_fluid: '', gammaA_gamma: '', gammaA_weight: '',
+  gammaB_drug: '', gammaB_fluid: '', gammaB_rate: '', gammaB_weight: '',
   editingCatIdx: null,
   editingDisCatIdx: null,
   // 疾患
@@ -643,17 +643,17 @@ function calcGIRRate(gir, glc, weight) {
   return Math.round(t * w * 60 / (g * 10) * 10) / 10
 }
 
-// γ (μg/kg/min), 濃度 (mg/mL), 体重 (kg) → 注入速度 (mL/hr)
-function calcMlhFromGamma(gamma, conc, weight) {
-  const g = parseFloat(gamma), c = parseFloat(conc), w = parseFloat(weight)
-  if (!g || !c || !w || g<=0 || c<=0 || w<=0) return null
-  return Math.round((g * w * 60) / (c * 1000) * 100) / 100
+// 薬剤量 (mg), 溶解液量 (mL), γ (μg/kg/min), 体重 (kg) → 注入速度 (mL/hr)
+function calcMlhFromGamma(drug, fluid, gamma, weight) {
+  const d = parseFloat(drug), f = parseFloat(fluid), g = parseFloat(gamma), w = parseFloat(weight)
+  if (!d || !f || !g || !w || d<=0 || f<=0 || g<=0 || w<=0) return null
+  return Math.round((g * w * 60 * f) / (d * 1000) * 100) / 100
 }
-// 注入速度 (mL/hr), 濃度 (mg/mL), 体重 (kg) → γ (μg/kg/min)
-function calcGammaFromMlh(rate, conc, weight) {
-  const r = parseFloat(rate), c = parseFloat(conc), w = parseFloat(weight)
-  if (!r || !c || !w || r<=0 || c<=0 || w<=0) return null
-  return Math.round((c * r * 1000) / (w * 60) * 100) / 100
+// 薬剤量 (mg), 溶解液量 (mL), 注入速度 (mL/hr), 体重 (kg) → γ (μg/kg/min)
+function calcGammaFromMlh(drug, fluid, rate, weight) {
+  const d = parseFloat(drug), f = parseFloat(fluid), r = parseFloat(rate), w = parseFloat(weight)
+  if (!d || !f || !r || !w || d<=0 || f<=0 || r<=0 || w<=0) return null
+  return Math.round((d * r * 1000) / (f * w * 60) * 100) / 100
 }
 
 function buildIVCalcResultHTML() {
@@ -758,21 +758,43 @@ function buildIVFluidsHTML() {
     if (gmt === 'overview') {
       return `${subTabs}${gammaInnerTabs}
         <div class="p-4 space-y-4 overflow-y-auto">
-          <div class="flex gap-2 flex-wrap">
-            ${['循環作動薬','カテコラミン','持続投与'].map(t=>`<span class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">${t}</span>`).join('')}
-          </div>
           <div class="shadow-sm border border-blue-100 overflow-hidden">
             <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">ガンマ計算とは</h3></div></div>
             <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
-              <p>循環作動薬・カテコラミンなどの持続投与で用いられる、体重あたりの薬剤投与速度（μg/kg/min）の単位。</p>
-              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">γ (μg/kg/min) = (濃度 mg/mL × 注入速度 mL/hr × 1000) ÷ (体重 kg × 60 min/hr)</div>
-              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">注入速度 (mL/hr) = (γ × 体重 kg × 60 min/hr) ÷ (濃度 mg/mL × 1000)</div>
+              <p>γ (ガンマ) は、循環作動薬・カテコラミン・鎮静薬などの持続静注で用いられる、体重あたりの薬剤投与速度の単位である。</p>
+              <p><span class="font-bold">1 γ = 1 μg/kg/min</span> と定義され、体重1 kgあたり1分間に1 μg投与する速度を表す。</p>
+              <p>薬剤を希釈した輸液をシリンジポンプで注入する場合、γ値・濃度・体重から注入速度 (mL/hr) を換算して使用する。</p>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">計算式</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-3 leading-relaxed">
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">① 濃度 (mg/mL)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">濃度 = 薬剤量 (mg) ÷ 溶解液量 (mL)</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">② γ → 注入速度 (mL/hr)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">注入速度 = γ × 体重 (kg) × 60 ÷ (濃度 × 1000)</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">③ 注入速度 → γ (μg/kg/min)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">γ = 濃度 × 注入速度 × 1000 ÷ (体重 × 60)</div>
+              </div>
+              <p class="text-xs text-gray-500">※ 1000 は mg → μg、60 は hr → min の換算係数。</p>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">計算例</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>体重 50 kg、ドパミン 600 mg を 5%ブドウ糖 100 mL に溶解 (濃度 6 mg/mL) し、5 γ で投与する場合:</p>
+              <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">注入速度 = 5 × 50 × 60 ÷ (6 × 1000) = <span class="font-bold">2.5 mL/hr</span></div>
             </div>
           </div>
           <div class="shadow-sm border border-blue-100 overflow-hidden">
             <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">使用上の注意</h3></div></div>
             <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed space-y-2">
-              <p>濃度 (mg/mL) は、薬剤の総量 (mg) を希釈後の総量 (mL) で割った値を入力する。</p>
+              <p>薬剤量・溶解液量は、実際に調製した量を入力する。</p>
               <p>使用前に必ず製剤の希釈方法と用法用量を添付文書で確認すること。</p>
             </div>
           </div>
@@ -780,24 +802,30 @@ function buildIVFluidsHTML() {
         </div>`
     }
     if (gmt === 'to_mlh') {
-      const r = calcMlhFromGamma(state.gammaA_gamma, state.gammaA_conc, state.gammaA_weight)
+      const r = calcMlhFromGamma(state.gammaA_drug, state.gammaA_fluid, state.gammaA_gamma, state.gammaA_weight)
       const resultVal = r !== null ? r : '--'
       return `${subTabs}${gammaInnerTabs}
         <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">薬剤量</span>
+          <input id="gamma-a-drug" type="number" inputmode="decimal" value="${esc(state.gammaA_drug)}"
+            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">溶解液量</span>
+          <input id="gamma-a-fluid" type="number" inputmode="decimal" value="${esc(state.gammaA_fluid)}"
+            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
           <span class="text-sm font-medium text-gray-800 w-24 shrink-0">γ</span>
-          <input id="gamma-a-gamma" type="number" inputmode="decimal" value="${esc(state.gammaA_gamma)}" placeholder="例: 0.1"
+          <input id="gamma-a-gamma" type="number" inputmode="decimal" value="${esc(state.gammaA_gamma)}"
             class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
           <span class="text-sm text-gray-500 w-16 shrink-0 text-right">μg/kg/min</span>
         </div>
         <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">濃度</span>
-          <input id="gamma-a-conc" type="number" inputmode="decimal" value="${esc(state.gammaA_conc)}" placeholder="例: 0.6"
-            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg/mL</span>
-        </div>
-        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
           <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
-          <input id="gamma-a-weight" type="number" inputmode="decimal" value="${esc(state.gammaA_weight)}" placeholder="例: 50"
+          <input id="gamma-a-weight" type="number" inputmode="decimal" value="${esc(state.gammaA_weight)}"
             class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
           <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
         </div>
@@ -807,24 +835,30 @@ function buildIVFluidsHTML() {
         </div>`
     }
     // mL/hr→γ
-    const r = calcGammaFromMlh(state.gammaB_rate, state.gammaB_conc, state.gammaB_weight)
+    const r = calcGammaFromMlh(state.gammaB_drug, state.gammaB_fluid, state.gammaB_rate, state.gammaB_weight)
     const resultVal = r !== null ? r : '--'
     return `${subTabs}${gammaInnerTabs}
       <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">薬剤量</span>
+        <input id="gamma-b-drug" type="number" inputmode="decimal" value="${esc(state.gammaB_drug)}"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">溶解液量</span>
+        <input id="gamma-b-fluid" type="number" inputmode="decimal" value="${esc(state.gammaB_fluid)}"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
         <span class="text-sm font-medium text-gray-800 w-24 shrink-0">注入速度</span>
-        <input id="gamma-b-rate" type="number" inputmode="decimal" value="${esc(state.gammaB_rate)}" placeholder="例: 5"
+        <input id="gamma-b-rate" type="number" inputmode="decimal" value="${esc(state.gammaB_rate)}"
           class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
         <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL/hr</span>
       </div>
       <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
-        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">濃度</span>
-        <input id="gamma-b-conc" type="number" inputmode="decimal" value="${esc(state.gammaB_conc)}" placeholder="例: 0.6"
-          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
-        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg/mL</span>
-      </div>
-      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
         <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
-        <input id="gamma-b-weight" type="number" inputmode="decimal" value="${esc(state.gammaB_weight)}" placeholder="例: 50"
+        <input id="gamma-b-weight" type="number" inputmode="decimal" value="${esc(state.gammaB_weight)}"
           class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
         <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
       </div>
@@ -1169,20 +1203,22 @@ function attachListBody() {
   const updateGammaABar = () => {
     const bar = document.getElementById('gamma-a-result-bar')
     if (!bar) return
-    const r = calcMlhFromGamma(state.gammaA_gamma, state.gammaA_conc, state.gammaA_weight)
+    const r = calcMlhFromGamma(state.gammaA_drug, state.gammaA_fluid, state.gammaA_gamma, state.gammaA_weight)
     bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">mL/hr</span>'
   }
   const updateGammaBBar = () => {
     const bar = document.getElementById('gamma-b-result-bar')
     if (!bar) return
-    const r = calcGammaFromMlh(state.gammaB_rate, state.gammaB_conc, state.gammaB_weight)
+    const r = calcGammaFromMlh(state.gammaB_drug, state.gammaB_fluid, state.gammaB_rate, state.gammaB_weight)
     bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">μg/kg/min</span>'
   }
+  document.getElementById('gamma-a-drug')?.addEventListener('input', e=>{state.gammaA_drug=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-fluid')?.addEventListener('input', e=>{state.gammaA_fluid=e.target.value; updateGammaABar()})
   document.getElementById('gamma-a-gamma')?.addEventListener('input', e=>{state.gammaA_gamma=e.target.value; updateGammaABar()})
-  document.getElementById('gamma-a-conc')?.addEventListener('input', e=>{state.gammaA_conc=e.target.value; updateGammaABar()})
   document.getElementById('gamma-a-weight')?.addEventListener('input', e=>{state.gammaA_weight=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-b-drug')?.addEventListener('input', e=>{state.gammaB_drug=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-fluid')?.addEventListener('input', e=>{state.gammaB_fluid=e.target.value; updateGammaBBar()})
   document.getElementById('gamma-b-rate')?.addEventListener('input', e=>{state.gammaB_rate=e.target.value; updateGammaBBar()})
-  document.getElementById('gamma-b-conc')?.addEventListener('input', e=>{state.gammaB_conc=e.target.value; updateGammaBBar()})
   document.getElementById('gamma-b-weight')?.addEventListener('input', e=>{state.gammaB_weight=e.target.value; updateGammaBBar()})
   // ガンマ計算 内部タブ切り替え
   app.querySelectorAll('[data-gamma-tab]').forEach(b=>b.addEventListener('click', ()=>{
