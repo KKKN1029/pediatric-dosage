@@ -434,6 +434,10 @@ let state = {
   ivMode: 'daily',
   girWeight: '', girGlucose: '', girRate: '',
   girTab: 'calc',
+  // ガンマ計算
+  gammaTab: 'to_mlh',
+  gammaA_weight: '', gammaA_conc: '', gammaA_gamma: '',
+  gammaB_weight: '', gammaB_conc: '', gammaB_rate: '',
   editingCatIdx: null,
   editingDisCatIdx: null,
   // 疾患
@@ -639,6 +643,19 @@ function calcGIRRate(gir, glc, weight) {
   return Math.round(t * w * 60 / (g * 10) * 10) / 10
 }
 
+// γ (μg/kg/min), 濃度 (mg/mL), 体重 (kg) → 注入速度 (mL/hr)
+function calcMlhFromGamma(gamma, conc, weight) {
+  const g = parseFloat(gamma), c = parseFloat(conc), w = parseFloat(weight)
+  if (!g || !c || !w || g<=0 || c<=0 || w<=0) return null
+  return Math.round((g * w * 60) / (c * 1000) * 100) / 100
+}
+// 注入速度 (mL/hr), 濃度 (mg/mL), 体重 (kg) → γ (μg/kg/min)
+function calcGammaFromMlh(rate, conc, weight) {
+  const r = parseFloat(rate), c = parseFloat(conc), w = parseFloat(weight)
+  if (!r || !c || !w || r<=0 || c<=0 || w<=0) return null
+  return Math.round((c * r * 1000) / (w * 60) * 100) / 100
+}
+
 function buildIVCalcResultHTML() {
   const result = calcHolidaySegar(state.ivWeight)
   const mode = state.ivMode || 'daily'
@@ -665,7 +682,7 @@ function buildIVFluidsHTML() {
   const sub = state.ivSubTab || 'calc'
   const subTabs = `
     <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
-      ${[['calc','計算'],['gir','GIR'],['list','製剤一覧']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      ${[['calc','計算'],['gir','GIR'],['list','製剤一覧'],['gamma','ガンマ計算']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
     </div>`
 
   if (sub === 'gir') {
@@ -729,6 +746,91 @@ function buildIVFluidsHTML() {
       <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
         <span class="text-white font-bold text-base">GIR</span>
         <span id="gir-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">mg/kg/min</span></span>
+      </div>`
+  }
+
+  if (sub === 'gamma') {
+    const gmt = state.gammaTab || 'to_mlh'
+    const gammaInnerTabs = `
+      <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        ${[['to_mlh','γ→mL/hr'],['to_gamma','mL/hr→γ'],['overview','概要']].map(([t,l])=>`<button data-gamma-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${gmt===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      </div>`
+    if (gmt === 'overview') {
+      return `${subTabs}${gammaInnerTabs}
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div class="flex gap-2 flex-wrap">
+            ${['循環作動薬','カテコラミン','持続投与'].map(t=>`<span class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">${t}</span>`).join('')}
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">ガンマ計算とは</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>循環作動薬・カテコラミンなどの持続投与で用いられる、体重あたりの薬剤投与速度（μg/kg/min）の単位。</p>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">γ (μg/kg/min) = (濃度 mg/mL × 注入速度 mL/hr × 1000) ÷ (体重 kg × 60 min/hr)</div>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">注入速度 (mL/hr) = (γ × 体重 kg × 60 min/hr) ÷ (濃度 mg/mL × 1000)</div>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">使用上の注意</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed space-y-2">
+              <p>濃度 (mg/mL) は、薬剤の総量 (mg) を希釈後の総量 (mL) で割った値を入力する。</p>
+              <p>使用前に必ず製剤の希釈方法と用法用量を添付文書で確認すること。</p>
+            </div>
+          </div>
+          <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。担当医の判断と責任で管理を行ってください。</p></div>
+        </div>`
+    }
+    if (gmt === 'to_mlh') {
+      const r = calcMlhFromGamma(state.gammaA_gamma, state.gammaA_conc, state.gammaA_weight)
+      const resultVal = r !== null ? r : '--'
+      return `${subTabs}${gammaInnerTabs}
+        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">γ</span>
+          <input id="gamma-a-gamma" type="number" inputmode="decimal" value="${esc(state.gammaA_gamma)}" placeholder="例: 0.1"
+            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">μg/kg/min</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">濃度</span>
+          <input id="gamma-a-conc" type="number" inputmode="decimal" value="${esc(state.gammaA_conc)}" placeholder="例: 0.6"
+            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg/mL</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+          <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
+          <input id="gamma-a-weight" type="number" inputmode="decimal" value="${esc(state.gammaA_weight)}" placeholder="例: 50"
+            class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+          <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
+        </div>
+        <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+          <span class="text-white font-bold text-base">注入速度</span>
+          <span id="gamma-a-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">mL/hr</span></span>
+        </div>`
+    }
+    // mL/hr→γ
+    const r = calcGammaFromMlh(state.gammaB_rate, state.gammaB_conc, state.gammaB_weight)
+    const resultVal = r !== null ? r : '--'
+    return `${subTabs}${gammaInnerTabs}
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">注入速度</span>
+        <input id="gamma-b-rate" type="number" inputmode="decimal" value="${esc(state.gammaB_rate)}" placeholder="例: 5"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mL/hr</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">濃度</span>
+        <input id="gamma-b-conc" type="number" inputmode="decimal" value="${esc(state.gammaB_conc)}" placeholder="例: 0.6"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">mg/mL</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-4 gap-4">
+        <span class="text-sm font-medium text-gray-800 w-24 shrink-0">体重</span>
+        <input id="gamma-b-weight" type="number" inputmode="decimal" value="${esc(state.gammaB_weight)}" placeholder="例: 50"
+          class="flex-1 text-right text-lg font-medium focus:outline-none text-gray-800" />
+        <span class="text-sm text-gray-500 w-16 shrink-0 text-right">kg</span>
+      </div>
+      <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+        <span class="text-white font-bold text-base">γ</span>
+        <span id="gamma-b-result-bar" class="text-white font-bold text-2xl">${resultVal} <span class="text-base font-normal">μg/kg/min</span></span>
       </div>`
   }
 
@@ -1060,6 +1162,31 @@ function attachListBody() {
   // GIR 内部タブ切り替え
   app.querySelectorAll('[data-gir-tab]').forEach(b=>b.addEventListener('click', ()=>{
     state.girTab = b.dataset.girTab
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  // ガンマ計算 inputs — ボトムバーのみ更新してフォーカス維持
+  const updateGammaABar = () => {
+    const bar = document.getElementById('gamma-a-result-bar')
+    if (!bar) return
+    const r = calcMlhFromGamma(state.gammaA_gamma, state.gammaA_conc, state.gammaA_weight)
+    bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">mL/hr</span>'
+  }
+  const updateGammaBBar = () => {
+    const bar = document.getElementById('gamma-b-result-bar')
+    if (!bar) return
+    const r = calcGammaFromMlh(state.gammaB_rate, state.gammaB_conc, state.gammaB_weight)
+    bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">μg/kg/min</span>'
+  }
+  document.getElementById('gamma-a-gamma')?.addEventListener('input', e=>{state.gammaA_gamma=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-conc')?.addEventListener('input', e=>{state.gammaA_conc=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-weight')?.addEventListener('input', e=>{state.gammaA_weight=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-b-rate')?.addEventListener('input', e=>{state.gammaB_rate=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-conc')?.addEventListener('input', e=>{state.gammaB_conc=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-weight')?.addEventListener('input', e=>{state.gammaB_weight=e.target.value; updateGammaBBar()})
+  // ガンマ計算 内部タブ切り替え
+  app.querySelectorAll('[data-gamma-tab]').forEach(b=>b.addEventListener('click', ()=>{
+    state.gammaTab = b.dataset.gammaTab
     const listBody = document.getElementById('list-body')
     if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
   }))
