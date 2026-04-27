@@ -367,28 +367,52 @@ function extractGistId(input) {
   return m ? m[1] : s
 }
 
+// Gist 取得は 2 段構え:
+//   1) gist.github.com/{ID}.json で owner と filename を取得 (公開Webページ扱いで rate limit / CORS 制限が緩い)
+//   2) gist.githubusercontent.com/{owner}/{ID}/raw/{filename} で実データを取得 (静的ファイル配信で確実)
+// API (api.github.com) は iPhone Safari + プライベートリレー / 共有 IP で 404 になる事例があるため
+// fallback としてのみ使用する。
 async function fetchGistMaster(id) {
-  const url = `https://api.github.com/gists/${id}`
-  // 同じブラウザに編集ツールのトークンが保存されていれば、それを使って認証 fetch する
-  // (secret gist や rate limit の問題を回避)
-  const token = localStorage.getItem('editor_gh_token') || ''
-  const headers = { 'Accept': 'application/vnd.github+json' }
-  if (token) headers['Authorization'] = 'Bearer ' + token
-  const res = await fetch(url, { headers })
-  if (!res.ok) {
-    let detail = ''
-    try { const j = await res.json(); if (j && j.message) detail = ' / ' + j.message } catch {}
-    if (res.status === 404) throw new Error(`Gist が見つかりません (404)。ID が正しいか、削除されていないか確認してください${detail}`)
-    if (res.status === 403) throw new Error(`API 利用制限または権限不足 (403)${detail}`)
-    if (res.status === 401) throw new Error(`認証エラー (401)。トークンが無効です${detail}`)
-    throw new Error(`Gist 取得失敗 (HTTP ${res.status})${detail}`)
+  let primaryError = null
+  // --- Strategy A: メタJSON + raw (推奨) ---
+  try {
+    const metaRes = await fetch(`https://gist.github.com/${id}.json`, { cache: 'no-cache' })
+    if (!metaRes.ok) throw new Error(`metadata HTTP ${metaRes.status}`)
+    const meta = await metaRes.json()
+    const owner = meta.owner
+    const files = Array.isArray(meta.files) ? meta.files : []
+    const filename = files.find(f => f === GIST_FILENAME) || files[0]
+    if (!owner) throw new Error('owner 不明')
+    if (!filename) throw new Error('ファイル一覧が空')
+    const rawUrl = `https://gist.githubusercontent.com/${owner}/${id}/raw/${filename}`
+    const rawRes = await fetch(rawUrl, { cache: 'no-cache' })
+    if (!rawRes.ok) throw new Error(`raw HTTP ${rawRes.status}`)
+    const text = await rawRes.text()
+    return JSON.parse(text)
+  } catch (e) {
+    primaryError = e.message
+    console.warn('[Gist raw 経由 失敗]', primaryError)
   }
-  const gist = await res.json()
-  const file = gist.files[GIST_FILENAME] || Object.values(gist.files)[0]
-  if (!file) throw new Error(`Gist 内に ${GIST_FILENAME} がありません (含まれるファイル: ${Object.keys(gist.files).join(', ') || 'なし'})`)
-  const content = file.truncated ? await fetch(file.raw_url).then(r => r.text()) : file.content
-  try { return JSON.parse(content) }
-  catch (e) { throw new Error('Gist のファイルが JSON として解析できません: ' + e.message) }
+  // --- Strategy B: API (fallback) ---
+  try {
+    const url = `https://api.github.com/gists/${id}`
+    const token = localStorage.getItem('editor_gh_token') || ''
+    const headers = { 'Accept': 'application/vnd.github+json' }
+    if (token) headers['Authorization'] = 'Bearer ' + token
+    const res = await fetch(url, { headers })
+    if (!res.ok) {
+      let detail = ''
+      try { const j = await res.json(); if (j && j.message) detail = ' / ' + j.message } catch {}
+      throw new Error(`API HTTP ${res.status}${detail}`)
+    }
+    const gist = await res.json()
+    const file = gist.files[GIST_FILENAME] || Object.values(gist.files)[0]
+    if (!file) throw new Error(`Gist 内に ${GIST_FILENAME} がありません (含まれるファイル: ${Object.keys(gist.files).join(', ') || 'なし'})`)
+    const content = file.truncated ? await fetch(file.raw_url).then(r => r.text()) : file.content
+    return JSON.parse(content)
+  } catch (e) {
+    throw new Error(`Gist 取得失敗\n  raw経由: ${primaryError}\n  API経由: ${e.message}`)
+  }
 }
 
 // 起動時の同期: キャッシュ即時適用 → リモート fetch (バックグラウンド)
