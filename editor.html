@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>小児薬用量 — 編集ツール</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f8fafc; color: #111827; }
+  textarea { min-height: 72px; resize: vertical; }
+  /* 入力フィールド */
+  .input {
+    width: 100%; padding: 0.5rem 0.75rem; font-size: 0.9rem; line-height: 1.4;
+    border: 1px solid #cbd5e1; border-radius: 0.5rem; background: #fff; color: #111827;
+    transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box;
+  }
+  .input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+  .input::placeholder { color: #9ca3af; }
+  .input[type="number"] { font-variant-numeric: tabular-nums; }
+  textarea.input { line-height: 1.6; }
+  /* ラベル */
+  .label { display: block; font-size: 0.75rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem; letter-spacing: 0.02em; }
+  /* ボタン */
+  .btn { padding: 0.55rem 0.95rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.15s, opacity 0.15s; border: none; line-height: 1; }
+  .btn-primary { background: #2563eb; color: #fff; padding: 0.55rem 0.95rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; border: none; transition: background-color 0.15s, opacity 0.15s; }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: #f1f5f9; color: #334155; padding: 0.55rem 0.95rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; cursor: pointer; border: 1px solid #e2e8f0; transition: background-color 0.15s; }
+  .btn-secondary:hover { background: #e2e8f0; }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger { background: #fef2f2; color: #b91c1c; padding: 0.55rem 0.95rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; cursor: pointer; border: 1px solid #fecaca; transition: background-color 0.15s; }
+  .btn-danger:hover { background: #fee2e2; }
+  .btn-ghost { background: transparent; color: #475569; padding: 0.4rem 0.7rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; cursor: pointer; border: none; transition: background-color 0.15s; }
+  .btn-ghost:hover { background: #f1f5f9; }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 600; border-radius: 0.375rem; }
+  /* セクションカード */
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  /* 用量カード（強調） */
+  .dose-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.625rem; padding: 0.875rem; }
+  .dose-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; }
+  .dose-card-title { font-size: 0.8rem; font-weight: 700; color: #1e40af; }
+  /* セクションヘッダ */
+  .section-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 0.875rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; }
+  /* グループ見出し */
+  .group-label { font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+<div id="app" class="min-h-screen flex flex-col"></div>
+
+<script>
+'use strict'
+
+// ============================================================
+// 定数
+// ============================================================
+const GIST_FILENAME = 'pediatric-dosage-data.json'
+const GIST_DESCRIPTION = '小児薬用量アプリ マスターデータ'
+const SCHEMA_VERSION = 1
+
+// ============================================================
+// localStorage
+// ============================================================
+const LS = {
+  get: (k, def='null') => { try { return JSON.parse(localStorage.getItem(k) ?? def) } catch { return JSON.parse(def) } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+  del: k => localStorage.removeItem(k),
+}
+
+// 設定情報の保存キー
+const K_TOKEN = 'editor_gh_token'
+const K_GIST_ID = 'editor_gist_id'
+const K_DRAFT = 'editor_draft'         // 未保存編集
+const K_LAST_SAVED = 'editor_last_saved'
+
+// ============================================================
+// 状態
+// ============================================================
+const state = {
+  // 設定
+  token: LS.get(K_TOKEN, '""') || '',
+  gistId: LS.get(K_GIST_ID, '""') || '',
+
+  // データ
+  data: null,   // { drugs, diseases, ivFluidTables, drugCategories, diseaseCategories }
+
+  // UI
+  loading: false,
+  error: null,
+  view: 'init',       // 'init' | 'setup' | 'main'
+  tab: 'drugs',
+  search: '',
+  filter: '',         // category filter
+  editingDrugId: null,
+  editingDiseaseId: null,
+  editingIvSection: null,  // section index
+  editingIvFluid: null,    // {sectionIdx, fluidIdx}
+  dirty: false,
+  toast: null,
+  saving: false,
+  busy: '',
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const uid = (prefix='id') => prefix + '-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3)
+const debounce = (fn, ms=200) => { let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a), ms)} }
+
+function setState(patch) { Object.assign(state, patch); render() }
+
+function showToast(msg, kind='info') {
+  state.toast = { msg, kind, t: Date.now() }
+  render()
+  setTimeout(() => { if (state.toast && Date.now() - state.toast.t >= 2400) { state.toast = null; render() } }, 2500)
+}
+
+function markDirty() {
+  state.dirty = true
+  // 下書きを localStorage に保存（ブラウザ閉じても残るように）
+  if (state.data) LS.set(K_DRAFT, state.data)
+  renderHeader()
+}
+
+// ============================================================
+// GitHub Gist API
+// ============================================================
+async function ghFetch(url, opts={}) {
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...(opts.headers || {}),
+  }
+  if (state.token) headers['Authorization'] = `Bearer ${state.token}`
+  if (opts.body && typeof opts.body === 'object') {
+    headers['Content-Type'] = 'application/json'
+    opts = { ...opts, body: JSON.stringify(opts.body) }
+  }
+  const res = await fetch(url, { ...opts, headers })
+  if (!res.ok) {
+    let msg = `GitHub API ${res.status}`
+    try { const j = await res.json(); msg += ': ' + (j.message || JSON.stringify(j)) } catch {}
+    throw new Error(msg)
+  }
+  return res.json()
+}
+
+async function gistGet(id) {
+  return ghFetch(`https://api.github.com/gists/${id}`)
+}
+
+async function gistCreate(content, isPublic=false) {
+  return ghFetch('https://api.github.com/gists', {
+    method: 'POST',
+    body: {
+      description: GIST_DESCRIPTION,
+      public: isPublic,
+      files: { [GIST_FILENAME]: { content } },
+    },
+  })
+}
+
+async function gistUpdate(id, content) {
+  return ghFetch(`https://api.github.com/gists/${id}`, {
+    method: 'PATCH',
+    body: { files: { [GIST_FILENAME]: { content } } },
+  })
+}
+
+// ============================================================
+// データ初期化・移行
+// ============================================================
+function emptyData() {
+  return {
+    version: SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    drugCategories: ['抗ウイルス薬','βラクタム系','マクロライド系','セフェム系','アミノグリコシド系','テトラサイクリン系','その他の抗菌薬','抗真菌薬','抗アレルギー薬','解熱鎮痛薬','その他'],
+    diseaseCategories: ['呼吸器','感染症','消化器','循環器','神経','その他'],
+    drugs: [],
+    diseases: [],
+    ivFluidTables: [],
+  }
+}
+
+function normalizeData(raw) {
+  const d = { ...emptyData(), ...(raw || {}) }
+  d.drugs = Array.isArray(d.drugs) ? d.drugs : []
+  d.diseases = Array.isArray(d.diseases) ? d.diseases : []
+  d.ivFluidTables = Array.isArray(d.ivFluidTables) ? d.ivFluidTables : []
+  d.drugCategories = Array.isArray(d.drugCategories) ? d.drugCategories : emptyData().drugCategories
+  d.diseaseCategories = Array.isArray(d.diseaseCategories) ? d.diseaseCategories : emptyData().diseaseCategories
+  // 各 drug の pediatricDoses を必ず配列に
+  d.drugs.forEach(x => { if (!Array.isArray(x.pediatricDoses)) x.pediatricDoses = [] })
+  d.diseases.forEach(x => {
+    if (!Array.isArray(x.sections)) x.sections = []
+    if (!Array.isArray(x.tags)) x.tags = []
+    if (!Array.isArray(x.points)) x.points = []
+    if (!Array.isArray(x.relatedDrugIds)) x.relatedDrugIds = []
+    if (!Array.isArray(x.references)) x.references = []
+  })
+  d.ivFluidTables.forEach(s => {
+    if (!Array.isArray(s.fluids)) s.fluids = []
+    if (!Array.isArray(s.notes)) s.notes = []
+  })
+  return d
+}
+
+// index.html からデータを抽出（File オブジェクト経由）
+async function importFromIndexHtml(file) {
+  const text = await file.text()
+  const extract = (name) => {
+    const re = new RegExp(`const\\s+${name}\\s*=\\s*(\\[[\\s\\S]*?\\n\\])`, '')
+    const m = text.match(re)
+    if (!m) return null
+    return Function('"use strict"; return (' + m[1] + ')')()
+  }
+  const d = emptyData()
+  const drugs = extract('DRUGS')
+  const diseases = extract('DISEASES')
+  const iv = extract('IV_FLUID_TABLES')
+  const drugCats = extract('CATEGORIES')
+  if (drugs) d.drugs = drugs
+  if (diseases) d.diseases = diseases
+  if (iv) d.ivFluidTables = iv
+  if (drugCats) d.drugCategories = drugCats
+  // DISEASE_CATEGORIES は 1 行
+  const m = text.match(/const\s+DISEASE_CATEGORIES\s*=\s*(\[[^\]]*\])/)
+  if (m) d.diseaseCategories = Function('return ' + m[1])()
+  return normalizeData(d)
+}
+
+// ============================================================
+// 保存・読み込み
+// ============================================================
+async function loadFromGist() {
+  if (!state.token || !state.gistId) { setState({ view:'setup' }); return }
+  setState({ loading:true, busy:'Gist から読み込み中…', error:null })
+  try {
+    const gist = await gistGet(state.gistId)
+    const file = gist.files[GIST_FILENAME] || Object.values(gist.files)[0]
+    if (!file) throw new Error(`Gist に ${GIST_FILENAME} が見つかりません`)
+    const content = file.truncated ? await fetch(file.raw_url).then(r=>r.text()) : file.content
+    const parsed = JSON.parse(content)
+    const data = normalizeData(parsed)
+    LS.set(K_LAST_SAVED, data)
+    LS.del(K_DRAFT)
+    setState({ data, loading:false, busy:'', view:'main', dirty:false })
+  } catch (e) {
+    setState({ loading:false, busy:'', error: e.message })
+  }
+}
+
+async function saveToGist() {
+  if (!state.data) return
+  if (!state.token || !state.gistId) { setState({ view:'setup' }); return }
+  setState({ saving:true, busy:'Gist に保存中…' })
+  try {
+    state.data.updatedAt = new Date().toISOString()
+    const content = JSON.stringify(state.data, null, 2)
+    await gistUpdate(state.gistId, content)
+    LS.set(K_LAST_SAVED, state.data)
+    LS.del(K_DRAFT)
+    setState({ saving:false, busy:'', dirty:false })
+    showToast('保存しました', 'ok')
+  } catch (e) {
+    setState({ saving:false, busy:'' })
+    showToast('保存失敗: ' + e.message, 'err')
+  }
+}
+
+async function createNewGist(initialData) {
+  if (!state.token) { showToast('先にトークンを入力してください', 'err'); return }
+  setState({ saving:true, busy:'Gist を作成中…' })
+  try {
+    const content = JSON.stringify(initialData, null, 2)
+    const gist = await gistCreate(content, false)
+    LS.set(K_GIST_ID, gist.id)
+    LS.set(K_LAST_SAVED, initialData)
+    setState({ gistId: gist.id, data: initialData, saving:false, busy:'', view:'main', dirty:false })
+    showToast('Gist を作成しました', 'ok')
+  } catch (e) {
+    setState({ saving:false, busy:'' })
+    showToast('作成失敗: ' + e.message, 'err')
+  }
+}
+
+// ============================================================
+// 編集ヘルパー
+// ============================================================
+function findDrug(id) { return state.data.drugs.find(d => d.id === id) }
+function findDisease(id) { return state.data.diseases.find(d => d.id === id) }
+
+function newDrug() {
+  return {
+    id: uid('drug'),
+    genericName: '',
+    abbreviation: '',
+    brandNames: [],
+    category: state.data.drugCategories[0] || '',
+    subcategory: '',
+    route: '内服',
+    formulations: [],
+    adultDose: '',
+    pediatricDoses: [],
+    notes: '',
+    sideEffects: '',
+    references: [],
+  }
+}
+
+function newDose() {
+  return {
+    ageLabel: '全年齢',
+    purpose: '治療',
+    frequency: '分3',
+  }
+}
+
+function newDisease() {
+  return {
+    id: uid('dis'),
+    name: '',
+    englishName: '',
+    abbreviation: '',
+    category: state.data.diseaseCategories[0] || '',
+    tags: [],
+    points: [],
+    sections: [],
+    relatedDrugIds: [],
+    references: [],
+    notes: '',
+  }
+}
+
+function newSection() {
+  return { title: '', content: '' }
+}
+
+function newIvFluid() {
+  return { name: '', Na: '', K: '', Cl: '', Ca: '', Mg: '', buffer: '', glucose: '' }
+}
+
+function newIvSection() {
+  return { category: '新しい区分', notes: [], fluids: [] }
+}
+
+// ============================================================
+// 描画: ヘッダー
+// ============================================================
+function headerHTML() {
+  const status = state.loading ? '読み込み中…' :
+    state.saving ? '保存中…' :
+    state.dirty ? '未保存の変更あり' :
+    state.data ? '保存済み' : ''
+  const statusColor = state.dirty ? 'text-amber-600' : 'text-gray-500'
+
+  return `
+    <header class="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+      <div class="flex-1 min-w-0">
+        <h1 class="text-base font-bold text-gray-900">小児薬用量 編集ツール</h1>
+        <div class="text-xs ${statusColor} truncate">${esc(status)}${state.busy ? ' — ' + esc(state.busy) : ''}</div>
+      </div>
+      ${state.view === 'main' ? `
+        <button data-act="save" class="btn-primary" ${(!state.dirty || state.saving) ? 'disabled' : ''}>
+          ${state.saving ? '保存中' : '💾 保存'}
+        </button>
+      ` : ''}
+    </header>
+  `
+}
+
+function tabsHTML() {
+  if (state.view !== 'main') return ''
+  const tabs = [
+    ['drugs', '薬剤', state.data.drugs.length],
+    ['diseases', '疾患', state.data.diseases.length],
+    ['iv', '輸液', state.data.ivFluidTables.reduce((n, s) => n + s.fluids.length, 0)],
+    ['categories', 'カテゴリ', ''],
+    ['settings', '設定', ''],
+  ]
+  return `
+    <nav class="sticky top-[57px] z-20 bg-white border-b border-gray-200 flex overflow-x-auto">
+      ${tabs.map(([k, l, c]) => `
+        <button data-tab="${k}" class="flex-shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 ${state.tab === k ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'}">
+          ${esc(l)}${c !== '' ? ` <span class="text-xs text-gray-400">${c}</span>` : ''}
+        </button>
+      `).join('')}
+    </nav>
+  `
+}
+
+function toastHTML() {
+  if (!state.toast) return ''
+  const colors = { ok: 'bg-green-600', err: 'bg-red-600', info: 'bg-gray-800' }
+  return `
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 ${colors[state.toast.kind] || colors.info} text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+      ${esc(state.toast.msg)}
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: 初期画面
+// ============================================================
+function initScreenHTML() {
+  return `
+    <div class="flex-1 flex items-center justify-center p-6">
+      <div class="max-w-md w-full bg-white rounded-xl shadow-md p-6 space-y-4">
+        <h2 class="text-lg font-bold text-gray-900">ようこそ</h2>
+        <p class="text-sm text-gray-600 leading-relaxed">
+          このツールは <strong>小児薬用量アプリ</strong> のマスターデータを編集して、GitHub Gist に保存するための画面です。
+          編集内容は自動的に Gist に保存され、複数端末から同じデータを参照できるようになります。
+        </p>
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-900 space-y-1">
+          <div>① GitHub アカウントで <strong>Personal Access Token (gist スコープ)</strong> を作成</div>
+          <div>② このツールにトークンを登録</div>
+          <div>③ 既存データをインポート、または新規作成</div>
+        </div>
+        <button data-act="goto-setup" class="btn-primary w-full">セットアップを始める</button>
+        ${state.error ? `<div class="text-xs text-red-600">${esc(state.error)}</div>` : ''}
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: セットアップ画面
+// ============================================================
+function setupScreenHTML() {
+  return `
+    <div class="flex-1 p-4 sm:p-6 overflow-y-auto">
+      <div class="max-w-2xl mx-auto space-y-4">
+        <!-- Step 1: トークン -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">1</div>
+            <h3 class="text-base font-bold text-gray-900">GitHub Personal Access Token</h3>
+          </div>
+          <p class="text-xs text-gray-600 leading-relaxed">
+            <a href="https://github.com/settings/tokens/new?scopes=gist&description=pediatric-dosage" target="_blank" rel="noopener" class="text-blue-600 underline font-semibold">こちら (Classic Token)</a>
+            から「Generate new token (classic)」で発行してください。
+            スコープは <code class="px-1 bg-gray-100 rounded">gist</code> のみ ON にすれば OK です。
+          </p>
+          <div class="bg-amber-50 border border-amber-200 rounded p-2 text-[11px] text-amber-900 leading-relaxed">
+            ⚠️ <strong>Fine-grained token は使えません</strong> (Gist API 非対応)。必ず <strong>Personal access tokens (classic)</strong> の方で作成してください。
+          </div>
+          <input id="setup-token" type="password" placeholder="ghp_… (トークン)" value="${esc(state.token)}"
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+          <div class="text-[11px] text-gray-500">トークンはこの端末の localStorage にのみ保存されます（外部送信なし）。</div>
+          <button data-act="save-token" class="btn-secondary">保存</button>
+        </div>
+
+        <!-- Step 2: Gist -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full ${state.token ? 'bg-blue-600' : 'bg-gray-300'} text-white text-sm font-bold flex items-center justify-center">2</div>
+            <h3 class="text-base font-bold text-gray-900">Gist の準備</h3>
+          </div>
+          <p class="text-xs text-gray-600 leading-relaxed">
+            データを保存する Gist を準備します。3つの方法から選んでください。
+          </p>
+
+          <!-- A: 既存 Gist ID -->
+          <div class="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="text-sm font-medium text-gray-800">A. 既存の Gist を使う</div>
+            <input id="setup-gist-id" type="text" placeholder="Gist ID (例: 1a2b3c4d5e6f7890)" value="${esc(state.gistId)}"
+              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+            <button data-act="use-gist" class="btn-secondary" ${!state.token ? 'disabled' : ''}>この Gist を使う</button>
+          </div>
+
+          <!-- B: 新規 Gist -->
+          <div class="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="text-sm font-medium text-gray-800">B. 新規 Gist を作成 (空データから)</div>
+            <button data-act="create-empty-gist" class="btn-secondary" ${!state.token ? 'disabled' : ''}>空の Gist を新規作成</button>
+          </div>
+
+          <!-- C: index.html から取り込む -->
+          <div class="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="text-sm font-medium text-gray-800">C. 既存の index.html からインポート</div>
+            <p class="text-xs text-gray-500">アプリの index.html を選択すると、薬剤・疾患・輸液データが取り込まれて新しい Gist に保存されます。</p>
+            <input id="setup-import-file" type="file" accept=".html,.htm" class="text-xs" />
+            <button data-act="import-from-html" class="btn-secondary" ${!state.token ? 'disabled' : ''}>インポートして Gist 作成</button>
+          </div>
+        </div>
+
+        ${state.error ? `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">${esc(state.error)}</div>` : ''}
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: 薬剤タブ
+// ============================================================
+function drugsTabHTML() {
+  const editing = state.editingDrugId ? findDrug(state.editingDrugId) : null
+  if (editing) return drugFormHTML(editing)
+  return drugsListHTML()
+}
+
+function drugsListHTML() {
+  const q = state.search.toLowerCase().trim()
+  const cat = state.filter
+  let drugs = state.data.drugs
+  if (cat) drugs = drugs.filter(d => d.category === cat)
+  if (q) {
+    drugs = drugs.filter(d => {
+      const hay = [d.id, d.genericName, d.abbreviation, ...(d.brandNames||[]), d.category, d.subcategory].join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }
+
+  return `
+    <div class="p-4 space-y-3">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input type="text" id="drugs-search" placeholder="🔍 薬剤を検索 (薬剤名・略称・商品名)" value="${esc(state.search)}"
+          class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <select id="drugs-filter" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+          <option value="">全カテゴリ (${state.data.drugs.length}件)</option>
+          ${state.data.drugCategories.map(c => `<option value="${esc(c)}" ${state.filter===c?'selected':''}>${esc(c)} (${state.data.drugs.filter(d=>d.category===c).length})</option>`).join('')}
+        </select>
+        <button data-act="add-drug" class="btn-primary whitespace-nowrap">+ 新規追加</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        ${drugs.length === 0 ? `
+          <div class="p-8 text-center text-sm text-gray-500">該当する薬剤がありません</div>
+        ` : drugs.map(d => `
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" data-edit-drug="${esc(d.id)}">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-gray-900">${esc(d.genericName || '(未入力)')}</span>
+                ${d.abbreviation ? `<span class="badge bg-blue-50 text-blue-700">${esc(d.abbreviation)}</span>` : ''}
+                ${d.brandNames && d.brandNames.length ? `<span class="text-xs text-gray-500">${esc(d.brandNames.join(' / '))}</span>` : ''}
+              </div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · ${esc(d.route || '')} · 用量 ${(d.pediatricDoses||[]).length}件
+              </div>
+            </div>
+            <button data-act="del-drug" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2" title="削除">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
+}
+
+function drugFormHTML(d) {
+  return `
+    <div class="p-4 space-y-3 max-w-3xl mx-auto">
+      <div class="flex items-center gap-2">
+        <button data-act="back-drug" class="btn-ghost">← 一覧へ戻る</button>
+        <div class="flex-1"></div>
+        <button data-act="del-drug" data-id="${esc(d.id)}" class="btn-danger">この薬剤を削除</button>
+      </div>
+
+      <div class="card p-5 space-y-4">
+        <h3 class="section-title">基本情報</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2"><label class="label">一般名 <span class="text-red-500">*</span></label>
+            <input data-bind="drug.genericName" type="text" value="${esc(d.genericName)}" class="input" placeholder="例: アモキシシリン水和物" /></div>
+          <div><label class="label">略称</label>
+            <input data-bind="drug.abbreviation" type="text" value="${esc(d.abbreviation)}" class="input" placeholder="例: AMPC" /></div>
+          <div><label class="label">商品名 <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+            <input data-bind="drug.brandNames" type="text" value="${esc((d.brandNames||[]).join(' | '))}" class="input" placeholder="例: サワシリン | パセトシン" /></div>
+          <div><label class="label">カテゴリ</label>
+            <select data-bind="drug.category" class="input">
+              ${state.data.drugCategories.map(c => `<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')}
+            </select></div>
+          <div><label class="label">サブカテゴリ <span class="text-gray-400 font-normal">（任意）</span></label>
+            <input data-bind="drug.subcategory" type="text" value="${esc(d.subcategory || '')}" class="input" placeholder="例: ペニシリン系" /></div>
+          <div><label class="label">投与経路</label>
+            <input data-bind="drug.route" type="text" value="${esc(d.route || '')}" class="input" placeholder="例: 内服, 点滴静注, 吸入" /></div>
+          <div><label class="label">剤形 <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+            <input data-bind="drug.formulations" type="text" value="${esc((d.formulations||[]).join(' | '))}" class="input" placeholder="例: 錠 250mg | 細粒 10%" /></div>
+          <div class="sm:col-span-2"><label class="label">成人用量</label>
+            <input data-bind="drug.adultDose" type="text" value="${esc(d.adultDose || '')}" class="input" placeholder="例: 250〜500mg 1日3〜4回" /></div>
+          <div class="sm:col-span-2">
+            <details><summary class="text-xs text-gray-500 cursor-pointer">高度な設定 (内部ID)</summary>
+              <div class="mt-2"><label class="label">内部ID</label>
+                <input data-bind="drug.id" type="text" value="${esc(d.id)}" class="input" style="font-family:ui-monospace,SFMono-Regular,monospace;" />
+                <div class="text-[11px] text-gray-500 mt-1">通常変更不要。半角英数とハイフンのみ使えます。</div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-5 space-y-3">
+        <div class="flex items-center justify-between border-b-2 border-gray-200 pb-2 mb-3">
+          <h3 class="text-base font-bold text-gray-900">小児用量 <span class="text-sm text-gray-500 font-normal">${(d.pediatricDoses||[]).length}件</span></h3>
+          <button data-act="add-dose" class="btn-primary text-xs" style="padding:0.4rem 0.7rem;">＋ 用量を追加</button>
+        </div>
+        ${(d.pediatricDoses||[]).length === 0 ? `
+          <div class="text-sm text-gray-500 py-6 text-center bg-gray-50 rounded-lg">用量がまだありません。<br/><span class="text-xs">右上の「＋ 用量を追加」を押してください。</span></div>
+        ` : `<div class="space-y-3">${(d.pediatricDoses||[]).map((dose, i) => doseRowHTML(dose, i)).join('')}</div>`}
+        <div class="text-[11px] text-gray-500 leading-relaxed pt-3 mt-2 border-t border-gray-100">
+          💡 <strong>用量の入れ方:</strong>
+          「固定用量」（例: 5mg/日）/「mg/kg 単一」（例: 6）/「mg/kg 範囲」（最小・最大）の <strong>いずれか1つだけ</strong> を入力します。
+        </div>
+      </div>
+
+      <div class="card p-5 space-y-4">
+        <h3 class="section-title">その他</h3>
+        <div><label class="label">備考</label>
+          <textarea data-bind="drug.notes" class="input" placeholder="使用上の注意・処方のコツなど">${esc(d.notes || '')}</textarea></div>
+        <div><label class="label">副作用</label>
+          <textarea data-bind="drug.sideEffects" class="input" placeholder="例: 悪心、嘔吐">${esc(d.sideEffects || '')}</textarea></div>
+        <div><label class="label">参考文献 <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+          <input data-bind="drug.references" type="text" value="${esc((d.references||[]).join(' | '))}" class="input" placeholder="例: 新 小児薬用量 改訂第9版" /></div>
+      </div>
+    </div>
+  `
+}
+
+function doseRowHTML(dose, i) {
+  return `
+    <div class="dose-card">
+      <div class="dose-card-header">
+        <div class="dose-card-title">用量 #${i + 1}</div>
+        <div class="flex gap-1">
+          <button data-act="dose-up" data-i="${i}" class="btn-ghost" title="上へ">↑</button>
+          <button data-act="dose-down" data-i="${i}" class="btn-ghost" title="下へ">↓</button>
+          <button data-act="dose-del" data-i="${i}" class="btn-ghost" style="color:#dc2626;" title="削除">✕</button>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- 対象 -->
+        <div>
+          <div class="group-label">対象</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-3"><label class="label">年齢ラベル <span class="text-gray-400 font-normal">（表示用テキスト）</span></label>
+              <input data-bind="dose.${i}.ageLabel" type="text" value="${esc(dose.ageLabel || '')}" class="input" placeholder="例: 1歳以上、新生児〜1歳未満" /></div>
+            <div><label class="label">最小月齢</label>
+              <input data-bind="dose.${i}.ageMinMonths" type="number" value="${dose.ageMinMonths ?? ''}" class="input" placeholder="0" /></div>
+            <div><label class="label">最大月齢</label>
+              <input data-bind="dose.${i}.ageMaxMonths" type="number" value="${dose.ageMaxMonths ?? ''}" class="input" placeholder="制限なしなら空欄" /></div>
+            <div><label class="label">目的</label>
+              <input data-bind="dose.${i}.purpose" type="text" value="${esc(dose.purpose || '')}" class="input" placeholder="治療 / 予防" /></div>
+          </div>
+          <div class="text-[11px] text-gray-500 mt-1">月齢: 1歳=12 / 6歳=72 / 12歳=144</div>
+        </div>
+
+        <!-- 用量本体 -->
+        <div>
+          <div class="group-label">用量 <span style="color:#dc2626;font-weight:500;text-transform:none;letter-spacing:0;">（A・B・C のいずれか1つを使用）</span></div>
+          <div class="space-y-3">
+
+            <!-- A: 固定用量 -->
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
+              <label class="label" style="display:flex;align-items:center;gap:0.4rem;">
+                <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:0.1rem 0.4rem;border-radius:0.25rem;">A</span>
+                固定用量
+              </label>
+              <input data-bind="dose.${i}.fixedDose" type="text" value="${esc(dose.fixedDose || '')}" class="input" placeholder="例: 5mg/日、10mg を 1日2回" />
+            </div>
+
+            <!-- B: mg/kg 単一 -->
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
+              <label class="label" style="display:flex;align-items:center;gap:0.4rem;">
+                <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:0.1rem 0.4rem;border-radius:0.25rem;">B</span>
+                mg/kg/日（単一値）
+              </label>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <input data-bind="dose.${i}.dosePerKg" type="number" step="0.01" value="${dose.dosePerKg ?? ''}" class="input" style="max-width:140px;" placeholder="例: 6" />
+                <span class="text-sm text-gray-500">mg/kg/日</span>
+              </div>
+            </div>
+
+            <!-- C: mg/kg 範囲 -->
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
+              <label class="label" style="display:flex;align-items:center;gap:0.4rem;">
+                <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:0.1rem 0.4rem;border-radius:0.25rem;">C</span>
+                mg/kg/日（範囲）
+              </label>
+              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <input data-bind="dose.${i}.dosePerKgMin" type="number" step="0.01" value="${dose.dosePerKgMin ?? ''}" class="input" style="max-width:120px;" placeholder="最小" />
+                <span class="text-sm text-gray-500">〜</span>
+                <input data-bind="dose.${i}.dosePerKgMax" type="number" step="0.01" value="${dose.dosePerKgMax ?? ''}" class="input" style="max-width:120px;" placeholder="最大" />
+                <span class="text-sm text-gray-500">mg/kg/日</span>
+              </div>
+            </div>
+
+            <!-- 1日最大量 -->
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
+              <label class="label">1日最大量（上限）</label>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <input data-bind="dose.${i}.maxDosePerDay" type="number" value="${dose.maxDosePerDay ?? ''}" class="input" style="max-width:140px;" placeholder="例: 1500" />
+                <span class="text-sm text-gray-500">mg/日</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 投与方法 -->
+        <div>
+          <div class="group-label">投与方法</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="label">頻度</label>
+              <input data-bind="dose.${i}.frequency" type="text" value="${esc(dose.frequency || '')}" class="input" placeholder="例: 分3、1日2回" /></div>
+            <div><label class="label">期間</label>
+              <input data-bind="dose.${i}.duration" type="text" value="${esc(dose.duration || '')}" class="input" placeholder="例: 5日間" /></div>
+            <div class="sm:col-span-2"><label class="label">用量メモ <span class="text-gray-400 font-normal">（補足）</span></label>
+              <input data-bind="dose.${i}.notes" type="text" value="${esc(dose.notes || '')}" class="input" placeholder="例: 食後、重症例では最大90mg/kg/日" /></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: 疾患タブ
+// ============================================================
+function diseasesTabHTML() {
+  const editing = state.editingDiseaseId ? findDisease(state.editingDiseaseId) : null
+  if (editing) return diseaseFormHTML(editing)
+  return diseasesListHTML()
+}
+
+function diseasesListHTML() {
+  const q = state.search.toLowerCase().trim()
+  const cat = state.filter
+  let diseases = state.data.diseases
+  if (cat) diseases = diseases.filter(d => d.category === cat)
+  if (q) {
+    diseases = diseases.filter(d => {
+      const hay = [d.id, d.name, d.englishName, d.abbreviation, ...(d.tags||[])].join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }
+  return `
+    <div class="p-4 space-y-3">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input type="text" id="diseases-search" placeholder="🔍 疾患を検索" value="${esc(state.search)}" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <select id="diseases-filter" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+          <option value="">全カテゴリ (${state.data.diseases.length}件)</option>
+          ${state.data.diseaseCategories.map(c => `<option value="${esc(c)}" ${state.filter===c?'selected':''}>${esc(c)} (${state.data.diseases.filter(d=>d.category===c).length})</option>`).join('')}
+        </select>
+        <button data-act="add-disease" class="btn-primary whitespace-nowrap">+ 新規追加</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        ${diseases.length === 0 ? `
+          <div class="p-8 text-center text-sm text-gray-500">該当する疾患がありません</div>
+        ` : diseases.map(d => `
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" data-edit-disease="${esc(d.id)}">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-gray-900">${esc(d.name || '(未入力)')}</span>
+                ${d.abbreviation ? `<span class="badge bg-purple-50 text-purple-700">${esc(d.abbreviation)}</span>` : ''}
+                ${d.englishName ? `<span class="text-xs text-gray-500">${esc(d.englishName)}</span>` : ''}
+              </div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                ${esc(d.category || '')} · セクション ${(d.sections||[]).length}件
+              </div>
+            </div>
+            <button data-act="del-disease" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
+}
+
+function diseaseFormHTML(d) {
+  return `
+    <div class="p-4 space-y-3 max-w-3xl mx-auto">
+      <div class="flex items-center gap-2">
+        <button data-act="back-disease" class="btn-ghost">← 一覧へ戻る</button>
+        <div class="flex-1"></div>
+        <button data-act="del-disease" data-id="${esc(d.id)}" class="btn-danger">この疾患を削除</button>
+      </div>
+
+      <div class="card p-5 space-y-4">
+        <h3 class="section-title">基本情報</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2"><label class="label">疾患名 <span class="text-red-500">*</span></label>
+            <input data-bind="disease.name" type="text" value="${esc(d.name)}" class="input" placeholder="例: 市中肺炎" /></div>
+          <div><label class="label">英語名</label>
+            <input data-bind="disease.englishName" type="text" value="${esc(d.englishName || '')}" class="input" placeholder="例: Community-acquired pneumonia" /></div>
+          <div><label class="label">略語</label>
+            <input data-bind="disease.abbreviation" type="text" value="${esc(d.abbreviation || '')}" class="input" placeholder="例: CAP" /></div>
+          <div><label class="label">カテゴリ</label>
+            <select data-bind="disease.category" class="input">
+              ${state.data.diseaseCategories.map(c => `<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')}
+            </select></div>
+          <div><label class="label">タグ <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+            <input data-bind="disease.tags" type="text" value="${esc((d.tags||[]).join(' | '))}" class="input" placeholder="例: 肺炎 | CAP" /></div>
+          <div class="sm:col-span-2"><label class="label">ポイント <span class="text-gray-400 font-normal">（箇条書きで | で区切る）</span></label>
+            <input data-bind="disease.points" type="text" value="${esc((d.points||[]).join(' | '))}" class="input" placeholder="例: 発熱5日以上 | 結膜充血 | 苺舌" /></div>
+          <div class="sm:col-span-2"><label class="label">関連薬剤 <span class="text-gray-400 font-normal">（薬剤の内部ID を | で区切る）</span></label>
+            <input data-bind="disease.relatedDrugIds" type="text" value="${esc((d.relatedDrugIds||[]).join(' | '))}" class="input" style="font-family:ui-monospace,monospace;" placeholder="例: amoxicillin | azithromycin" /></div>
+          <div class="sm:col-span-2"><label class="label">参考文献 <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+            <input data-bind="disease.references" type="text" value="${esc((d.references||[]).join(' | '))}" class="input" placeholder="例: 小児感染症診療マニュアル" /></div>
+          <div class="sm:col-span-2"><label class="label">備考</label>
+            <textarea data-bind="disease.notes" class="input" placeholder="その他のメモ">${esc(d.notes || '')}</textarea></div>
+          <div class="sm:col-span-2">
+            <details><summary class="text-xs text-gray-500 cursor-pointer">高度な設定 (内部ID)</summary>
+              <div class="mt-2"><label class="label">内部ID</label>
+                <input data-bind="disease.id" type="text" value="${esc(d.id)}" class="input" style="font-family:ui-monospace,monospace;" />
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-5 space-y-3">
+        <div class="flex items-center justify-between border-b-2 border-gray-200 pb-2 mb-3">
+          <h3 class="text-base font-bold text-gray-900">セクション <span class="text-sm text-gray-500 font-normal">${(d.sections||[]).length}件</span></h3>
+          <button data-act="add-section" class="btn-primary text-xs" style="padding:0.4rem 0.7rem;">＋ セクション追加</button>
+        </div>
+        ${(d.sections||[]).length === 0 ? `
+          <div class="text-sm text-gray-500 py-6 text-center bg-gray-50 rounded-lg">セクションがまだありません。<br/><span class="text-xs">「診断」「治療」「フォロー」などを追加してください。</span></div>
+        ` : `<div class="space-y-3">${(d.sections||[]).map((s, i) => sectionRowHTML(s, i)).join('')}</div>`}
+      </div>
+    </div>
+  `
+}
+
+function sectionRowHTML(s, i) {
+  return `
+    <div class="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
+      <div class="flex items-center gap-2">
+        <input data-bind="section.${i}.title" type="text" value="${esc(s.title || '')}" class="input flex-1" placeholder="セクションタイトル (例: 診断)" />
+        <button data-act="section-up" data-i="${i}" class="btn-ghost text-sm px-2">↑</button>
+        <button data-act="section-down" data-i="${i}" class="btn-ghost text-sm px-2">↓</button>
+        <button data-act="section-del" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">✕</button>
+      </div>
+      <textarea data-bind="section.${i}.content" class="input min-h-[120px]" placeholder="本文">${esc(s.content || '')}</textarea>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: 輸液タブ
+// ============================================================
+function ivTabHTML() {
+  return `
+    <div class="p-4 space-y-3 max-w-4xl mx-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-gray-900">輸液製剤マスター (${state.data.ivFluidTables.reduce((n, s) => n + s.fluids.length, 0)}件)</h3>
+        <button data-act="add-iv-section" class="btn-primary">+ 区分を追加</button>
+      </div>
+      ${state.data.ivFluidTables.length === 0 ? `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
+          区分がありません。「+ 区分を追加」から作成してください。
+        </div>
+      ` : state.data.ivFluidTables.map((sect, si) => ivSectionHTML(sect, si)).join('')}
+    </div>
+  `
+}
+
+function ivSectionHTML(sect, si) {
+  return `
+    <div class="card overflow-hidden">
+      <div style="background:#dbeafe;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.5rem;border-bottom:1px solid #bfdbfe;">
+        <input data-bind="ivSect.${si}.category" type="text" value="${esc(sect.category)}" class="input" style="flex:1;font-weight:600;" placeholder="区分名（例: 細胞外液補充液）" />
+        <button data-act="iv-sect-up" data-i="${si}" class="btn-ghost">↑</button>
+        <button data-act="iv-sect-down" data-i="${si}" class="btn-ghost">↓</button>
+        <button data-act="iv-sect-del" data-i="${si}" class="btn-danger" style="padding:0.4rem 0.7rem;font-size:12px;">区分削除</button>
+      </div>
+      <div style="padding:0.5rem 1rem;background:#fafbfc;border-bottom:1px solid #e2e8f0;">
+        <div style="display:grid;grid-template-columns:1fr;gap:0.25rem;">
+          ${sect.fluids.map((f, fi) => ivFluidRowHTML(f, si, fi)).join('')}
+        </div>
+      </div>
+      <div style="padding:0.5rem 1rem;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;">
+        <span class="text-xs text-gray-500">${sect.fluids.length}件の製剤</span>
+        <button data-act="add-iv-fluid" data-si="${si}" class="btn-primary" style="padding:0.4rem 0.7rem;font-size:12px;">＋ 製剤を追加</button>
+      </div>
+      <div style="padding:0.75rem 1rem;">
+        <label class="label">注釈（1行に1件、※1, ※2 など）</label>
+        <textarea data-bind="ivSect.${si}.notes" class="input" placeholder="※1 ...&#10;※2 ...">${esc((sect.notes||[]).join('\n'))}</textarea>
+      </div>
+    </div>
+  `
+}
+
+function ivFluidRowHTML(f, si, fi) {
+  return `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.75rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <input data-bind="ivFluid.${si}.${fi}.name" type="text" value="${esc(f.name || '')}" class="input" style="flex:1;font-weight:600;" placeholder="製品名（例: 生理食塩液）" />
+        <button data-act="iv-fluid-del" data-si="${si}" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap:0.4rem;">
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">Na</label>
+          <input data-bind="ivFluid.${si}.${fi}.Na" type="text" value="${esc(f.Na ?? '')}" class="input" style="text-align:center;" /></div>
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">K</label>
+          <input data-bind="ivFluid.${si}.${fi}.K" type="text" value="${esc(f.K ?? '')}" class="input" style="text-align:center;" /></div>
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">Cl</label>
+          <input data-bind="ivFluid.${si}.${fi}.Cl" type="text" value="${esc(f.Cl ?? '')}" class="input" style="text-align:center;" /></div>
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">Ca</label>
+          <input data-bind="ivFluid.${si}.${fi}.Ca" type="text" value="${esc(f.Ca ?? '')}" class="input" style="text-align:center;" /></div>
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">Mg</label>
+          <input data-bind="ivFluid.${si}.${fi}.Mg" type="text" value="${esc(f.Mg ?? '')}" class="input" style="text-align:center;" /></div>
+        <div style="grid-column:span 2;"><label class="label" style="margin-bottom:0.15rem;">緩衝剤</label>
+          <input data-bind="ivFluid.${si}.${fi}.buffer" type="text" value="${esc(f.buffer || '')}" class="input" placeholder="例: 乳酸 28" /></div>
+        <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">糖 %</label>
+          <input data-bind="ivFluid.${si}.${fi}.glucose" type="text" value="${esc(f.glucose ?? '')}" class="input" style="text-align:center;" /></div>
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: カテゴリタブ
+// ============================================================
+function categoriesTabHTML() {
+  return `
+    <div class="p-4 space-y-3 max-w-2xl mx-auto">
+      ${categoryListHTML('drug', '薬剤カテゴリ', state.data.drugCategories)}
+      ${categoryListHTML('disease', '疾患カテゴリ', state.data.diseaseCategories)}
+    </div>
+  `
+}
+
+function categoryListHTML(kind, title, list) {
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-gray-900">${esc(title)} (${list.length})</h3>
+        <button data-act="add-cat" data-kind="${kind}" class="btn-secondary text-xs">+ 追加</button>
+      </div>
+      ${list.map((c, i) => `
+        <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+          <input data-bind="cat.${kind}.${i}" type="text" value="${esc(c)}" class="input flex-1" />
+          <button data-act="cat-up" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">↑</button>
+          <button data-act="cat-down" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">↓</button>
+          <button data-act="cat-del" data-kind="${kind}" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">✕</button>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: 設定タブ
+// ============================================================
+function settingsTabHTML() {
+  const updatedAt = state.data?.updatedAt
+  return `
+    <div class="p-4 space-y-3 max-w-2xl mx-auto">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+        <h3 class="font-bold text-gray-900">Gist 接続情報</h3>
+        <div class="text-xs text-gray-600 space-y-1">
+          <div><span class="text-gray-500">Gist ID:</span> <code class="px-1 bg-gray-100 rounded font-mono">${esc(state.gistId || '(未設定)')}</code></div>
+          ${state.gistId ? `<div><span class="text-gray-500">URL:</span> <a href="https://gist.github.com/${esc(state.gistId)}" target="_blank" rel="noopener" class="text-blue-600 underline break-all">https://gist.github.com/${esc(state.gistId)}</a></div>` : ''}
+          ${state.gistId ? `<div><span class="text-gray-500">Raw URL:</span> <code class="px-1 bg-gray-100 rounded text-[10px] break-all">https://gist.githubusercontent.com/.../${esc(GIST_FILENAME)}</code></div>` : ''}
+          <div><span class="text-gray-500">最終保存:</span> ${esc(updatedAt ? new Date(updatedAt).toLocaleString('ja-JP') : '(未保存)')}</div>
+        </div>
+        <div class="flex gap-2 flex-wrap pt-2 border-t border-gray-100">
+          <button data-act="reload" class="btn-secondary">🔄 Gist から再読込</button>
+          <button data-act="export-json" class="btn-secondary">💾 JSON ダウンロード</button>
+          <button data-act="logout" class="btn-danger">設定をクリア</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+        <h3 class="font-bold text-gray-900">同僚への共有方法</h3>
+        <ol class="text-xs text-gray-700 space-y-2 leading-relaxed list-decimal list-inside">
+          <li>下記の「共有用 URL」を同僚に渡してください。</li>
+          <li>同僚はその URL でアプリを開くだけで、最新のマスターデータを参照できます。</li>
+          <li>同僚側で薬剤を追加・編集してもローカル端末にのみ保存され、マスターには影響しません。</li>
+        </ol>
+        ${state.gistId ? (() => {
+          const base = location.href.replace(/\/editor\.html.*$/, '/index.html').replace(/\/$/, '/index.html')
+          const shareUrl = `${base}?gist=${state.gistId}`
+          return `
+          <div class="bg-gray-50 p-3 rounded-lg space-y-2 text-xs">
+            <div class="text-gray-500">同じフォルダにある index.html を使う場合の URL:</div>
+            <div class="flex gap-2 items-stretch">
+              <code class="flex-1 px-2 py-1.5 bg-white border border-gray-200 rounded font-mono break-all text-[11px]">${esc(shareUrl)}</code>
+              <button data-act="copy-share" data-url="${esc(shareUrl)}" class="btn-secondary text-xs">コピー</button>
+            </div>
+            <div class="text-[11px] text-gray-500">同僚はこの URL を1度開くだけで以降は ?gist=… 無しでも開けるようになります。</div>
+            <div class="text-gray-500 pt-1">マスターデータ JSON を直接見る:</div>
+            <a href="https://gist.github.com/${esc(state.gistId)}" target="_blank" rel="noopener" class="block px-2 py-1.5 bg-white border border-gray-200 rounded font-mono break-all text-blue-600 text-[11px]">https://gist.github.com/${esc(state.gistId)}</a>
+          </div>
+        `})() : ''}
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+        <h3 class="font-bold text-gray-900">データのインポート / 統計</h3>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-blue-50 rounded-lg p-3"><div class="text-2xl font-bold text-blue-700">${state.data.drugs.length}</div><div class="text-xs text-blue-600">薬剤</div></div>
+          <div class="bg-purple-50 rounded-lg p-3"><div class="text-2xl font-bold text-purple-700">${state.data.diseases.length}</div><div class="text-xs text-purple-600">疾患</div></div>
+          <div class="bg-cyan-50 rounded-lg p-3"><div class="text-2xl font-bold text-cyan-700">${state.data.ivFluidTables.reduce((n,s)=>n+s.fluids.length,0)}</div><div class="text-xs text-cyan-600">輸液製剤</div></div>
+        </div>
+        <div class="pt-3 border-t border-gray-100 space-y-2">
+          <label class="label">既存の index.html から取り込む (現在のデータに上書き)</label>
+          <input id="import-file" type="file" accept=".html,.htm" class="text-xs" />
+          <button data-act="import-replace" class="btn-secondary">📥 インポート (置き換え)</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// 描画: ルーター
+// ============================================================
+function bodyHTML() {
+  if (state.view === 'init') return initScreenHTML()
+  if (state.view === 'setup') return setupScreenHTML()
+  if (!state.data) return `<div class="flex-1 flex items-center justify-center text-sm text-gray-500">${esc(state.busy || '読み込み中…')}</div>`
+  switch (state.tab) {
+    case 'drugs': return drugsTabHTML()
+    case 'diseases': return diseasesTabHTML()
+    case 'iv': return ivTabHTML()
+    case 'categories': return categoriesTabHTML()
+    case 'settings': return settingsTabHTML()
+  }
+  return ''
+}
+
+function render() {
+  const app = document.getElementById('app')
+  app.innerHTML = headerHTML() + tabsHTML() + `<main class="flex-1 overflow-y-auto">${bodyHTML()}</main>` + toastHTML()
+}
+
+function renderHeader() {
+  // 部分更新: ヘッダーのみ
+  const app = document.getElementById('app')
+  if (!app) return
+  const h = app.querySelector('header')
+  if (!h) { render(); return }
+  h.outerHTML = headerHTML()
+}
+
+// ============================================================
+// イベント処理
+// ============================================================
+function bindGlobalEvents() {
+  document.addEventListener('click', onClick)
+  document.addEventListener('change', onChange)
+  document.addEventListener('input', onInput)
+}
+
+function onClick(e) {
+  const t = e.target.closest('[data-act], [data-tab], [data-edit-drug], [data-edit-disease]')
+  if (!t) return
+  const act = t.dataset.act
+  const tab = t.dataset.tab
+  const editDrug = t.dataset.editDrug
+  const editDisease = t.dataset.editDisease
+
+  if (tab) { setState({ tab, search:'', filter:'', editingDrugId:null, editingDiseaseId:null }); return }
+  if (editDrug) { setState({ editingDrugId: editDrug }); return }
+  if (editDisease) { setState({ editingDiseaseId: editDisease }); return }
+
+  if (act === 'goto-setup') { setState({ view:'setup' }); return }
+  if (act === 'save-token') {
+    const v = document.getElementById('setup-token').value.trim()
+    state.token = v; LS.set(K_TOKEN, v); showToast('トークンを保存しました', 'ok'); render(); return
+  }
+  if (act === 'use-gist') {
+    const v = document.getElementById('setup-gist-id').value.trim()
+    if (!v) { showToast('Gist ID を入力してください', 'err'); return }
+    state.gistId = v; LS.set(K_GIST_ID, v)
+    loadFromGist()
+    return
+  }
+  if (act === 'create-empty-gist') { createNewGist(emptyData()); return }
+  if (act === 'import-from-html') {
+    const f = document.getElementById('setup-import-file').files[0]
+    if (!f) { showToast('ファイルを選択してください', 'err'); return }
+    importFromIndexHtml(f).then(d => createNewGist(d)).catch(err => showToast('読込失敗: ' + err.message, 'err'))
+    return
+  }
+  if (act === 'save') { saveToGist(); return }
+  if (act === 'reload') {
+    if (state.dirty && !confirm('未保存の変更があります。破棄して再読込しますか？')) return
+    loadFromGist(); return
+  }
+  if (act === 'logout') {
+    if (!confirm('保存設定をすべてクリアします。よろしいですか？\n（Gist のデータ自体は消えません）')) return
+    LS.del(K_TOKEN); LS.del(K_GIST_ID); LS.del(K_DRAFT); LS.del(K_LAST_SAVED)
+    state.token = ''; state.gistId = ''; state.data = null; state.view = 'init'; state.dirty = false
+    render(); return
+  }
+  if (act === 'export-json') {
+    downloadJson(GIST_FILENAME, JSON.stringify(state.data, null, 2)); return
+  }
+  if (act === 'copy-share') {
+    const url = t.dataset.url
+    navigator.clipboard.writeText(url).then(() => showToast('URL をコピーしました', 'ok')).catch(() => showToast('コピーできませんでした', 'err'))
+    return
+  }
+  if (act === 'import-replace') {
+    const f = document.getElementById('import-file').files[0]
+    if (!f) { showToast('ファイルを選択してください', 'err'); return }
+    if (!confirm('現在のデータに上書きします。よろしいですか？')) return
+    importFromIndexHtml(f).then(d => { state.data = d; markDirty(); showToast('インポートしました。「保存」を押して Gist に反映してください', 'ok'); render() }).catch(err => showToast('失敗: ' + err.message, 'err'))
+    return
+  }
+
+  // 薬剤
+  if (act === 'add-drug') { const d = newDrug(); state.data.drugs.push(d); state.editingDrugId = d.id; markDirty(); render(); return }
+  if (act === 'back-drug') { setState({ editingDrugId:null }); return }
+  if (act === 'del-drug') {
+    const id = t.dataset.id; const drug = findDrug(id)
+    if (!drug) return
+    if (!confirm(`「${drug.genericName || id}」を削除しますか？`)) return
+    state.data.drugs = state.data.drugs.filter(d => d.id !== id)
+    state.editingDrugId = null; markDirty(); render(); return
+  }
+  if (act === 'add-dose') {
+    const d = findDrug(state.editingDrugId); d.pediatricDoses.push(newDose()); markDirty(); render(); return
+  }
+  if (act === 'dose-up' || act === 'dose-down' || act === 'dose-del') {
+    const d = findDrug(state.editingDrugId); const i = +t.dataset.i
+    if (act === 'dose-up' && i > 0) { [d.pediatricDoses[i-1], d.pediatricDoses[i]] = [d.pediatricDoses[i], d.pediatricDoses[i-1]] }
+    if (act === 'dose-down' && i < d.pediatricDoses.length - 1) { [d.pediatricDoses[i+1], d.pediatricDoses[i]] = [d.pediatricDoses[i], d.pediatricDoses[i+1]] }
+    if (act === 'dose-del') { d.pediatricDoses.splice(i, 1) }
+    markDirty(); render(); return
+  }
+
+  // 疾患
+  if (act === 'add-disease') { const d = newDisease(); state.data.diseases.push(d); state.editingDiseaseId = d.id; markDirty(); render(); return }
+  if (act === 'back-disease') { setState({ editingDiseaseId:null }); return }
+  if (act === 'del-disease') {
+    const id = t.dataset.id; const dis = findDisease(id)
+    if (!dis) return
+    if (!confirm(`「${dis.name || id}」を削除しますか？`)) return
+    state.data.diseases = state.data.diseases.filter(d => d.id !== id)
+    state.editingDiseaseId = null; markDirty(); render(); return
+  }
+  if (act === 'add-section') {
+    const d = findDisease(state.editingDiseaseId); d.sections.push(newSection()); markDirty(); render(); return
+  }
+  if (act === 'section-up' || act === 'section-down' || act === 'section-del') {
+    const d = findDisease(state.editingDiseaseId); const i = +t.dataset.i
+    if (act === 'section-up' && i > 0) { [d.sections[i-1], d.sections[i]] = [d.sections[i], d.sections[i-1]] }
+    if (act === 'section-down' && i < d.sections.length - 1) { [d.sections[i+1], d.sections[i]] = [d.sections[i], d.sections[i+1]] }
+    if (act === 'section-del') { d.sections.splice(i, 1) }
+    markDirty(); render(); return
+  }
+
+  // 輸液
+  if (act === 'add-iv-section') { state.data.ivFluidTables.push(newIvSection()); markDirty(); render(); return }
+  if (act === 'iv-sect-up' || act === 'iv-sect-down' || act === 'iv-sect-del') {
+    const i = +t.dataset.i; const arr = state.data.ivFluidTables
+    if (act === 'iv-sect-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'iv-sect-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    if (act === 'iv-sect-del') {
+      if (!confirm(`区分「${arr[i].category}」(製剤 ${arr[i].fluids.length}件) を削除しますか？`)) return
+      arr.splice(i, 1)
+    }
+    markDirty(); render(); return
+  }
+  if (act === 'add-iv-fluid') { const si = +t.dataset.si; state.data.ivFluidTables[si].fluids.push(newIvFluid()); markDirty(); render(); return }
+  if (act === 'iv-fluid-del') {
+    const si = +t.dataset.si, fi = +t.dataset.fi
+    state.data.ivFluidTables[si].fluids.splice(fi, 1); markDirty(); render(); return
+  }
+
+  // カテゴリ
+  if (act === 'add-cat') {
+    const k = t.dataset.kind; const arr = k === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
+    arr.push('新カテゴリ'); markDirty(); render(); return
+  }
+  if (act === 'cat-up' || act === 'cat-down' || act === 'cat-del') {
+    const k = t.dataset.kind; const i = +t.dataset.i
+    const arr = k === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
+    if (act === 'cat-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'cat-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    if (act === 'cat-del') { arr.splice(i, 1) }
+    markDirty(); render(); return
+  }
+}
+
+function onChange(e) {
+  const t = e.target
+  if (t.id === 'drugs-filter' || t.id === 'diseases-filter') {
+    setState({ filter: t.value }); return
+  }
+  // data-bind 経由の更新は input イベントで処理
+}
+
+function onInput(e) {
+  const t = e.target
+  if (t.id === 'drugs-search' || t.id === 'diseases-search') {
+    state.search = t.value
+    // リスト部分のみを再描画したいが、簡易に全体再描画 (フォーカスは戻らないので debounce)
+    debouncedRender(t)
+    return
+  }
+  const bind = t.dataset.bind
+  if (!bind) return
+  applyBind(bind, t.value, t.type)
+}
+
+const debouncedRender = debounce((focusEl) => {
+  const id = focusEl.id, val = focusEl.value
+  render()
+  const after = document.getElementById(id)
+  if (after) { after.focus(); after.value = val; after.setSelectionRange(val.length, val.length) }
+}, 200)
+
+function applyBind(bind, value, inputType) {
+  const parseListPipe = v => v.split('|').map(s => s.trim()).filter(Boolean)
+  const parseListNL = v => v.split('\n').map(s => s.trim()).filter(Boolean)
+  const numOrEmpty = v => v === '' ? '' : (isNaN(+v) ? v : +v)
+
+  const parts = bind.split('.')
+  const root = parts[0]
+  const drug = state.editingDrugId ? findDrug(state.editingDrugId) : null
+  const dis = state.editingDiseaseId ? findDisease(state.editingDiseaseId) : null
+
+  if (root === 'drug' && drug) {
+    const f = parts[1]
+    if (f === 'brandNames' || f === 'formulations' || f === 'references') drug[f] = parseListPipe(value)
+    else drug[f] = value
+    markDirty(); return
+  }
+  if (root === 'dose' && drug) {
+    const i = +parts[1]; const f = parts[2]; const dose = drug.pediatricDoses[i]
+    if (['ageMinMonths','ageMaxMonths','dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay'].includes(f)) {
+      const n = value === '' ? undefined : +value
+      if (n === undefined) delete dose[f]; else dose[f] = n
+    } else {
+      if (value === '') delete dose[f]; else dose[f] = value
+    }
+    markDirty(); return
+  }
+  if (root === 'disease' && dis) {
+    const f = parts[1]
+    if (['tags','points','relatedDrugIds','references'].includes(f)) dis[f] = parseListPipe(value)
+    else dis[f] = value
+    markDirty(); return
+  }
+  if (root === 'section' && dis) {
+    const i = +parts[1]; const f = parts[2]
+    dis.sections[i][f] = value; markDirty(); return
+  }
+  if (root === 'ivSect') {
+    const i = +parts[1]; const f = parts[2]; const sect = state.data.ivFluidTables[i]
+    if (f === 'notes') sect.notes = parseListNL(value)
+    else sect[f] = value
+    markDirty(); return
+  }
+  if (root === 'ivFluid') {
+    const si = +parts[1], fi = +parts[2], f = parts[3]
+    const fluid = state.data.ivFluidTables[si].fluids[fi]
+    if (['Na','K','Cl','Ca','Mg','glucose'].includes(f)) fluid[f] = numOrEmpty(value)
+    else fluid[f] = value
+    markDirty(); return
+  }
+  if (root === 'cat') {
+    const kind = parts[1]; const i = +parts[2]
+    const arr = kind === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
+    arr[i] = value; markDirty(); return
+  }
+}
+
+function downloadJson(filename, content) {
+  const blob = new Blob([content], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ============================================================
+// 起動
+// ============================================================
+function init() {
+  bindGlobalEvents()
+
+  // 下書き優先で復元
+  const draft = LS.get(K_DRAFT, 'null')
+  const lastSaved = LS.get(K_LAST_SAVED, 'null')
+
+  if (state.token && state.gistId) {
+    if (draft) {
+      state.data = normalizeData(draft)
+      state.dirty = true
+      state.view = 'main'
+      render()
+      // バックグラウンドで Gist と比較するとよいが MVP では下書き表示のみ
+    } else if (lastSaved) {
+      // キャッシュを表示しつつ、リモートを再取得
+      state.data = normalizeData(lastSaved)
+      state.view = 'main'
+      render()
+      loadFromGist()
+    } else {
+      loadFromGist()
+    }
+  } else {
+    state.view = 'init'
+    render()
+  }
+}
+
+init()
+
+// 離脱時警告
+window.addEventListener('beforeunload', e => {
+  if (state.dirty) { e.preventDefault(); e.returnValue = '' }
+})
+</script>
+</body>
+</html>

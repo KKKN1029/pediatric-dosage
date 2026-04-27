@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>小児薬用量</title>
+  <title>Pocket Wiki</title>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="小児薬用量" />
+  <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <link rel="manifest" href="/manifest.json" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -30,13 +30,117 @@ if ('serviceWorker' in navigator) {
 // マスターデータ
 // ============================================================
 
-const CATEGORIES = [
+let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
   '抗真菌薬','抗アレルギー薬','解熱鎮痛薬','その他',
 ]
 
-const DRUGS = [
+// ============================================================
+// 疾患マスターデータ
+// ============================================================
+
+let DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','その他']
+
+// 各 fluid: {name, Na, K, Cl, Ca, Mg, buffer, glucose, note}
+//   buffer: 緩衝剤を文字列でまとめて表示（例: "乳酸 28", "酢酸 25", "乳酸 8 + 酢酸 20"）
+//   類似製剤は1行にまとめて代表値で表示
+let IV_FLUID_TABLES = [
+  {
+    category: '細胞外液補充液',
+    notes: [
+      '※1 グルコン酸 3mEq/L、クエン酸 6mEq/L、添加物に塩酸を含有',
+      '※2 重炭酸 28mEq/L、クエン酸 4mEq/L',
+    ],
+    fluids: [
+      {name:'生理食塩液',                                         Na:154, K:'-', Cl:154,   Ca:'-', Mg:'-', buffer:'-',          glucose:'-'},
+      {name:'リンゲル液',                                         Na:147, K:4,   Cl:155.5, Ca:4.5, Mg:'-', buffer:'-',          glucose:'-'},
+      {name:'乳酸リンゲル液 (ソルラクト/ラクテックD/ソルラクトS)', Na:131, K:4,   Cl:110,   Ca:3,   Mg:'-', buffer:'乳酸 28',    glucose:'0〜5'},
+      {name:'酢酸リンゲル液 (ソルアセトF/ヴィーンD)',             Na:131, K:4,   Cl:109,   Ca:3,   Mg:'-', buffer:'酢酸 28',    glucose:'0〜5'},
+      {name:'フィジオ140 (酢酸リンゲル) ※1',                      Na:140, K:4,   Cl:115,   Ca:3,   Mg:2,   buffer:'酢酸 25',    glucose:1},
+      {name:'ビカネイト (重炭酸リンゲル) ※2',                     Na:130, K:4,   Cl:109,   Ca:3,   Mg:2,   buffer:'重炭酸 28',  glucose:'-'},
+    ]
+  },
+  {
+    category: '糖液剤',
+    notes: [],
+    fluids: [
+      {name:'5%ブドウ糖液',  Na:'-', K:'-', Cl:'-', Ca:'-', Mg:'-', buffer:'-', glucose:5},
+      {name:'10%ブドウ糖液', Na:'-', K:'-', Cl:'-', Ca:'-', Mg:'-', buffer:'-', glucose:10},
+    ]
+  },
+  {
+    category: '1号液［開始液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T1号 / ソルデム1 / リプラス1号', Na:90, K:'-', Cl:70, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:2.6},
+      {name:'KN1号',                                  Na:77, K:'-', Cl:77, Ca:'-', Mg:'-', buffer:'-',       glucose:2.5},
+    ]
+  },
+  {
+    category: '2号液［脱水補給液］',
+    notes: [
+      '※1 添加物として L-乳酸 8mEq/L を含む（乳酸濃度 28mEq/L）',
+      '※2 P 10mmol/L',
+      '※3 P 6.5mmol/L',
+    ],
+    fluids: [
+      {name:'ソリタ-T2号 ※1', Na:84,   K:20, Cl:66, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:3.2},
+      {name:'ソルデム2 ※2',   Na:77.5, K:30, Cl:59, Ca:'-', Mg:'-', buffer:'乳酸 48.5', glucose:1.45},
+      {name:'KN2号 ※3',       Na:60,   K:25, Cl:49, Ca:'-', Mg:2,   buffer:'乳酸 25', glucose:2.35},
+    ]
+  },
+  {
+    category: '3号液［維持液］',
+    notes: [
+      '※1 P 8mmol/L',
+      '※2 P 10mmol/L、グルコン酸 5mEq/L',
+      '※3 P 10mmol/L、クエン酸 14mEq/L、Zn 5μmol/L',
+    ],
+    fluids: [
+      {name:'ソリタ-T3号',           Na:35, K:20, Cl:35, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:4.3},
+      {name:'ソリタ-T3号G (高糖)',   Na:35, K:20, Cl:35, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:7.5},
+      {name:'KN3号',                  Na:50, K:20, Cl:50, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:2.7},
+      {name:'KNMG3号 (高糖)',         Na:50, K:20, Cl:50, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:10},
+      {name:'リプラス3号',            Na:40, K:20, Cl:40, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:5},
+      {name:'ヴィーン3G',             Na:45, K:17, Cl:37, Ca:'-', Mg:5,   buffer:'酢酸 20', glucose:5},
+      {name:'フィジオゾール3号',      Na:35, K:20, Cl:38, Ca:'-', Mg:3,   buffer:'酢酸 20', glucose:10},
+      {name:'EL-3号 ※1',              Na:40, K:35, Cl:40, Ca:'-', Mg:'-', buffer:'酢酸 40', glucose:5},
+      {name:'フィジオ35 ※2',          Na:35, K:20, Cl:28, Ca:5,   Mg:3,   buffer:'酢酸 20', glucose:10},
+      {name:'トリフリード ※3',        Na:35, K:20, Cl:35, Ca:5,   Mg:5,   buffer:'酢酸 20', glucose:10.5},
+    ]
+  },
+  {
+    category: '4号液［術後回復液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T4号 / ソルデム6 / KN4号', Na:30, K:'-', Cl:20, Ca:'-', Mg:'-', buffer:'乳酸 10', glucose:4},
+    ]
+  },
+]
+
+let DISEASES = [
+  // 疾患データは先生が追加・確認することで表示されます
+  // 例: 下記の構造で追加してください
+  // {
+  //   id: 'cap',
+  //   name: '市中肺炎',
+  //   englishName: 'Community-acquired pneumonia',
+  //   abbreviation: 'CAP',
+  //   category: '呼吸器',
+  //   tags: ['肺炎', 'CAP'],
+  //   points: ['ポイント1', 'ポイント2'],
+  //   sections: [
+  //     { title: '診断', content: '内容' },
+  //     { title: '治療', content: '内容' },
+  //   ],
+  //   relatedDrugIds: ['azithromycin'],
+  //   references: ['参考文献'],
+  //   notes: ''
+  // },
+]
+
+let DRUGS = [
   // 抗ウイルス薬
   { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
     pediatricDoses:[
@@ -190,6 +294,107 @@ const DRUGS = [
 const LS = {
   get: (k, d='{}') => { try { return JSON.parse(localStorage.getItem(k) || d) } catch { return JSON.parse(d) } },
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+  del: k => localStorage.removeItem(k),
+}
+
+// ============================================================
+// マスターデータ同期 (Gist)
+//   URL に ?gist=ID があれば優先して保存。
+//   localStorage キャッシュを即時適用 → リモート再取得で上書き。
+//   失敗時は組込みデータ (DRUGS / DISEASES / IV_FLUID_TABLES) で動作継続。
+// ============================================================
+const GIST_FILENAME = 'pediatric-dosage-data.json'
+const GIST_LS_ID = 'master_gist_id'
+const GIST_LS_CACHE = 'master_gist_cache'
+const GIST_LS_CACHE_AT = 'master_gist_cache_at'
+
+function getGistId() {
+  try {
+    const u = new URL(location.href)
+    const fromUrl = u.searchParams.get('gist')
+    if (fromUrl) {
+      localStorage.setItem(GIST_LS_ID, fromUrl)
+      return fromUrl
+    }
+  } catch {}
+  return localStorage.getItem(GIST_LS_ID) || ''
+}
+function setGistId(id) {
+  if (!id) localStorage.removeItem(GIST_LS_ID)
+  else localStorage.setItem(GIST_LS_ID, id)
+}
+
+function applyMasterData(data) {
+  if (!data || typeof data !== 'object') return false
+  if (Array.isArray(data.drugs)) DRUGS = data.drugs
+  if (Array.isArray(data.diseases)) DISEASES = data.diseases
+  if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
+  if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
+  if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
+  return true
+}
+
+async function fetchGistMaster(id) {
+  const url = `https://api.github.com/gists/${id}`
+  const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } })
+  if (!res.ok) throw new Error('Gist fetch failed: ' + res.status)
+  const gist = await res.json()
+  const file = gist.files[GIST_FILENAME] || Object.values(gist.files)[0]
+  if (!file) throw new Error('Gist にデータファイルが見つかりません')
+  const content = file.truncated ? await fetch(file.raw_url).then(r => r.text()) : file.content
+  return JSON.parse(content)
+}
+
+// 起動時の同期: キャッシュ即時適用 → リモート fetch (バックグラウンド)
+function applyCachedMasterIfAny() {
+  const id = getGistId()
+  if (!id) return false
+  const cached = LS.get(GIST_LS_CACHE, 'null')
+  return cached ? applyMasterData(cached) : false
+}
+
+async function refreshMasterFromGist() {
+  const id = getGistId()
+  if (!id) return false
+  try {
+    const data = await fetchGistMaster(id)
+    const changed = applyMasterData(data)
+    LS.set(GIST_LS_CACHE, data)
+    localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+    return changed
+  } catch (e) {
+    console.warn('[Gist 同期失敗]', e.message)
+    return false
+  }
+}
+
+// マスターデータ同期の設定ダイアログ (sidebar の ⚙ ボタンから開く)
+async function openMasterGistDialog() {
+  const current = getGistId()
+  const cachedAt = localStorage.getItem(GIST_LS_CACHE_AT)
+  const cachedAtStr = cachedAt ? new Date(+cachedAt).toLocaleString('ja-JP') : '(未同期)'
+  const status = current
+    ? `現在の Gist ID: ${current}\n最終同期: ${cachedAtStr}\n\n変更しない場合はそのまま OK を、解除する場合は空欄にしてください。`
+    : 'マスターデータの Gist ID を入力してください。\n空欄のままなら組込みデータを使用します。'
+  const next = prompt(status + '\n\nGist ID:', current)
+  if (next === null) return // キャンセル
+  const trimmed = next.trim()
+  if (trimmed === current) return
+  if (!trimmed) {
+    if (!confirm('Gist 連携を解除します。組込みデータのみを使用するようになります。よろしいですか？')) return
+    setGistId('')
+    localStorage.removeItem(GIST_LS_CACHE)
+    localStorage.removeItem(GIST_LS_CACHE_AT)
+    alert('解除しました。ページを再読込します。')
+    location.reload()
+    return
+  }
+  setGistId(trimmed)
+  localStorage.removeItem(GIST_LS_CACHE)
+  localStorage.removeItem(GIST_LS_CACHE_AT)
+  const ok = await refreshMasterFromGist()
+  if (ok) { alert('Gist からマスターデータを取得しました。ページを再読込します。'); location.reload() }
+  else { alert('Gist の取得に失敗しました。Gist ID を確認してください。') }
 }
 
 const loadEdits = () => LS.get('drug_edits')
@@ -206,6 +411,9 @@ const isBuiltinDrug = id => !!DRUGS.find(d => d.id === id)
 const loadUserCategories = () => { const s = LS.get('user_categories', 'null'); return s === null ? [...CATEGORIES] : s }
 const saveUserCategories = cats => LS.set('user_categories', cats)
 const getCategories = () => loadUserCategories()
+const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categories', 'null'); return s === null ? [...DISEASE_CATEGORIES] : s }
+const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
+const getDiseaseCategories = () => loadUserDiseaseCategories()
 
 // マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
 const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
@@ -256,6 +464,44 @@ function searchDrugsQ(q) {
 }
 
 // ============================================================
+// 疾患データアクセス
+// ============================================================
+
+const loadCustomDiseases = () => LS.get('custom_diseases', '[]')
+const saveCustomDiseases = d => LS.set('custom_diseases', d)
+const loadPendingDiseases = () => LS.get('pending_diseases', '[]')
+const savePendingDiseases = d => LS.set('pending_diseases', d)
+const loadConfirmedMasterDiseases = () => new Set(LS.get('confirmed_master_diseases', '[]'))
+const confirmMasterDisease = id => { const s = loadConfirmedMasterDiseases(); s.add(id); LS.set('confirmed_master_diseases', [...s]) }
+
+function getPendingMasterDiseases() {
+  const confirmed = loadConfirmedMasterDiseases()
+  return DISEASES.filter(d => !confirmed.has(d.id))
+}
+function getAllPendingDiseases() {
+  return [...loadPendingDiseases(), ...getPendingMasterDiseases()]
+}
+function getAllDiseases() {
+  const confirmed = loadConfirmedMasterDiseases()
+  const hidden = new Set(LS.get('hidden_diseases','[]'))
+  return [
+    ...DISEASES.filter(d => confirmed.has(d.id) && !hidden.has(d.id)),
+    ...loadCustomDiseases().filter(d => !hidden.has(d.id)),
+  ]
+}
+function getDiseaseById(id) { return getAllDiseases().find(d => d.id === id) || getAllPendingDiseases().find(d => d.id === id) }
+function getDiseasesByCategory(cat) { return getAllDiseases().filter(d => d.category === cat) }
+function searchDiseasesQ(q) {
+  const lq = q.toLowerCase()
+  return getAllDiseases().filter(d =>
+    d.name.toLowerCase().includes(lq) ||
+    (d.englishName||'').toLowerCase().includes(lq) ||
+    (d.abbreviation||'').toLowerCase().includes(lq) ||
+    (d.tags||[]).some(t => t.toLowerCase().includes(lq))
+  )
+}
+
+// ============================================================
 // 計算
 // ============================================================
 
@@ -288,15 +534,34 @@ let state = {
   category: getCategories()[0],
   query: '',
   favorites: new Set(LS.get('favorites','[]')),
+  diseaseFavorites: new Set(LS.get('disease_favorites','[]')),
+  // タブ切り替え（薬剤 / 疾患 / 輸液）
+  mainTab: 'drugs',
+  ivSubTab: 'calc',
+  ivWeight: '',
+  ivMode: 'daily',
+  girWeight: '', girGlucose: '', girRate: '',
+  girTab: 'calc',
+  // ガンマ計算
+  gammaTab: 'to_mlh',
+  gammaA_drug: '', gammaA_fluid: '', gammaA_gamma: '', gammaA_weight: '',
+  gammaB_drug: '', gammaB_fluid: '', gammaB_rate: '', gammaB_weight: '',
+  editingCatIdx: null,
+  editingDisCatIdx: null,
+  // 疾患
+  diseaseCat: null,
+  diseaseId: null,
   // detail
   drugId: null,
   weight: '', age: '', ageUnit: 'years', tab: 'calc',
-  editMode: false, editDraft: null,
+  editMode: false, editDraft: null, editDoses: [],
   // set detail
   setId: null, setTab: 'calc',
   // add drug
   addForm: null,
   addDoses: [],
+  // add disease
+  addDiseaseForm: null,
   // create/edit set
   setDraft: null,
   setQuery: '',
@@ -307,6 +572,21 @@ function setState(patch) { Object.assign(state, patch); render() }
 function toggleFav(id) {
   const f=new Set(state.favorites); f.has(id)?f.delete(id):f.add(id)
   LS.set('favorites',[...f]); setState({favorites:f})
+}
+// ============================================================
+// SVGアイコン
+// ============================================================
+const ICON = {
+  medicine: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2A3.5 3.5 0 0 0 3 5.5v5A3.5 3.5 0 0 0 10 10.5v-5A3.5 3.5 0 0 0 6.5 2z"/><line x1="3" y1="8" x2="10" y2="8"/><circle cx="17.5" cy="7" r="3.5"/><line x1="14.2" y1="7" x2="20.8" y2="7"/><circle cx="15" cy="17" r="3"/><line x1="12.3" y1="17" x2="17.7" y2="17"/></svg>`,
+  pathogen: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="7"/><circle cx="12" cy="2" r="1" fill="currentColor" stroke="none"/><line x1="12" y1="17" x2="12" y2="22"/><circle cx="12" cy="22" r="1" fill="currentColor" stroke="none"/><line x1="2" y1="12" x2="7" y2="12"/><circle cx="2" cy="12" r="1" fill="currentColor" stroke="none"/><line x1="17" y1="12" x2="22" y2="12"/><circle cx="22" cy="12" r="1" fill="currentColor" stroke="none"/><line x1="5.6" y1="5.6" x2="9" y2="9"/><circle cx="4.9" cy="4.9" r="1" fill="currentColor" stroke="none"/><line x1="15" y1="15" x2="18.4" y2="18.4"/><circle cx="19.1" cy="19.1" r="1" fill="currentColor" stroke="none"/><line x1="18.4" y1="5.6" x2="15" y2="9"/><circle cx="19.1" cy="4.9" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="15" x2="5.6" y2="18.4"/><circle cx="4.9" cy="19.1" r="1" fill="currentColor" stroke="none"/></svg>`,
+  ivDrip: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M8 3c0 0-3 2-3 6v5a5 5 0 0 0 10 0V9c0-4-3-6-3-6"/><circle cx="9.5" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="9.5" r="1" fill="currentColor" stroke="none"/><path d="M10 13.5q2 1.5 4 0" stroke-width="1.5"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="18" x2="14" y2="18"/><line x1="12" y1="18" x2="12" y2="21"/><circle cx="12" cy="21.5" r="0.7" fill="currentColor" stroke="none"/></svg>`,
+  notebook: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="15" height="20" rx="2"/><path d="M18 2h3v20h-3"/><line x1="7" y1="7" x2="14" y2="7"/><line x1="7" y1="11" x2="14" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/><line x1="18" y1="7" x2="21" y2="7"/><line x1="18" y1="11" x2="21" y2="11"/><line x1="18" y1="15" x2="21" y2="15"/></svg>`,
+  star: (f=false)=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+}
+
+function toggleDiseaseFav(id) {
+  const f=new Set(state.diseaseFavorites); f.has(id)?f.delete(id):f.add(id)
+  LS.set('disease_favorites',[...f]); setState({diseaseFavorites:f})
 }
 function ageToMonths() {
   if (state.age==='') return undefined
@@ -327,6 +607,9 @@ function render() {
   else if (s==='add-drug')   { app.innerHTML=renderAddDrug(); attachAddDrug() }
   else if (s==='create-set') { app.innerHTML=renderCreateSet(); attachCreateSet() }
   else if (s==='manage-categories') { app.innerHTML=renderManageCategories(); attachManageCategories() }
+  else if (s==='disease-detail') { app.innerHTML=renderDiseaseDetail(getDiseaseById(state.diseaseId)); attachDiseaseDetail() }
+  else if (s==='add-disease')    { app.innerHTML=renderAddDisease(); attachAddDisease() }
+  else if (s==='manage-disease-categories') { app.innerHTML=renderManageDiseaseCategories(); attachManageDiseaseCategories() }
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -383,8 +666,8 @@ function ageWeightInput() {
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
       <div class="flex items-center gap-3">
         <label class="text-sm font-medium text-gray-700 w-12 shrink-0">年齢</label>
-        <div class="flex-1 relative">
-          <input id="age-input" type="number" inputmode="decimal"
+        <div class="flex-1 min-w-0 relative">
+          <input id="age-input" type="text" inputmode="decimal"
             placeholder="${state.ageUnit==='years'?'例: 3':'例: 18'}"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-20" />
           <div class="absolute right-1 top-1/2 -translate-y-1/2 flex rounded-md overflow-hidden border border-gray-200 text-xs">
@@ -395,8 +678,8 @@ function ageWeightInput() {
       </div>
       <div class="flex items-center gap-3">
         <label class="text-sm font-medium text-gray-700 w-12 shrink-0">体重</label>
-        <div class="flex-1 relative">
-          <input id="weight-input" type="number" inputmode="decimal" placeholder="例: 15"
+        <div class="flex-1 min-w-0 relative">
+          <input id="weight-input" type="text" inputmode="decimal" placeholder="例: 15"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
           <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
         </div>
@@ -417,48 +700,463 @@ function filteredDoses(drug) {
 
 // ── リスト画面 ────────────────────────────────────────────
 
+function drugListItem(d) {
+  return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+      <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
+    </div>
+    <span class="text-gray-300 text-lg shrink-0">›</span>
+  </button></li>`
+}
+function diseaseListItem(d, showPendingBadge=false) {
+  return `<li><button data-disease="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1.5">
+        <span class="font-medium text-gray-900 text-sm truncate">${esc(d.name)}</span>
+        ${showPendingBadge?'<span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>':''}
+      </div>
+      <div class="text-xs text-gray-500 truncate">${esc(d.englishName||'')}${d.abbreviation?' ('+d.abbreviation+')':''}</div>
+    </div>
+    <span class="text-gray-300 text-lg shrink-0">›</span>
+  </button></li>`
+}
+
+
+function calcHolidaySegar(weight) {
+  if (!weight || weight <= 0) return null
+  const w = parseFloat(weight)
+  if (isNaN(w) || w <= 0) return null
+  let daily
+  if (w <= 10) { daily = w * 100 }
+  else if (w <= 20) { daily = 1000 + (w - 10) * 50 }
+  else { daily = 1500 + (w - 20) * 20 }
+  const hourly = daily / 24
+  return {
+    daily: Math.round(daily),
+    hourly: Math.round(hourly * 10) / 10,
+    na: Math.round(daily / 1000 * 30 * 10) / 10,
+    k: Math.round(daily / 1000 * 20 * 10) / 10,
+  }
+}
+
+function calcGIR(glc, rate, weight) {
+  const g = parseFloat(glc), r = parseFloat(rate), w = parseFloat(weight)
+  if (!g || !r || !w || g<=0 || r<=0 || w<=0) return null
+  return Math.round(g * 10 * r / (w * 60) * 100) / 100
+}
+function calcGIRRate(gir, glc, weight) {
+  const t = parseFloat(gir), g = parseFloat(glc), w = parseFloat(weight)
+  if (!t || !g || !w || t<=0 || g<=0 || w<=0) return null
+  return Math.round(t * w * 60 / (g * 10) * 10) / 10
+}
+
+// 薬剤量 (mg), 溶解液量 (mL), γ (μg/kg/min), 体重 (kg) → 注入速度 (mL/hr)
+function calcMlhFromGamma(drug, fluid, gamma, weight) {
+  const d = parseFloat(drug), f = parseFloat(fluid), g = parseFloat(gamma), w = parseFloat(weight)
+  if (!d || !f || !g || !w || d<=0 || f<=0 || g<=0 || w<=0) return null
+  return Math.round((g * w * 60 * f) / (d * 1000) * 100) / 100
+}
+// 薬剤量 (mg), 溶解液量 (mL), 注入速度 (mL/hr), 体重 (kg) → γ (μg/kg/min)
+function calcGammaFromMlh(drug, fluid, rate, weight) {
+  const d = parseFloat(drug), f = parseFloat(fluid), r = parseFloat(rate), w = parseFloat(weight)
+  if (!d || !f || !r || !w || d<=0 || f<=0 || r<=0 || w<=0) return null
+  return Math.round((d * r * 1000) / (f * w * 60) * 100) / 100
+}
+
+function buildIVCalcResultHTML() {
+  const result = calcHolidaySegar(state.ivWeight)
+  const mode = state.ivMode || 'daily'
+  if (result) {
+    return `
+      <div class="bg-blue-50 rounded-xl p-4 space-y-2">
+        <div class="text-blue-800 font-bold text-2xl">${mode==='daily' ? result.daily + ' mL/日' : result.hourly + ' mL/時'}</div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="bg-white rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">Na補充量</div>
+            <div class="font-bold text-gray-800">${mode==='daily'?result.na:Math.round(result.na/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
+          </div>
+          <div class="bg-white rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">K補充量</div>
+            <div class="font-bold text-gray-800">${mode==='daily'?result.k:Math.round(result.k/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
+          </div>
+        </div>
+      </div>`
+  }
+  return state.ivWeight ? '<div class="text-center text-gray-400 text-sm py-4">体重を正しく入力してください</div>' : ''
+}
+
+function buildIVFluidsHTML() {
+  const sub = state.ivSubTab || 'calc'
+  const subTabs = `
+    <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+      ${[['calc','計算'],['gir','GIR'],['list','製剤一覧'],['gamma','ガンマ計算']].map(([t,l])=>`<button data-iv-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${sub===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+    </div>`
+
+  if (sub === 'gir') {
+    const gt = state.girTab || 'calc'
+    const girResult = calcGIR(state.girGlucose, state.girRate, state.girWeight)
+    const girInnerTabs = `
+      <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        ${[['calc','計算'],['overview','概要']].map(([t,l])=>`<button data-gir-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${gt===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      </div>`
+    if (gt === 'overview') {
+      return `${subTabs}${girInnerTabs}
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div class="flex gap-2 flex-wrap">
+            ${['輸液','グルコース','ブドウ糖'].map(t=>`<span class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">${t}</span>`).join('')}
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">GIRとは</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>Glucose Infusion Rateの略で、体重あたりのブドウ糖投与速度の算出式である。</p>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm leading-relaxed">GIR = (ブドウ糖濃度 mg/mL) × (注入速度 mL/hr) ÷ (体重 kg × 60 min/hr)</div>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">エビデンス</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">
+              <p>GIRが4〜5 mg/kg/minを超えると、高血糖のリスクが増加する¹⁾。侵襲時には高血糖リスクが上がるため²⁾、GIRを4 mg/kg/minまでに抑える必要がある³⁾。</p>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">出典</h3></div></div>
+            <div class="bg-white px-4 py-3 text-xs text-gray-600 space-y-2 leading-relaxed">
+              <div>1) Hyperglycemia associated with high, continuous infusion rates of total parenteral nutrition dextrose. Nutr Clin Pract. 1996;11(4):151-6. PMID: 9070016</div>
+              <div>2) Intravenous glucose intake independently related to intensive care unit and hospital mortality. Clin Endocrinol (Oxf). 2006;64(2):141-5.</div>
+              <div>3) 日本静脈経腸栄養学会. 静脈経腸栄養ガイドライン第3版</div>
+            </div>
+          </div>
+          <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。担当医の判断と責任で管理を行ってください。</p></div>
+        </div>`
+    }
+    // 計算タブ
+    const resultVal = girResult !== null ? girResult : '--'
+    return `${subTabs}${girInnerTabs}
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">ブドウ糖濃度</span>
+        <input id="gir-glucose" type="text" inputmode="decimal" value="${esc(state.girGlucose)}" placeholder="例：10"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">%</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">注入速度</span>
+        <input id="gir-rate" type="text" inputmode="decimal" value="${esc(state.girRate)}" placeholder="例：6"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL/hr</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">体重</span>
+        <input id="gir-weight" type="text" inputmode="decimal" value="${esc(state.girWeight)}" placeholder="例：50"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">kg</span>
+      </div>
+      <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+        <span class="text-white font-bold text-base">GIR</span>
+        <span id="gir-result-bar" class="text-white font-bold text-2xl whitespace-nowrap">${resultVal} <span class="text-base font-normal">mg/kg/min</span></span>
+      </div>`
+  }
+
+  if (sub === 'gamma') {
+    const gmt = state.gammaTab || 'to_mlh'
+    const gammaInnerTabs = `
+      <div class="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        ${[['to_mlh','γ→mL/hr'],['to_gamma','mL/hr→γ'],['overview','概要']].map(([t,l])=>`<button data-gamma-tab="${t}" class="flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${gmt===t?'border-blue-600 text-blue-600':'border-transparent text-gray-500'}">${l}</button>`).join('')}
+      </div>`
+    if (gmt === 'overview') {
+      return `${subTabs}${gammaInnerTabs}
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">ガンマ計算とは</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>γ (ガンマ) は、循環作動薬・カテコラミン・鎮静薬などの持続静注で用いられる、体重あたりの薬剤投与速度の単位である。</p>
+              <p><span class="font-bold">1 γ = 1 μg/kg/min</span> と定義され、体重1 kgあたり1分間に1 μg投与する速度を表す。</p>
+              <p>薬剤を希釈した輸液をシリンジポンプで注入する場合、γ値・濃度・体重から注入速度 (mL/hr) を換算して使用する。</p>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">計算式</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-3 leading-relaxed">
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">① 濃度 (mg/mL)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">濃度 = 薬剤量 (mg) ÷ 溶解液量 (mL)</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">② γ → 注入速度 (mL/hr)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">注入速度 = γ × 体重 (kg) × 60 ÷ (濃度 × 1000)</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-gray-600 mb-1">③ 注入速度 → γ (μg/kg/min)</div>
+                <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">γ = 濃度 × 注入速度 × 1000 ÷ (体重 × 60)</div>
+              </div>
+              <p class="text-xs text-gray-500">※ 1000 は mg → μg、60 は hr → min の換算係数。</p>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">計算例</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 space-y-2 leading-relaxed">
+              <p>体重 50 kg、ドパミン 600 mg を 5%ブドウ糖 100 mL に溶解 (濃度 6 mg/mL) し、5 γ で投与する場合:</p>
+              <div class="bg-gray-50 rounded-lg p-3 leading-relaxed">注入速度 = 5 × 50 × 60 ÷ (6 × 1000) = <span class="font-bold">2.5 mL/hr</span></div>
+            </div>
+          </div>
+          <div class="shadow-sm border border-blue-100 overflow-hidden">
+            <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-base font-bold text-gray-900">使用上の注意</h3></div></div>
+            <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed space-y-2">
+              <p>薬剤量・溶解液量は、実際に調製した量を入力する。</p>
+              <p>使用前に必ず製剤の希釈方法と用法用量を添付文書で確認すること。</p>
+            </div>
+          </div>
+          <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。担当医の判断と責任で管理を行ってください。</p></div>
+        </div>`
+    }
+    if (gmt === 'to_mlh') {
+      const r = calcMlhFromGamma(state.gammaA_drug, state.gammaA_fluid, state.gammaA_gamma, state.gammaA_weight)
+      const resultVal = r !== null ? r : '--'
+      return `${subTabs}${gammaInnerTabs}
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">薬剤量</span>
+          <input id="gamma-a-drug" type="text" inputmode="decimal" value="${esc(state.gammaA_drug)}" placeholder="例：ノルアドレナリン 1"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mg</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">溶解液量</span>
+          <input id="gamma-a-fluid" type="text" inputmode="decimal" value="${esc(state.gammaA_fluid)}" placeholder="例：生食 50"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">γ</span>
+          <input id="gamma-a-gamma" type="text" inputmode="decimal" value="${esc(state.gammaA_gamma)}" placeholder="例：0.05"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">μg/kg/min</span>
+        </div>
+        <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+          <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">体重</span>
+          <input id="gamma-a-weight" type="text" inputmode="decimal" value="${esc(state.gammaA_weight)}" placeholder="例：50"
+            class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+          <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">kg</span>
+        </div>
+        <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+          <span class="text-white font-bold text-base">注入速度</span>
+          <span id="gamma-a-result-bar" class="text-white font-bold text-2xl whitespace-nowrap">${resultVal} <span class="text-base font-normal">mL/hr</span></span>
+        </div>`
+    }
+    // mL/hr→γ
+    const r = calcGammaFromMlh(state.gammaB_drug, state.gammaB_fluid, state.gammaB_rate, state.gammaB_weight)
+    const resultVal = r !== null ? r : '--'
+    return `${subTabs}${gammaInnerTabs}
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">薬剤量</span>
+        <input id="gamma-b-drug" type="text" inputmode="decimal" value="${esc(state.gammaB_drug)}" placeholder="例：ノルアドレナリン 1"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mg</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">溶解液量</span>
+        <input id="gamma-b-fluid" type="text" inputmode="decimal" value="${esc(state.gammaB_fluid)}" placeholder="例：生食 50"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">注入速度</span>
+        <input id="gamma-b-rate" type="text" inputmode="decimal" value="${esc(state.gammaB_rate)}" placeholder="例：5"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">mL/hr</span>
+      </div>
+      <div class="flex items-center border-b border-gray-100 px-4 py-3 gap-2">
+        <span class="text-sm font-medium text-gray-800 shrink-0 whitespace-nowrap">体重</span>
+        <input id="gamma-b-weight" type="text" inputmode="decimal" value="${esc(state.gammaB_weight)}" placeholder="例：50"
+          class="flex-1 min-w-0 text-right text-base font-medium focus:outline-none text-gray-800 placeholder:text-xs placeholder:text-gray-400" />
+        <span class="text-xs text-gray-500 shrink-0 whitespace-nowrap">kg</span>
+      </div>
+      <div class="sticky bottom-0 bg-blue-600 px-5 py-4 flex items-center justify-between mt-auto">
+        <span class="text-white font-bold text-base">γ</span>
+        <span id="gamma-b-result-bar" class="text-white font-bold text-2xl whitespace-nowrap">${resultVal} <span class="text-base font-normal">μg/kg/min</span></span>
+      </div>`
+  }
+
+  if (sub === 'calc') {
+    const mode = state.ivMode || 'daily'
+    return `${subTabs}
+      <div class="p-4 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-14 shrink-0">表示</label>
+            <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm flex-1">
+              <button data-iv-mode="daily" class="flex-1 py-2 font-medium transition-colors ${mode==='daily'?'bg-blue-600 text-white':'bg-white text-gray-500'}">1日毎</button>
+              <button data-iv-mode="hourly" class="flex-1 py-2 font-medium transition-colors ${mode==='hourly'?'bg-blue-600 text-white':'bg-white text-gray-500'}">1時間毎</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 w-14 shrink-0">体重</label>
+            <div class="flex-1 min-w-0 relative">
+              <input id="iv-weight" type="text" inputmode="decimal" value="${esc(state.ivWeight)}" placeholder="例: 15"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-right text-base focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">kg</span>
+            </div>
+          </div>
+        </div>
+        <div id="iv-calc-result">${buildIVCalcResultHTML()}</div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">Holliday-Segar式（4-2-1ルール）</h3></div></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead><tr class="bg-gray-50 border-b border-gray-200">
+                <th class="px-3 py-2 text-left font-medium text-gray-600">体重</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">mL/日</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">mL/時</th>
+              </tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">0〜10kg</td><td class="px-3 py-2 text-center">×100</td><td class="px-3 py-2 text-center">×4</td></tr>
+                <tr class="border-b border-gray-100"><td class="px-3 py-2 font-medium">11〜20kg</td><td class="px-3 py-2 text-center">1000+×50</td><td class="px-3 py-2 text-center">40+×2</td></tr>
+                <tr><td class="px-3 py-2 font-medium">20kg&lt;</td><td class="px-3 py-2 text-center">1500+×20</td><td class="px-3 py-2 text-center">60+×1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で輸液管理を行ってください。</p></div>
+      </div>`
+  }
+
+  // 製剤一覧 (iPhone 375px に収まるカードレイアウト)
+  const fmt = v => (v === undefined || v === null || v === '-') ? '-' : String(v)
+  const isEmpty = v => (v === undefined || v === null || v === '-' || v === '')
+  const tableHtml = IV_FLUID_TABLES.map(section => {
+    const rows = section.fluids.map(f => {
+      // Ca/Mg は値があるときだけ製品名の下に小さく表示
+      const trace = []
+      if (!isEmpty(f.Ca)) trace.push(`Ca ${fmt(f.Ca)}`)
+      if (!isEmpty(f.Mg)) trace.push(`Mg ${fmt(f.Mg)}`)
+      const traceHtml = trace.length ? `<div class="mt-0.5 text-[10px] text-gray-500">${trace.join(' / ')}</div>` : ''
+
+      const cell = (label, val, opts={}) => {
+        const empty = isEmpty(val)
+        const valClass = empty ? 'text-gray-300' : (opts.bold ? 'font-semibold text-gray-900' : 'text-gray-800')
+        return `<div class="flex flex-col items-center justify-center px-1 py-1 min-w-0">
+          <div class="text-[10px] text-gray-500 leading-none mb-0.5">${label}</div>
+          <div class="text-xs ${valClass} leading-tight text-center break-words">${esc(fmt(val))}</div>
+        </div>`
+      }
+
+      return `
+      <div class="border-b border-gray-100 last:border-0 px-3 py-2.5">
+        <div class="text-xs font-medium text-gray-900 leading-snug">${esc(f.name)}</div>
+        ${traceHtml}
+        <div class="mt-1.5 grid grid-cols-5 gap-x-1 bg-gray-50 rounded-md py-1 border border-gray-100">
+          ${cell('Na', f.Na)}
+          ${cell('K', f.K)}
+          ${cell('Cl', f.Cl)}
+          ${cell('緩衝剤', f.buffer)}
+          ${cell('糖 %', f.glucose, {bold:true})}
+        </div>
+      </div>`
+    }).join('')
+    const notesHtml = section.notes.length > 0 ? `<div class="px-3 py-2 text-[11px] text-gray-500 leading-relaxed border-t border-gray-100 bg-gray-50">${section.notes.map(n=>`<div>${esc(n)}</div>`).join('')}</div>` : ''
+    return `
+      <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+        <div class="flex bg-blue-50"><div class="w-1.5 bg-blue-500 shrink-0"></div><div class="flex-1 px-4 py-3"><h3 class="text-sm font-bold text-gray-900">${esc(section.category)}</h3></div></div>
+        <div class="bg-white">${rows}</div>
+        ${notesHtml}
+      </div>`
+  }).join('')
+
+  const legend = `<div class="text-[11px] text-gray-500 px-1">単位: 電解質 mEq/L、糖質 %。緩衝剤の数字は mEq/L。Ca/Mg は含有時のみ製品名下に小さく表示。</div>`
+
+  return `${subTabs}<div class="p-4 space-y-4">${legend}${tableHtml}</div>`
+}
+
 function buildListBodyHTML(query) {
   const isSearch = query.trim()!==''
+
+  // ── 検索時: 薬剤・疾患を同時表示 ──────────────────────────
+  if (isSearch) {
+    const drugResults = searchDrugsQ(query)
+    const diseaseResults = searchDiseasesQ(query)
+    const drugSection = drugResults.length > 0
+      ? `<div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">💊 薬剤 (${drugResults.length}件)</div><ul class="bg-white">${drugResults.map(drugListItem).join('')}</ul>`
+      : ''
+    const diseaseSection = diseaseResults.length > 0
+      ? `<div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">🏥 疾患 (${diseaseResults.length}件)</div><ul class="bg-white">${diseaseResults.map(diseaseListItem).join('')}</ul>`
+      : ''
+    const empty = drugResults.length===0 && diseaseResults.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">🔍</span><span>見つかりません</span></div>` : ''
+    return `<main class="flex-1 overflow-y-auto bg-white">${drugSection}${diseaseSection}${empty}</main>`
+  }
+
+  // ── 輸液タブ ─────────────────────────────────────────────
+  if (state.mainTab === 'ivfluids') {
+    return `<main class="flex-1 overflow-y-auto bg-white">${buildIVFluidsHTML()}</main>`
+  }
+  // ── 疾患タブ ─────────────────────────────────────────────
+  if (state.mainTab === 'diseases') {
+    const pendingDiseases = getAllPendingDiseases()
+    const isPendingDiseaseCat = state.diseaseCat === '__pending_diseases__'
+    const userDiseaseCats = getDiseaseCategories()
+    const diseaseSidebar = [
+      ...userDiseaseCats.map(cat =>
+        `<button data-disease-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.diseaseCat===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`
+      ),
+      `<button data-disease-cat="__pending_diseases__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${isPendingDiseaseCat?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingDiseases.length>0?('<br><b class="text-orange-500">'+pendingDiseases.length+'</b>'):''}
+</button>`,
+      `<div class="flex justify-center py-1 border-t border-gray-100"><button id="btn-edit-disease-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button></div>`,
+    ].join('')
+
+    let diseaseList, headerTitle, headerColor
+    if (isPendingDiseaseCat) {
+      diseaseList = pendingDiseases; headerTitle = '未確認の疾患'; headerColor = 'bg-orange-500'
+    } else if (state.diseaseCat) {
+      diseaseList = getDiseasesByCategory(state.diseaseCat); headerTitle = state.diseaseCat; headerColor = 'bg-blue-600'
+    } else {
+      diseaseList = getAllDiseases(); headerTitle = '全疾患'; headerColor = 'bg-blue-600'
+    }
+
+    const diseaseItems = diseaseList.length===0
+      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">🏥</span><span>${isPendingDiseaseCat?'未確認の疾患はありません':'疾患がありません'}</span></div>`
+      : diseaseList.map(d => diseaseListItem(d, isPendingDiseaseCat)).join('')
+
+    return `
+      <aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${diseaseSidebar}</aside>
+      <main class="flex-1 overflow-y-auto bg-white">
+        <div class="px-4 py-2 ${headerColor} flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white">${headerTitle}</h2>
+          ${!isPendingDiseaseCat ? '<button id="btn-add-disease" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 疾患追加</button>' : `<span class="text-xs text-white opacity-80">${pendingDiseases.length}件</span>`}
+        </div>
+        <ul class="bg-white">${diseaseItems}</ul>
+      </main>`
+  }
+
+  // ── 薬剤タブ（既存） ──────────────────────────────────────
   const isFav = state.category==='__favorites__'
   const isSets = state.category==='__sets__'
   const isPending = state.category === '__pending__'
   const sets = loadSets()
-
-  let drugs=[], showSets=false, showPending=false
-  if (isSets) { showSets=true }
-  else if (isPending) { showPending=true }
-  else if (isSearch) { drugs=searchDrugsQ(query) }
-  else if (isFav) { drugs=getAllDrugs().filter(d=>state.favorites.has(d.id)) }
-  else { drugs=getDrugsByCategory(state.category) }
-
   const pending = getAllPendingDrugs()
   const pendingCount = pending.length
-
   const userCats = getCategories()
+
   const sidebarItems = [
-    `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">⭐️<br>お気に入り</button>`,
+    `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors flex flex-col items-center gap-0.5 ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${ICON.star(state.category==='__favorites__')}<span>お気に入り</span></button>`,
     `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">📋<br>セット</button>`,
-    ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat&&!isSearch?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
+    ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
     `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}">📝<br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
 </button>`,
-    `<div class="flex justify-center py-1 border-t border-gray-100"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button></div>`,
+    `<div class="flex justify-center py-1 border-t border-gray-100 gap-1"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="カテゴリ編集">✎</button><button id="btn-master-gist" class="text-gray-400 hover:text-blue-500 text-xs px-2 py-0.5 rounded border border-gray-200 bg-white leading-tight" title="マスターデータ同期 (Gist)">⚙</button></div>`,
   ].join('')
 
   let mainContent = ''
-  if (showSets) {
+  if (isSets) {
     const setItems = sets.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📋</span><span>セットがありません</span></div>`
       : sets.map(s => {
           const drugNames = s.drugIds.map(id => getDrugById(id)?.abbreviation || getDrugById(id)?.genericName || '?').join(' + ')
-          return `<li>
-            <button data-set="${s.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 text-left gap-3 border-b border-gray-100">
-              <div class="flex-1 min-w-0">
-                <div class="font-medium text-gray-900 text-sm">${esc(s.name)}</div>
-                <div class="text-xs text-gray-500 truncate">${esc(drugNames)}</div>
-              </div>
-              <button data-del-set="${s.id}" class="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
-            </button>
-          </li>`
+          return `<li><button data-set="${s.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 text-left gap-3 border-b border-gray-100">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-900 text-sm">${esc(s.name)}</div>
+              <div class="text-xs text-gray-500 truncate">${esc(drugNames)}</div>
+            </div>
+            <button data-del-set="${s.id}" class="text-gray-300 hover:text-red-400 text-lg px-1">✕</button>
+          </button></li>`
         }).join('')
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
@@ -466,11 +1164,10 @@ function buildListBodyHTML(query) {
         <button id="btn-create-set" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ セット作成</button>
       </div>
       <ul class="bg-white">${setItems}</ul>`
-  } else if (showPending) {
-    const pendingDrugs = getAllPendingDrugs()
-    const pendingItems = pendingDrugs.length===0
+  } else if (isPending) {
+    const pendingItems = pending.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">📝</span><span>未確認の薬剤はありません</span></div>`
-      : pendingDrugs.map(d => `
+      : pending.map(d => `
           <li class="border-b border-gray-100">
             <div class="flex items-start px-4 py-3 gap-3">
               <div class="flex-1 min-w-0">
@@ -487,33 +1184,24 @@ function buildListBodyHTML(query) {
     mainContent = `
       <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
-        <span class="text-xs text-white opacity-80">${pendingDrugs.length}件</span>
+        <span class="text-xs text-white opacity-80">${pending.length}件</span>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
   } else {
+    let drugs = isFav ? getAllDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
     const items = drugs.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
-      : drugs.map(d => `
-        <li>
-          <button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
-              <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
-            </div>
-            <button data-fav="${d.id}" class="text-xl shrink-0 px-1 ${state.favorites.has(d.id)?'text-yellow-400':'text-gray-300'}">★</button>
-          </button>
-        </li>`).join('')
-    const header = isSearch
-      ? `<div class="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">検索結果: ${drugs.length}件</div>`
-      : `<div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
-           <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
-           <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 薬剤追加</button>
-         </div>`
-    mainContent = `${header}<ul class="bg-white">${items}</ul>`
+      : drugs.map(drugListItem).join('')
+    mainContent = `
+      <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
+        <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg">＋ 薬剤追加</button>
+      </div>
+      <ul class="bg-white">${items}</ul>`
   }
 
   return `
-    ${!isSearch?`<aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${sidebarItems}</aside>`:''}
+    <aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${sidebarItems}</aside>
     <main class="flex-1 overflow-y-auto bg-white">${mainContent}</main>`
 }
 
@@ -522,11 +1210,9 @@ function attachListBody() {
     state.query = ''
     setState({category:b.dataset.cat})
   }))
-  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', e => {
-    if (e.target.closest('[data-fav]')) return
+  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
   }))
-  app.querySelectorAll('[data-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleFav(b.dataset.fav) }))
   app.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', e => {
     if (e.target.closest('[data-del-set]')) return
     setState({screen:'set-detail', setId:b.dataset.set, weight:'', age:'', ageUnit:'years'})
@@ -545,8 +1231,8 @@ function attachListBody() {
   })
   app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
     const drugId = b.dataset.confirmDrug
-    // マスターデータのpending薬剤の場合
-    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+    // マスターデータの薬剤の場合（全てが確認制）
+    if (DRUGS.find(d => d.id === drugId)) {
       confirmMasterDrug(drugId)
       render()
       return
@@ -564,8 +1250,8 @@ function attachListBody() {
   app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('この薬剤を削除しますか？')) return
     const drugId = b.dataset.delPending
-    // マスターデータのpending薬剤は非表示にする
-    if (DRUGS.find(d => d.id === drugId && d.pending)) {
+    // マスターデータの薬剤は非表示にする
+    if (DRUGS.find(d => d.id === drugId)) {
       hideDrug(drugId)
       render()
       return
@@ -573,16 +1259,97 @@ function attachListBody() {
     savePendingDrugs(loadPendingDrugs().filter(d => d.id !== drugId))
     render()
   }))
+  // 疾患カテゴリ
+  app.querySelectorAll('[data-disease-cat]').forEach(b => b.addEventListener('click', () => {
+    const cat = b.dataset.diseaseCat
+    const newCat = state.diseaseCat === cat ? null : cat
+    state.diseaseCat = newCat
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  // 疾患アイテム
+  app.querySelectorAll('[data-disease]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'disease-detail', diseaseId: b.dataset.disease})
+  }))
+  // 疾患追加
+  document.getElementById('btn-add-disease')?.addEventListener('click', () => {
+    setState({screen:'add-disease'})
+  })
   document.getElementById('btn-edit-cats')?.addEventListener('click', () => setState({screen:'manage-categories'}))
+  document.getElementById('btn-master-gist')?.addEventListener('click', openMasterGistDialog)
+  document.getElementById('btn-edit-disease-cats')?.addEventListener('click', () => setState({screen:'manage-disease-categories'}))
+  app.querySelectorAll('[data-iv-tab]').forEach(b => b.addEventListener('click', () => {
+    state.ivSubTab = b.dataset.ivTab
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  app.querySelectorAll('[data-iv-mode]').forEach(b => b.addEventListener('click', () => {
+    state.ivMode = b.dataset.ivMode
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  document.getElementById('iv-weight')?.addEventListener('input', e => {
+    state.ivWeight = e.target.value
+    const resultDiv = document.getElementById('iv-calc-result')
+    if (resultDiv) resultDiv.innerHTML = buildIVCalcResultHTML()
+  })
+  // GIR inputs — ボトムバーのみ更新してフォーカス維持
+  const updateGIRBar = () => {
+    const bar = document.getElementById('gir-result-bar')
+    if (!bar) return
+    const r = calcGIR(state.girGlucose, state.girRate, state.girWeight)
+    bar.textContent = (r !== null ? r : '--') + ' mg/kg/min'
+  }
+  document.getElementById('gir-glucose')?.addEventListener('input', e=>{state.girGlucose=e.target.value; updateGIRBar()})
+  document.getElementById('gir-rate')?.addEventListener('input', e=>{state.girRate=e.target.value; updateGIRBar()})
+  document.getElementById('gir-weight')?.addEventListener('input', e=>{state.girWeight=e.target.value; updateGIRBar()})
+  // GIR 内部タブ切り替え
+  app.querySelectorAll('[data-gir-tab]').forEach(b=>b.addEventListener('click', ()=>{
+    state.girTab = b.dataset.girTab
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
+  // ガンマ計算 inputs — ボトムバーのみ更新してフォーカス維持
+  const updateGammaABar = () => {
+    const bar = document.getElementById('gamma-a-result-bar')
+    if (!bar) return
+    const r = calcMlhFromGamma(state.gammaA_drug, state.gammaA_fluid, state.gammaA_gamma, state.gammaA_weight)
+    bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">mL/hr</span>'
+  }
+  const updateGammaBBar = () => {
+    const bar = document.getElementById('gamma-b-result-bar')
+    if (!bar) return
+    const r = calcGammaFromMlh(state.gammaB_drug, state.gammaB_fluid, state.gammaB_rate, state.gammaB_weight)
+    bar.innerHTML = (r !== null ? r : '--') + ' <span class="text-base font-normal">μg/kg/min</span>'
+  }
+  document.getElementById('gamma-a-drug')?.addEventListener('input', e=>{state.gammaA_drug=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-fluid')?.addEventListener('input', e=>{state.gammaA_fluid=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-gamma')?.addEventListener('input', e=>{state.gammaA_gamma=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-a-weight')?.addEventListener('input', e=>{state.gammaA_weight=e.target.value; updateGammaABar()})
+  document.getElementById('gamma-b-drug')?.addEventListener('input', e=>{state.gammaB_drug=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-fluid')?.addEventListener('input', e=>{state.gammaB_fluid=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-rate')?.addEventListener('input', e=>{state.gammaB_rate=e.target.value; updateGammaBBar()})
+  document.getElementById('gamma-b-weight')?.addEventListener('input', e=>{state.gammaB_weight=e.target.value; updateGammaBBar()})
+  // ガンマ計算 内部タブ切り替え
+  app.querySelectorAll('[data-gamma-tab]').forEach(b=>b.addEventListener('click', ()=>{
+    state.gammaTab = b.dataset.gammaTab
+    const listBody = document.getElementById('list-body')
+    if (listBody) { listBody.innerHTML = buildListBodyHTML(state.query); attachListBody() }
+  }))
 }
 
 function renderList() {
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
-      <h1 class="text-lg font-bold text-gray-900">小児薬用量</h1>
+      <h1 class="text-lg font-bold text-gray-900">Pocket Wiki</h1>
+      <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
+        <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.medicine}<span class="text-xs leading-none">薬剤</span></button>
+        <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.pathogen}<span class="text-xs leading-none">疾患</span></button>
+        <button id="main-tab-iv" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='ivfluids'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.ivDrip}<span class="text-xs leading-none">輸液</span></button>
+      </div>
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-        <input id="search-input" type="search" placeholder="薬剤名・商品名・略称で検索"
+        <input id="search-input" type="search" placeholder="薬剤名・疾患名を検索"
           class="w-full bg-gray-100 rounded-full pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
     </div>
@@ -604,6 +1371,21 @@ function attachList() {
       }
     })
   }
+  document.getElementById('main-tab-drugs')?.addEventListener('click', () => {
+    if (state.mainTab === 'drugs') return
+    state.query = ''
+    setState({mainTab:'drugs'})
+  })
+  document.getElementById('main-tab-diseases')?.addEventListener('click', () => {
+    if (state.mainTab === 'diseases') return
+    state.query = ''
+    setState({mainTab:'diseases'})
+  })
+  document.getElementById('main-tab-iv')?.addEventListener('click', () => {
+    if (state.mainTab === 'ivfluids') return
+    state.query = ''
+    setState({mainTab:'ivfluids'})
+  })
   attachListBody()
 }
 
@@ -614,21 +1396,32 @@ function renderDetail(drug) {
   const isFav = state.favorites.has(drug.id)
   const doses = filteredDoses(drug)
   const weight = state.weight
-  const calcTab = `
+  const editDosesHTML = state.editMode && state.tab === 'calc' ? renderEditDoses(drug) : ''
+  const calcTab = state.editMode && state.tab === 'calc' ? `
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-700">投与量を編集</span>
+        <div class="flex gap-2">
+          <button id="btn-cancel-edit" class="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">キャンセル</button>
+          <button id="btn-save-doses" class="text-sm text-white bg-blue-600 px-3 py-1.5 rounded-lg font-medium">保存</button>
+        </div>
+      </div>
+      ${editDosesHTML}
+    </div>` : `
     <div class="p-4 space-y-4">
       ${ageWeightInput()}
       <div id="dose-results">
         <div class="flex justify-end mb-2">
-          <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+          <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
         </div>
         ${doses.map(d => doseCard(d, weight)).join('')}
         <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
       </div>
     </div>`
-  const overviewTab = state.editMode ? renderEditForm(drug) : `
+  const overviewTab = state.editMode && state.tab === 'overview' ? renderEditForm(drug) : `
     <div class="p-4 space-y-4">
       <div class="flex justify-end">
-        <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 編集</button>
+        <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 概要を編集</button>
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
         ${infoRow('一般名', drug.genericName)}
@@ -651,7 +1444,7 @@ function renderDetail(drug) {
           <div class="font-bold text-gray-900 text-base leading-tight truncate">${esc(drug.genericName)}</div>
           ${drug.abbreviation?`<div class="text-xs text-gray-500">${esc(drug.abbreviation)}（${drug.brandNames.map(b=>b+'®').join('・')}）</div>`:''}
         </div>
-        <button id="btn-fav" class="text-2xl w-8 shrink-0 ${isFav?'text-yellow-400':'text-gray-300'}">★</button>
+        <button id="btn-fav" class="w-8 shrink-0 flex items-center justify-center ${isFav?'text-yellow-400':'text-gray-400'}">${ICON.star(isFav)}</button>
         <button id="btn-delete-drug" class="text-xl w-8 shrink-0 text-gray-300 hover:text-red-400 transition-colors">🗑</button>
       </div>
       <div class="flex mt-3 border-b border-gray-200 -mb-px">
@@ -659,6 +1452,88 @@ function renderDetail(drug) {
       </div>
     </div>
     <div class="flex-1 overflow-y-auto">${state.tab==='calc'?calcTab:overviewTab}</div>`
+}
+
+// 投与量インライン編集フォーム（calcタブ内で使用）
+function renderEditDoses(drug) {
+  const doses = state.editDoses || []
+  const doseRows = doses.map((d,i) => `
+    <div class="border border-gray-200 rounded-xl p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-600">用量エントリ ${i+1}</span>
+        <button data-rm-dose="${i}" class="text-gray-400 hover:text-red-500 text-sm">削除</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">年齢ラベル</label>
+          <input type="text" data-ed="${i}" data-field="ageLabel" value="${esc(d.ageLabel)}" placeholder="例: 1歳以上" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）以上</label>
+          <input type="number" data-ed="${i}" data-field="ageMinYears" value="${esc(d.ageMinYears??'')}" placeholder="例: 1" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">年齢（歳）未満</label>
+          <input type="number" data-ed="${i}" data-field="ageMaxYears" value="${esc(d.ageMaxYears??'')}" placeholder="上限なし" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">単位</label>
+          <select data-ed="${i}" data-field="unit" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['mg','g','μg','mL','IU','包','カプセル'].map(u=>`<option ${(d.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量タイプ</label>
+          <div class="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+            ${['weight','range','fixed'].map(t=>`<button data-ed-type="${i}" data-type="${t}" class="flex-1 py-1.5 ${d.doseType===t?'bg-blue-600 text-white':'bg-white text-gray-600'}">${t==='weight'?(d.unit||'mg')+'/kg(単一)':t==='range'?(d.unit||'mg')+'/kg(範囲)':'固定量'}</button>`).join('')}
+          </div>
+        </div>
+        ${d.doseType==='weight'?`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">用量 (${d.unit||'mg'}/kg/日)</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKg" value="${esc(d.dosePerKg??'')}" placeholder="例: 4" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:d.doseType==='range'?`
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最小 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKgMin" value="${esc(d.dosePerKgMin??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大 ${d.unit||'mg'}/kg/日</label>
+          <input type="number" data-ed="${i}" data-field="dosePerKgMax" value="${esc(d.dosePerKgMax??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`:`
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">固定量テキスト</label>
+          <input type="text" data-ed="${i}" data-field="fixedDose" value="${esc(d.fixedDose||'')}" placeholder="例: 5mg/日" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>`}
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">最大(${d.unit||'mg'}/日)</label>
+          <input type="number" data-ed="${i}" data-field="maxDosePerDay" value="${esc(d.maxDosePerDay??'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与回数</label>
+          <input type="text" data-ed="${i}" data-field="frequency" value="${esc(d.frequency||'')}" placeholder="分2" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">投与期間</label>
+          <input type="text" data-ed="${i}" data-field="duration" value="${esc(d.duration||'')}" placeholder="5日間" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-gray-500">目的</label>
+          <select data-ed="${i}" data-field="purpose" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${['治療','予防','両方'].map(p=>`<option ${(d.purpose||'治療')===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-span-2 space-y-1">
+          <label class="text-xs text-gray-500">備考</label>
+          <input type="text" data-ed="${i}" data-field="notes" value="${esc(d.notes||'')}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+    </div>`).join('')
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+      ${doseRows}
+      <button id="btn-add-ed-dose" class="w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500">＋ 用量エントリを追加</button>
+    </div>`
 }
 
 function renderEditForm(drug) {
@@ -693,6 +1568,27 @@ function renderEditForm(drug) {
 }
 const ef = (label,id,val) => `<div class="space-y-1"><label class="text-xs font-medium text-gray-600">${label}</label><input id="${id}" type="text" value="${esc(val)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>`
 
+// 既存の投与量データをeditDoses形式に変換
+function dosesToEditForm(doses) {
+  return doses.map(d => ({
+    _id: Math.random(),
+    ageLabel: d.ageLabel || '',
+    ageMinYears: d.ageMinMonths != null ? d.ageMinMonths / 12 : '',
+    ageMaxYears: d.ageMaxMonths != null ? d.ageMaxMonths / 12 : '',
+    purpose: d.purpose || '治療',
+    doseType: d.fixedDose ? 'fixed' : (d.dosePerKgMin != null ? 'range' : 'weight'),
+    unit: d.unit || 'mg',
+    dosePerKg: d.dosePerKg ?? '',
+    dosePerKgMin: d.dosePerKgMin ?? '',
+    dosePerKgMax: d.dosePerKgMax ?? '',
+    fixedDose: d.fixedDose || '',
+    maxDosePerDay: d.maxDosePerDay ?? '',
+    frequency: d.frequency || '',
+    duration: d.duration || '',
+    notes: d.notes || '',
+  }))
+}
+
 function updateDetailDoseResults() {
   const drug = getDrugById(state.drugId)
   if (!drug) return
@@ -702,21 +1598,24 @@ function updateDetailDoseResults() {
   const weight = state.weight
   el.innerHTML = `
     <div class="flex justify-end mb-2">
-      <button id="btn-edit" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 用量・情報を編集</button>
+      <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
     </div>
     ${doses.map(d => doseCard(d, weight)).join('')}
     <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
-  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
+  document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
+    const drug = getDrugById(state.drugId)
+    setState({editMode:true, editDoses:dosesToEditForm(drug.pediatricDoses||[]), tab:'calc'})
+  })
 }
 
 function attachDetail() {
   const drug = getDrugById(state.drugId)
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',editMode:false}))
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list',editMode:false,editDoses:[]}))
   document.getElementById('btn-fav')?.addEventListener('click', () => toggleFav(drug.id))
   document.getElementById('btn-delete-drug')?.addEventListener('click', () => {
     if (confirm(`「${drug.genericName}」を削除しますか？`)) deleteDrug(drug.id)
   })
-  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setState({tab:b.dataset.tab,editMode:false})))
+  app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setState({tab:b.dataset.tab,editMode:false,editDoses:[]})))
   const weightInput = document.getElementById('weight-input')
   if (weightInput) {
     weightInput.value = state.weight
@@ -729,8 +1628,72 @@ function attachDetail() {
   }
   document.getElementById('unit-years')?.addEventListener('click', () => setState({ageUnit:'years',age:''}))
   document.getElementById('unit-months')?.addEventListener('click', () => setState({ageUnit:'months',age:''}))
-  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true,editDraft:{...drug},tab:'overview'}))
-  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null}))
+
+  // calcタブ：投与量編集ボタン（初期表示時。weight変更時はupdateDetailDoseResultsが担当）
+  document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
+    const d = getDrugById(state.drugId)
+    setState({editMode:true, editDoses:dosesToEditForm(d?.pediatricDoses||[]), tab:'calc'})
+  })
+
+  // calcタブ：投与量編集 キャンセル / 保存
+  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null,editDoses:[]}))
+  document.getElementById('btn-save-doses')?.addEventListener('click', () => {
+    // editDosesフォームからデータ収集
+    const newDoses = state.editDoses.map((d,i) => {
+      const entry = {
+        ageLabel: document.querySelector(`[data-ed="${i}"][data-field="ageLabel"]`)?.value || d.ageLabel || '全年齢',
+        purpose: document.querySelector(`[data-ed="${i}"][data-field="purpose"]`)?.value || '治療',
+      }
+      const minY = document.querySelector(`[data-ed="${i}"][data-field="ageMinYears"]`)?.value
+      const maxY = document.querySelector(`[data-ed="${i}"][data-field="ageMaxYears"]`)?.value
+      if (minY) entry.ageMinMonths = parseFloat(minY)*12
+      if (maxY) entry.ageMaxMonths = parseFloat(maxY)*12
+      if (d.doseType==='weight') {
+        const v = document.querySelector(`[data-ed="${i}"][data-field="dosePerKg"]`)?.value
+        if (v) entry.dosePerKg = parseFloat(v)
+      } else if (d.doseType==='range') {
+        const lo = document.querySelector(`[data-ed="${i}"][data-field="dosePerKgMin"]`)?.value
+        const hi = document.querySelector(`[data-ed="${i}"][data-field="dosePerKgMax"]`)?.value
+        if (lo) entry.dosePerKgMin = parseFloat(lo)
+        if (hi) entry.dosePerKgMax = parseFloat(hi)
+      } else {
+        entry.fixedDose = document.querySelector(`[data-ed="${i}"][data-field="fixedDose"]`)?.value || ''
+      }
+      const maxD = document.querySelector(`[data-ed="${i}"][data-field="maxDosePerDay"]`)?.value
+      if (maxD) entry.maxDosePerDay = parseFloat(maxD)
+      const unit = document.querySelector(`[data-ed="${i}"][data-field="unit"]`)?.value
+      if (unit && unit !== 'mg') entry.unit = unit
+      const freq = document.querySelector(`[data-ed="${i}"][data-field="frequency"]`)?.value
+      if (freq) entry.frequency = freq
+      const dur = document.querySelector(`[data-ed="${i}"][data-field="duration"]`)?.value
+      if (dur) entry.duration = dur
+      const notes = document.querySelector(`[data-ed="${i}"][data-field="notes"]`)?.value
+      if (notes) entry.notes = notes
+      return entry
+    })
+    saveEdit(drug.id, {pediatricDoses: newDoses})
+    setState({editMode:false, editDoses:[]})
+  })
+
+  // calcタブ：用量タイプ切り替え（editDoses）
+  app.querySelectorAll('[data-ed-type]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.edType)
+    const doses = [...state.editDoses]
+    doses[idx] = {...doses[idx], doseType: b.dataset.type}
+    setState({editDoses: doses})
+  }))
+  // calcタブ：用量エントリ削除
+  app.querySelectorAll('[data-rm-dose]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.rmDose)
+    setState({editDoses: state.editDoses.filter((_,i)=>i!==idx)})
+  }))
+  // calcタブ：用量エントリ追加
+  document.getElementById('btn-add-ed-dose')?.addEventListener('click', () => {
+    setState({editDoses: [...state.editDoses, {_id:Math.random(),ageLabel:'',ageMinYears:'',ageMaxYears:'',purpose:'治療',doseType:'weight',unit:'mg',dosePerKg:'',dosePerKgMin:'',dosePerKgMax:'',fixedDose:'',maxDosePerDay:'',frequency:'',duration:'',notes:''}]})
+  })
+
+  // overviewタブ：概要編集
+  document.getElementById('btn-edit')?.addEventListener('click', () => setState({editMode:true, editDraft:{...drug}, tab:'overview'}))
   document.getElementById('btn-save-edit')?.addEventListener('click', () => {
     saveEdit(drug.id, {
       genericName: document.getElementById('edit-genericName').value,
@@ -1164,17 +2127,474 @@ function attachAddDrug() {
   })
 }
 
+// ── 疾患セクションコンテンツ レンダラー ──────────────────────
+
+function renderSectionContent(content) {
+  if (!content) return ''
+  return content.split('\n').map(line => {
+    if (!line.trim()) return '<div class="h-2"></div>'
+    if (line.match(/^[•・]/))
+      return `<div class="flex gap-2 my-0.5"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(line.replace(/^[•・]\s*/,''))}</span></div>`
+    if (line.match(/^[×✕]/))
+      return `<div class="flex gap-2 my-0.5"><span class="shrink-0 text-red-500 font-bold">×</span><span>${esc(line.replace(/^[×✕]\s*/,''))}</span></div>`
+    return `<p class="my-0.5">${esc(line)}</p>`
+  }).join('')
+}
+
+// ── 疾患詳細画面 ──────────────────────────────────────────────
+
+function renderDiseaseDetail(disease) {
+  if (!disease) return '<div class="p-8 text-center text-gray-400">疾患が見つかりません</div>'
+  const isPending = getAllPendingDiseases().some(d => d.id === disease.id)
+  const isFav = state.diseaseFavorites.has(disease.id)
+  const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
+
+  const pointsHtml = (disease.points || []).length > 0 ? `
+    <div class="shadow-sm border border-blue-100 overflow-hidden">
+      <div class="flex bg-blue-50">
+        <div class="w-1.5 bg-blue-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">ポイント</h3>
+        </div>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <ul class="space-y-2">${(disease.points).map(p =>
+          `<li class="text-sm text-gray-700 flex gap-2"><span class="shrink-0 text-blue-500 font-bold">•</span><span>${esc(p)}</span></li>`
+        ).join('')}</ul>
+      </div>
+    </div>` : ''
+
+  const imagesHtml = (disease.images || []).length > 0 ? `
+    <div class="grid grid-cols-2 gap-2">
+      ${(disease.images).map((img,i) => `
+        <div class="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+          <img src="${img.dataUrl}" alt="${esc(img.caption||'画像'+(i+1))}" onclick="openLightbox(this.src)" class="w-full object-cover max-h-48 cursor-pointer" />
+          ${img.caption ? `<p class="text-xs text-gray-500 px-2 py-1 truncate">${esc(img.caption)}</p>` : ''}
+        </div>`).join('')}
+    </div>` : ''
+
+  const sectionsHtml = (disease.sections || []).map(sec => `
+    <div class="shadow-sm border border-blue-100 overflow-hidden">
+      <div class="flex bg-blue-50">
+        <div class="w-1.5 bg-blue-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">${esc(sec.title)}</h3>
+        </div>
+      </div>
+      <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
+    </div>`).join('')
+
+  const relatedDrugsHtml = relatedDrugs.length > 0 ? `
+    <div class="rounded-xl shadow-sm border border-green-100 overflow-hidden">
+      <div class="flex bg-green-50">
+        <div class="w-1.5 bg-green-500 shrink-0"></div>
+        <div class="flex-1 px-4 py-3">
+          <h3 class="text-base font-bold text-gray-900">関連薬剤</h3>
+        </div>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <div class="space-y-2">${relatedDrugs.map(d => `
+            <button data-drug="${d.id}" class="w-full flex items-center px-3 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-left gap-3">
+              <span class="text-lg">💊</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate">${esc(d.genericName)}</div>
+                <div class="text-xs text-gray-500 truncate">${esc(d.abbreviation||'')}${d.brandNames?.length?'　'+d.brandNames.join('・'):''}</div>
+              </div>
+              <span class="text-gray-400">›</span>
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>` : ''
+
+  const notesHtml = disease.notes ? `
+    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+      <p class="text-sm text-amber-800 leading-relaxed">${esc(disease.notes)}</p>
+    </div>` : ''
+
+  const refsHtml = (disease.references||[]).length ? `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">参考文献</h3>
+      ${disease.references.map((r,i)=>`<p class="text-xs text-gray-500">${i+1}) ${esc(r)}</p>`).join('')}
+    </div>` : ''
+
+  const actionBtns = isPending ? `
+    <div class="flex gap-2">
+      <button id="btn-confirm-disease" class="flex-1 bg-blue-600 text-white text-sm font-semibold py-3 rounded-xl">✓ 確認済みにする</button>
+      <button id="btn-del-disease" class="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl">削除</button>
+    </div>` : `
+    <div class="flex justify-end gap-2">
+      <button id="btn-edit-disease" class="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">✏️ 編集</button>
+      <button id="btn-del-disease" class="text-xs text-gray-400 hover:text-red-500 px-3 py-1.5 rounded-lg border border-gray-200">🗑 削除</button>
+    </div>`
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">${esc(disease.name)}</div>
+          ${disease.englishName||disease.abbreviation
+            ? `<div class="text-xs text-gray-500">${esc(disease.englishName||'')}${disease.abbreviation?' ('+disease.abbreviation+')':''}</div>` : ''}
+        </div>
+        <button id="btn-dis-fav" class="w-8 shrink-0 flex items-center justify-center ${isFav?'text-yellow-400':'text-gray-400'}">${ICON.star(isFav)}</button>
+      </div>
+      ${isPending ? '<div class="mt-1 text-center"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">未確認</span></div>' : ''}
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      ${pointsHtml}
+      ${imagesHtml}
+      ${sectionsHtml}
+      ${relatedDrugsHtml}
+      ${notesHtml}
+      ${refsHtml}
+      ${actionBtns}
+      <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で診療を行ってください。</p></div>
+    </div>`
+}
+
+function attachDiseaseDetail() {
+  const disease = getDiseaseById(state.diseaseId)
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+  document.getElementById('btn-dis-fav')?.addEventListener('click', () => { if (disease) toggleDiseaseFav(disease.id) })
+
+  document.getElementById('btn-confirm-disease')?.addEventListener('click', () => {
+    if (!disease) return
+    if (DISEASES.find(d => d.id === disease.id)) {
+      confirmMasterDisease(disease.id)
+    } else {
+      const pending = loadPendingDiseases()
+      const d = pending.find(x => x.id === disease.id)
+      if (d) {
+        const custom = loadCustomDiseases(); custom.push(d)
+        saveCustomDiseases(custom)
+        savePendingDiseases(pending.filter(x => x.id !== disease.id))
+      }
+    }
+    render()
+  })
+
+  document.getElementById('btn-edit-disease')?.addEventListener('click', () => {
+    if (!disease) return
+    // 編集フォームに既存データをセット
+    const contentStr = (disease.sections||[]).map(s => `【${s.title}】\n${s.content}`).join('\n\n')
+    setState({screen:'add-disease', addDiseaseForm:{
+      ...disease,
+      points: disease.points||[],
+      content: contentStr,
+      _editId: disease.id,
+    }})
+  })
+
+  document.getElementById('btn-del-disease')?.addEventListener('click', () => {
+    if (!confirm('この疾患を削除しますか？')) return
+    const id = state.diseaseId
+    if (DISEASES.find(d => d.id === id)) {
+      const h = new Set(LS.get('hidden_diseases','[]')); h.add(id)
+      LS.set('hidden_diseases', [...h])
+    } else {
+      saveCustomDiseases(loadCustomDiseases().filter(d => d.id !== id))
+      savePendingDiseases(loadPendingDiseases().filter(d => d.id !== id))
+    }
+    setState({screen:'list', diseaseId:null})
+  })
+
+  app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
+    setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
+  }))
+}
+
+// ── 疾患追加・編集画面 ──────────────────────────────────────────────
+
+function renderAddDisease() {
+  const f = state.addDiseaseForm || {}
+  const cats = DISEASE_CATEGORIES
+  const isEdit = !!f._editId
+  const imgs = f.images || []
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">${isEdit?'疾患を編集':'疾患を追加'}</div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">疾患名 <span class="text-red-500">*</span></label>
+          <input id="ad-name" type="text" value="${esc(f.name||'')}" placeholder="例: 市中肺炎"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">英語名</label>
+          <input id="ad-englishName" type="text" value="${esc(f.englishName||'')}" placeholder="例: Community-acquired pneumonia"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">略称</label>
+          <input id="ad-abbreviation" type="text" value="${esc(f.abbreviation||'')}" placeholder="例: CAP"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">カテゴリ</label>
+          <select id="ad-category" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            ${cats.map(c=>`<option value="${esc(c)}" ${(f.category||cats[0])===c?'selected':''}>${esc(c)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">ポイント（1行1項目）</label>
+        <textarea id="ad-points" rows="4" placeholder="例:\n発熱・咳嗽・胸部X線浸潤影\n入院適応はPSIスコアで判断"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc((f.points||[]).join('\n'))}</textarea>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">内容（セクション）</label>
+        <textarea id="ad-content" rows="8" placeholder="【診断】\n症状がある場合...\n\n【治療】\n第一選択は..."
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.content||'')}</textarea>
+        <p class="text-xs text-gray-400">【見出し】で始まる行がセクションのタイトルになります</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-600">画像所見</label>
+          <label id="lbl-add-img" class="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer">＋ 画像追加</label>
+          <input id="inp-img" type="file" accept="image/*" multiple class="hidden" />
+        </div>
+        ${imgs.length > 0 ? `<div class="grid grid-cols-2 gap-2" id="img-preview">
+          ${imgs.map((img,i) => `
+            <div class="relative rounded-xl overflow-hidden border border-gray-200">
+              <img src="${img.dataUrl}" class="w-full object-cover h-28" />
+              <button data-del-img="${i}" class="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center">✕</button>
+              <input data-img-cap="${i}" type="text" value="${esc(img.caption||'')}" placeholder="キャプション"
+                class="w-full border-t border-gray-200 px-2 py-1 text-xs focus:outline-none" />
+            </div>`).join('')}
+        </div>` : '<div id="img-preview" class="text-xs text-gray-400">画像が追加されていません</div>'}
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">メモ・注意事項</label>
+        <textarea id="ad-notes" rows="2"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">${esc(f.notes||'')}</textarea>
+      </div>
+      <button id="btn-save-disease" class="w-full bg-blue-600 text-white text-sm font-semibold py-3.5 rounded-xl shadow-sm">${isEdit?'変更を保存':'未確認として追加'}</button>
+    </div>`
+}
+
+function attachAddDisease() {
+  const f = state.addDiseaseForm || {}
+  document.getElementById('btn-back')?.addEventListener('click', () => {
+    setState({screen: f._editId ? 'disease-detail' : 'list', addDiseaseForm:null})
+  })
+
+  // 画像追加
+  document.getElementById('lbl-add-img')?.addEventListener('click', () => document.getElementById('inp-img')?.click())
+  document.getElementById('inp-img')?.addEventListener('change', e => {
+    const files = [...e.target.files]
+    if (!files.length) return
+    const currentImgs = (state.addDiseaseForm||{}).images || []
+    let loaded = 0
+    const newImgs = [...currentImgs]
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => { newImgs.push({dataUrl:ev.target.result,caption:''}); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}) }
+      reader.onerror = () => { alert(`「${file.name}」の読み込みに失敗しました`); if(++loaded===files.length) setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:newImgs}}) }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  })
+  app.querySelectorAll('[data-del-img]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.delImg)
+    const imgs = [...((state.addDiseaseForm||{}).images||[])]
+    imgs.splice(idx,1)
+    setState({addDiseaseForm:{...(state.addDiseaseForm||{}),images:imgs}})
+  }))
+
+  document.getElementById('btn-save-disease')?.addEventListener('click', () => {
+    const name = document.getElementById('ad-name').value.trim()
+    if (!name) { alert('疾患名を入力してください'); return }
+
+    // 【見出し】でセクション分割
+    const rawContent = document.getElementById('ad-content').value.trim()
+    const sections = []
+    let current = null
+    rawContent.split('\n').forEach(line => {
+      const m = line.match(/^【(.+?)】(.*)$/)
+      if (m) {
+        if (current) sections.push(current)
+        current = {title: m[1], content: m[2].trim()}
+      } else if (current) {
+        current.content += (current.content ? '\n' : '') + line
+      } else if (line.trim()) {
+        sections.push({title: '内容', content: line})
+      }
+    })
+    if (current) sections.push(current)
+
+    // 画像キャプション収集
+    const images = (state.addDiseaseForm?.images||[]).map((img,i) => ({
+      dataUrl: img.dataUrl,
+      caption: (document.querySelector(`[data-img-cap="${i}"]`)?.value||'').trim()
+    }))
+
+    const editId = f._editId
+    const disease = {
+      id: editId || 'disease_' + Date.now(),
+      name,
+      englishName: document.getElementById('ad-englishName').value.trim(),
+      abbreviation: document.getElementById('ad-abbreviation').value.trim(),
+      category: document.getElementById('ad-category').value,
+      tags: [],
+      points: document.getElementById('ad-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      sections,
+      relatedDrugIds: editId ? (getDiseaseById(editId)?.relatedDrugIds||[]) : [],
+      images,
+      notes: document.getElementById('ad-notes').value.trim(),
+    }
+
+    if (editId) {
+      // カスタム疾患を検索
+      const custom = loadCustomDiseases()
+      const ci = custom.findIndex(d => d.id === editId)
+      if (ci >= 0) {
+        custom[ci] = disease
+        saveCustomDiseases(custom)
+      } else {
+        // pending を検索
+        const pend = loadPendingDiseases()
+        const pi = pend.findIndex(d => d.id === editId)
+        if (pi >= 0) {
+          pend[pi] = disease
+          savePendingDiseases(pend)
+        } else {
+          // マスター疾患（DISEASES配列）→ カスタムにコピーして上書き
+          custom.push(disease)
+          saveCustomDiseases(custom)
+          // マスターを非表示にして重複を防ぐ
+          const h = new Set(LS.get('hidden_diseases','[]')); h.add(editId)
+          LS.set('hidden_diseases', [...h])
+        }
+      }
+      setState({screen:'disease-detail', diseaseId:editId, addDiseaseForm:null})
+    } else {
+      const pending = loadPendingDiseases()
+      pending.push(disease)
+      savePendingDiseases(pending)
+      setState({screen:'list', mainTab:'diseases', addDiseaseForm:null, diseaseCat:null})
+    }
+  })
+}
+
+// ── 疾患カテゴリ管理画面 ──────────────────────────────────────
+
+function renderManageDiseaseCategories() {
+  const cats = getDiseaseCategories()
+  const editIdx = state.editingDisCatIdx
+  const catRows = cats.map((cat, i) => {
+    if (i === editIdx) return `
+      <div class="flex items-center px-3 py-2 gap-2 border-b border-gray-100 last:border-0 bg-blue-50">
+        <input id="edit-dis-cat-input" type="text" value="${esc(cat)}"
+          class="flex-1 border border-blue-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button data-save-dis-cat="${i}" class="text-white bg-blue-600 text-sm px-2.5 py-1 rounded-lg font-medium shrink-0">保存</button>
+        <button data-cancel-dis-cat class="text-gray-500 bg-gray-100 text-sm px-2 py-1 rounded-lg shrink-0">✕</button>
+      </div>`
+    return `
+    <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
+      <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-edit-dis-cat="${i}" class="text-gray-400 hover:text-blue-500 text-sm px-1.5 py-0.5 rounded">✎</button>
+      <button data-dis-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
+      <button data-dis-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
+      <button data-dis-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
+    </div>`}).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center font-bold text-gray-900 text-base">疾患カテゴリ管理</div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <p class="text-xs text-gray-500">疾患カテゴリの追加・削除・並び替えができます。</p>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">${catRows}</div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <label class="text-xs font-medium text-gray-600">新しいカテゴリを追加</label>
+        <div class="flex gap-2">
+          <input id="new-dis-cat-input" type="text" placeholder="例: 内分泌"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button id="btn-add-dis-cat" class="text-sm text-white bg-blue-600 px-3 py-2 rounded-lg font-medium shrink-0">追加</button>
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+        <p class="text-xs text-amber-700">カテゴリを削除しても疾患データは残ります。初期化で標準カテゴリに戻せます。</p>
+        <button id="btn-reset-dis-cats" class="text-xs text-amber-700 border border-amber-300 bg-white px-3 py-1.5 rounded-lg">初期化（標準に戻す）</button>
+      </div>
+    </div>`
+}
+
+function attachManageDiseaseCategories() {
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', mainTab:'diseases', editingDisCatIdx:null}))
+
+  app.querySelectorAll('[data-edit-dis-cat]').forEach(b => b.addEventListener('click', () => {
+    setState({editingDisCatIdx: parseInt(b.dataset.editDisCat)})
+    setTimeout(() => document.getElementById('edit-dis-cat-input')?.focus(), 50)
+  }))
+  app.querySelectorAll('[data-save-dis-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.saveDisCat)
+    const val = document.getElementById('edit-dis-cat-input')?.value?.trim()
+    if (!val) return
+    const cats = getDiseaseCategories()
+    if (cats.some((c,idx) => c===val && idx!==i)) { alert('そのカテゴリ名はすでに存在します'); return }
+    cats[i] = val; saveUserDiseaseCategories(cats); setState({editingDisCatIdx:null})
+  }))
+  app.querySelectorAll('[data-cancel-dis-cat]').forEach(b => b.addEventListener('click', () => setState({editingDisCatIdx:null})))
+
+  app.querySelectorAll('[data-dis-move-up]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disMoveUp); const cats = getDiseaseCategories(); if (i===0) return
+    const c=[...cats];[c[i-1],c[i]]=[c[i],c[i-1]]; saveUserDiseaseCategories(c); render()
+  }))
+  app.querySelectorAll('[data-dis-move-down]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disMoveDown); const cats = getDiseaseCategories(); if (i===cats.length-1) return
+    const c=[...cats];[c[i],c[i+1]]=[c[i+1],c[i]]; saveUserDiseaseCategories(c); render()
+  }))
+  app.querySelectorAll('[data-dis-delete-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.disDeleteCat); const cats = getDiseaseCategories()
+    if (cats.length<=1) { alert('カテゴリは最低1つ必要です'); return }
+    if (!confirm(`「${cats[i]}」を削除しますか？`)) return
+    saveUserDiseaseCategories(cats.filter((_,idx)=>idx!==i)); render()
+  }))
+  document.getElementById('btn-add-dis-cat')?.addEventListener('click', () => {
+    const input = document.getElementById('new-dis-cat-input')
+    const name = input?.value?.trim()
+    if (!name) return
+    const cats = getDiseaseCategories()
+    if (cats.includes(name)) { alert('そのカテゴリはすでに存在します'); return }
+    saveUserDiseaseCategories([...cats, name]); render()
+  })
+  document.getElementById('btn-reset-dis-cats')?.addEventListener('click', () => {
+    if (!confirm('疾患カテゴリを標準に戻しますか？')) return
+    localStorage.removeItem('user_disease_categories'); render()
+  })
+}
+
 // ── カテゴリ管理画面 ──────────────────────────────────────────
 
 function renderManageCategories() {
   const cats = getCategories()
-  const catRows = cats.map((cat, i) => `
+  const editIdx = state.editingCatIdx
+  const catRows = cats.map((cat, i) => {
+    if (i === editIdx) return `
+      <div class="flex items-center px-3 py-2 gap-2 border-b border-gray-100 last:border-0 bg-blue-50">
+        <input id="edit-cat-input" type="text" value="${esc(cat)}"
+          class="flex-1 border border-blue-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button data-save-cat="${i}" class="text-white bg-blue-600 text-sm px-2.5 py-1 rounded-lg font-medium shrink-0">保存</button>
+        <button data-cancel-cat class="text-gray-500 bg-gray-100 text-sm px-2 py-1 rounded-lg shrink-0">✕</button>
+      </div>`
+    return `
     <div class="flex items-center px-3 py-2.5 gap-2 border-b border-gray-100 last:border-0">
       <span class="flex-1 text-sm text-gray-800">${esc(cat)}</span>
+      <button data-edit-cat="${i}" class="text-gray-400 hover:text-blue-500 text-sm px-1.5 py-0.5 rounded">✎</button>
       <button data-move-up="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===0?'opacity-20 pointer-events-none':''}">↑</button>
       <button data-move-down="${i}" class="text-gray-400 hover:text-blue-500 text-base px-1.5 py-0.5 rounded ${i===cats.length-1?'opacity-20 pointer-events-none':''}">↓</button>
       <button data-delete-cat="${i}" class="text-gray-400 hover:text-red-500 text-sm px-1.5 py-0.5 rounded">✕</button>
-    </div>`).join('')
+    </div>`}).join('')
   return `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-3">
@@ -1204,7 +2624,21 @@ function renderManageCategories() {
 }
 
 function attachManageCategories() {
-  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list'}))
+  document.getElementById('btn-back')?.addEventListener('click', () => setState({screen:'list', editingCatIdx:null}))
+
+  app.querySelectorAll('[data-edit-cat]').forEach(b => b.addEventListener('click', () => {
+    setState({editingCatIdx: parseInt(b.dataset.editCat)})
+    setTimeout(() => document.getElementById('edit-cat-input')?.focus(), 50)
+  }))
+  app.querySelectorAll('[data-save-cat]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.saveCat)
+    const val = document.getElementById('edit-cat-input')?.value?.trim()
+    if (!val) return
+    const cats = getCategories()
+    if (cats.some((c,idx) => c===val && idx!==i)) { alert('そのカテゴリ名はすでに存在します'); return }
+    cats[i] = val; saveUserCategories(cats); setState({editingCatIdx:null})
+  }))
+  app.querySelectorAll('[data-cancel-cat]').forEach(b => b.addEventListener('click', () => setState({editingCatIdx:null})))
 
   app.querySelectorAll('[data-move-up]').forEach(b => b.addEventListener('click', () => {
     const i = parseInt(b.dataset.moveUp)
@@ -1245,7 +2679,19 @@ function attachManageCategories() {
   })
 }
 
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox')
+  document.getElementById('lightbox-img').src = src
+  lb.style.display = 'flex'
+}
+
+// ── 起動: Gist キャッシュ適用 → 初回描画 → バックグラウンドで Gist 取得 ──
+applyCachedMasterIfAny()
 render()
+refreshMasterFromGist().then(changed => { if (changed) render() })
 </script>
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;" onclick="document.getElementById('lightbox').style.display='none'">
+  <img id="lightbox-img" style="max-width:100%;max-height:100%;object-fit:contain;padding:16px;" />
+</div>
 </body>
 </html>
