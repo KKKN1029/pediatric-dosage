@@ -331,6 +331,23 @@ function applyMasterData(data) {
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
   if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
+  // Gist マスターは「信頼済みデータ」として扱う：
+  //   confirmed_master に未登録だと getAllDrugs() で非表示になり、別端末で
+  //   開いたときにデータが見えない問題が起きるため、自動で確認済み扱いにする。
+  try {
+    if (Array.isArray(data.drugs)) {
+      const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
+      let changed = false
+      for (const d of data.drugs) { if (d && d.id && !cm.has(d.id)) { cm.add(d.id); changed = true } }
+      if (changed) localStorage.setItem('confirmed_master', JSON.stringify([...cm]))
+    }
+    if (Array.isArray(data.diseases)) {
+      const cd = new Set(JSON.parse(localStorage.getItem('confirmed_master_diseases') || '[]'))
+      let changed = false
+      for (const d of data.diseases) { if (d && d.id && !cd.has(d.id)) { cd.add(d.id); changed = true } }
+      if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
+    }
+  } catch (e) { console.warn('master auto-confirm skipped', e) }
   return true
 }
 
