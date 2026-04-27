@@ -313,15 +313,16 @@ function getGistId() {
     const u = new URL(location.href)
     const fromUrl = u.searchParams.get('gist')
     if (fromUrl) {
-      localStorage.setItem(GIST_LS_ID, fromUrl)
-      return fromUrl
+      const id = extractGistId(fromUrl)
+      localStorage.setItem(GIST_LS_ID, id)
+      return id
     }
   } catch {}
   return localStorage.getItem(GIST_LS_ID) || ''
 }
 function setGistId(id) {
   if (!id) localStorage.removeItem(GIST_LS_ID)
-  else localStorage.setItem(GIST_LS_ID, id)
+  else localStorage.setItem(GIST_LS_ID, extractGistId(id))
 }
 
 function applyMasterData(data) {
@@ -351,15 +352,43 @@ function applyMasterData(data) {
   return true
 }
 
+// 入力された文字列から Gist ID を抽出する。
+//   - 32桁/40桁の hex そのもの → そのまま返す
+//   - https://gist.github.com/USER/ABC123 形式 → 末尾の hex を返す
+//   - https://gist.github.com/ABC123 形式 → ABC123 を返す
+//   - https://gist.githubusercontent.com/USER/ABC123/raw/... → ABC123 を返す
+function extractGistId(input) {
+  if (!input) return ''
+  const s = String(input).trim()
+  // 既に hex のみ
+  if (/^[a-f0-9]{20,40}$/i.test(s)) return s
+  // URL から最後の hex 部分を抽出
+  const m = s.match(/([a-f0-9]{20,40})/i)
+  return m ? m[1] : s
+}
+
 async function fetchGistMaster(id) {
   const url = `https://api.github.com/gists/${id}`
-  const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } })
-  if (!res.ok) throw new Error('Gist fetch failed: ' + res.status)
+  // 同じブラウザに編集ツールのトークンが保存されていれば、それを使って認証 fetch する
+  // (secret gist や rate limit の問題を回避)
+  const token = localStorage.getItem('editor_gh_token') || ''
+  const headers = { 'Accept': 'application/vnd.github+json' }
+  if (token) headers['Authorization'] = 'Bearer ' + token
+  const res = await fetch(url, { headers })
+  if (!res.ok) {
+    let detail = ''
+    try { const j = await res.json(); if (j && j.message) detail = ' / ' + j.message } catch {}
+    if (res.status === 404) throw new Error(`Gist が見つかりません (404)。ID が正しいか、削除されていないか確認してください${detail}`)
+    if (res.status === 403) throw new Error(`API 利用制限または権限不足 (403)${detail}`)
+    if (res.status === 401) throw new Error(`認証エラー (401)。トークンが無効です${detail}`)
+    throw new Error(`Gist 取得失敗 (HTTP ${res.status})${detail}`)
+  }
   const gist = await res.json()
   const file = gist.files[GIST_FILENAME] || Object.values(gist.files)[0]
-  if (!file) throw new Error('Gist にデータファイルが見つかりません')
+  if (!file) throw new Error(`Gist 内に ${GIST_FILENAME} がありません (含まれるファイル: ${Object.keys(gist.files).join(', ') || 'なし'})`)
   const content = file.truncated ? await fetch(file.raw_url).then(r => r.text()) : file.content
-  return JSON.parse(content)
+  try { return JSON.parse(content) }
+  catch (e) { throw new Error('Gist のファイルが JSON として解析できません: ' + e.message) }
 }
 
 // 起動時の同期: キャッシュ即時適用 → リモート fetch (バックグラウンド)
@@ -370,6 +399,8 @@ function applyCachedMasterIfAny() {
   return cached ? applyMasterData(cached) : false
 }
 
+// 直近の同期エラー (openMasterGistDialog でユーザーに見せるため)
+let __lastGistError = ''
 async function refreshMasterFromGist() {
   const id = getGistId()
   if (!id) return false
@@ -378,8 +409,10 @@ async function refreshMasterFromGist() {
     const changed = applyMasterData(data)
     LS.set(GIST_LS_CACHE, data)
     localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+    __lastGistError = ''
     return changed
   } catch (e) {
+    __lastGistError = e.message
     console.warn('[Gist 同期失敗]', e.message)
     return false
   }
@@ -406,12 +439,15 @@ async function openMasterGistDialog() {
     location.reload()
     return
   }
-  setGistId(trimmed)
+  const cleanId = extractGistId(trimmed)
+  setGistId(cleanId)
   localStorage.removeItem(GIST_LS_CACHE)
   localStorage.removeItem(GIST_LS_CACHE_AT)
   const ok = await refreshMasterFromGist()
   if (ok) { alert('Gist からマスターデータを取得しました。ページを再読込します。'); location.reload() }
-  else { alert('Gist の取得に失敗しました。Gist ID を確認してください。') }
+  else {
+    alert('Gist の取得に失敗しました。\n\n入力された ID: ' + cleanId + '\n\nエラー詳細:\n' + (__lastGistError || '不明なエラー') + '\n\n確認事項:\n• Gist ID が正しいか (32桁の英数字)\n• Gist が削除されていないか\n• ネットワーク接続が有効か')
+  }
 }
 
 const loadEdits = () => LS.get('drug_edits')
