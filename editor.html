@@ -74,6 +74,24 @@ const K_GIST_ID = 'editor_gist_id'
 const K_DRAFT = 'editor_draft'         // 未保存編集
 const K_LAST_SAVED = 'editor_last_saved'
 
+// index.html (アプリ側) と共有するキー
+//   同じオリジン（GitHub Pages や同じローカルパス）で動かしている場合、
+//   編集→保存と同時にアプリ側のキャッシュも更新しておくことで、
+//   編集後アプリを開いた瞬間に最新データが反映される。
+const K_APP_GIST_ID = 'master_gist_id'
+const K_APP_CACHE = 'master_gist_cache'
+const K_APP_CACHE_AT = 'master_gist_cache_at'
+
+function syncToAppCache(gistId, data) {
+  try {
+    if (gistId) localStorage.setItem(K_APP_GIST_ID, gistId)
+    if (data) {
+      localStorage.setItem(K_APP_CACHE, JSON.stringify(data))
+      localStorage.setItem(K_APP_CACHE_AT, String(Date.now()))
+    }
+  } catch (e) { console.warn('app cache sync failed', e) }
+}
+
 // ============================================================
 // 状態
 // ============================================================
@@ -246,6 +264,7 @@ async function loadFromGist() {
     const data = normalizeData(parsed)
     LS.set(K_LAST_SAVED, data)
     LS.del(K_DRAFT)
+    syncToAppCache(state.gistId, data)
     setState({ data, loading:false, busy:'', view:'main', dirty:false })
   } catch (e) {
     setState({ loading:false, busy:'', error: e.message })
@@ -262,6 +281,7 @@ async function saveToGist() {
     await gistUpdate(state.gistId, content)
     LS.set(K_LAST_SAVED, state.data)
     LS.del(K_DRAFT)
+    syncToAppCache(state.gistId, state.data)
     setState({ saving:false, busy:'', dirty:false })
     showToast('保存しました', 'ok')
   } catch (e) {
@@ -278,6 +298,7 @@ async function createNewGist(initialData) {
     const gist = await gistCreate(content, false)
     LS.set(K_GIST_ID, gist.id)
     LS.set(K_LAST_SAVED, initialData)
+    syncToAppCache(gist.id, initialData)
     setState({ gistId: gist.id, data: initialData, saving:false, busy:'', view:'main', dirty:false })
     showToast('Gist を作成しました', 'ok')
   } catch (e) {
