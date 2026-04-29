@@ -253,11 +253,35 @@ async function importFromIndexHtml(source) {
 }
 
 // 同じサーバーの index.html を fetch して取り込む
-async function importFromUrl(url = './index.html') {
-  const res = await fetch(url, { cache: 'no-cache' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const text = await res.text()
-  return importFromIndexHtml(text)
+//   ローカルファイル (file://) で開いている場合は CORS で fetch がブロックされるため、
+//   GitHub Pages URL を順番に試す
+async function importFromUrl() {
+  const candidates = []
+  // 1) 同じディレクトリの index.html（GitHub Pages や HTTP サーバー経由なら成功）
+  candidates.push(new URL('./index.html', location.href).href)
+  // 2) ローカルファイルから開いている場合のフォールバック: GitHub Pages の本番 URL
+  if (location.protocol === 'file:') {
+    candidates.push('https://kkkn1029.github.io/pediatric-dosage/index.html')
+  }
+  const errors = []
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' })
+      if (!res.ok) { errors.push(`${url} → HTTP ${res.status}`); continue }
+      const text = await res.text()
+      const data = await importFromIndexHtml(text)
+      // 中身がほぼ空なら抽出失敗の可能性
+      if (data.drugs.length === 0 && data.diseases.length === 0 && data.ivFluidTables.length === 0) {
+        errors.push(`${url} → 取得は成功したが薬剤/疾患/輸液すべて 0 件 (HTML 内に DRUGS/DISEASES/IV_FLUID_TABLES の宣言が見つからない可能性)`)
+        continue
+      }
+      console.log(`[import] ${url} から ${data.drugs.length} 薬 / ${data.diseases.length} 疾患 を取得`)
+      return data
+    } catch (e) {
+      errors.push(`${url} → ${e.message}`)
+    }
+  }
+  throw new Error('すべての候補で失敗:\n' + errors.join('\n'))
 }
 
 // ============================================================
@@ -1140,13 +1164,17 @@ function onClick(e) {
   if (act === 'import-from-url') {
     if (!confirm('同じサーバーの index.html から取り込み、現在のデータに上書きします。よろしいですか？')) return
     showToast('取得中…', 'ok')
-    importFromUrl('./index.html').then(d => {
+    importFromUrl().then(d => {
       state.data = d
       markDirty()
       const stat = `薬剤 ${d.drugs.length} / 疾患 ${d.diseases.length} / 輸液 ${d.ivFluidTables.reduce((n,s)=>n+(s.fluids?.length||0),0)}`
       showToast(`インポート成功: ${stat}。「保存」で Gist に反映してください`, 'ok')
       render()
-    }).catch(err => showToast('失敗: ' + err.message, 'err'))
+    }).catch(err => {
+      // 詳細をアラートで全文表示 (toast だと長文が切れるため)
+      console.error('[import-from-url] 失敗', err)
+      alert('インポート失敗\n\n' + err.message + '\n\n手動でファイル選択するか、上記の URL を直接ブラウザで開いて確認してください。')
+    })
     return
   }
 
