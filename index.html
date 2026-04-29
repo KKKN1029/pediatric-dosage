@@ -446,31 +446,12 @@ function setGistId(id) {
 
 function applyMasterData(data) {
   if (!data || typeof data !== 'object') return false
-  // Gist のデータをそのまま採用（pending フラグは未確認タブのマーカーとしてだけ機能）
+  // Gist のデータをそのまま採用（id ベースの自動同期は行わない。確認/未確認はユーザーが判断する）
   if (Array.isArray(data.drugs)) DRUGS = data.drugs
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
   if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
-  // pending:true に戻された項目は confirmed_master から外して未確認タブに復帰させる
-  try {
-    if (Array.isArray(data.drugs)) {
-      const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
-      let changed = false
-      for (const d of data.drugs) {
-        if (d && d.id && d.pending === true && cm.has(d.id)) { cm.delete(d.id); changed = true }
-      }
-      if (changed) localStorage.setItem('confirmed_master', JSON.stringify([...cm]))
-    }
-    if (Array.isArray(data.diseases)) {
-      const cd = new Set(JSON.parse(localStorage.getItem('confirmed_master_diseases') || '[]'))
-      let changed = false
-      for (const d of data.diseases) {
-        if (d && d.id && d.pending === true && cd.has(d.id)) { cd.delete(d.id); changed = true }
-      }
-      if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
-    }
-  } catch (e) { console.warn('master sync (pending → unconfirm) skipped', e) }
   return true
 }
 

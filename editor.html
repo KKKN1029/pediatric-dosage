@@ -1000,6 +1000,8 @@ function ivFluidRowHTML(f, si, fi) {
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.75rem;">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
         <input data-bind="ivFluid.${si}.${fi}.name" type="text" value="${esc(f.name || '')}" class="input" style="flex:1;font-weight:600;" placeholder="製品名（例: 生理食塩液）" />
+        <button data-act="iv-fluid-up" data-si="${si}" data-fi="${fi}" class="btn-ghost" title="上へ">${ICON.chevUp}</button>
+        <button data-act="iv-fluid-down" data-si="${si}" data-fi="${fi}" class="btn-ghost" title="下へ">${ICON.chevDown}</button>
         <button data-act="iv-fluid-del" data-si="${si}" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">${ICON.x}</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap:0.4rem;">
@@ -1384,9 +1386,13 @@ function onClick(e) {
     markDirty(); render(); return
   }
   if (act === 'add-iv-fluid') { const si = +t.dataset.si; state.data.ivFluidTables[si].fluids.push(newIvFluid()); markDirty(); render(); return }
-  if (act === 'iv-fluid-del') {
+  if (act === 'iv-fluid-up' || act === 'iv-fluid-down' || act === 'iv-fluid-del') {
     const si = +t.dataset.si, fi = +t.dataset.fi
-    state.data.ivFluidTables[si].fluids.splice(fi, 1); markDirty(); render(); return
+    const fluids = state.data.ivFluidTables[si].fluids
+    if (act === 'iv-fluid-up' && fi > 0) { [fluids[fi-1], fluids[fi]] = [fluids[fi], fluids[fi-1]] }
+    if (act === 'iv-fluid-down' && fi < fluids.length - 1) { [fluids[fi+1], fluids[fi]] = [fluids[fi], fluids[fi+1]] }
+    if (act === 'iv-fluid-del') { fluids.splice(fi, 1) }
+    markDirty(); render(); return
   }
 
   // カテゴリ
