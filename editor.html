@@ -149,6 +149,23 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const uid = (prefix='id') => prefix + '-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3)
 const debounce = (fn, ms=200) => { let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a), ms)} }
 
+// 日本語検索用の正規化:
+//   ・ひらがな → カタカナ (あもきししりん → アモキシシリン に一致)
+//   ・全角英数 → 半角
+//   ・濁点・半濁点を分解結合 (NFKC)
+//   ・小文字化、トリム
+function jpNorm(s) {
+  if (s == null) return ''
+  let v = String(s)
+  try { v = v.normalize('NFKC') } catch {}
+  // ひらがな(U+3041..U+3096) → カタカナ(U+30A1..U+30F6) は +0x60
+  v = v.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+  return v.toLowerCase().trim()
+}
+
+// IME 変換中フラグ。日本語入力中の再描画を抑制する。
+let _imeComposing = false
+
 function setState(patch) { Object.assign(state, patch); render() }
 
 function showToast(msg, kind='info') {
@@ -231,14 +248,18 @@ function normalizeData(raw) {
   d.ivFluidTables = Array.isArray(d.ivFluidTables) ? d.ivFluidTables : []
   d.drugCategories = Array.isArray(d.drugCategories) ? d.drugCategories : emptyData().drugCategories
   d.diseaseCategories = Array.isArray(d.diseaseCategories) ? d.diseaseCategories : emptyData().diseaseCategories
-  // 各 drug の pediatricDoses を必ず配列に
-  d.drugs.forEach(x => { if (!Array.isArray(x.pediatricDoses)) x.pediatricDoses = [] })
+  // 各 drug の pediatricDoses を必ず配列に / pending を boolean に
+  d.drugs.forEach(x => {
+    if (!Array.isArray(x.pediatricDoses)) x.pediatricDoses = []
+    x.pending = x.pending === true
+  })
   d.diseases.forEach(x => {
     if (!Array.isArray(x.sections)) x.sections = []
     if (!Array.isArray(x.tags)) x.tags = []
     if (!Array.isArray(x.points)) x.points = []
     if (!Array.isArray(x.relatedDrugIds)) x.relatedDrugIds = []
     if (!Array.isArray(x.references)) x.references = []
+    x.pending = x.pending === true
   })
   d.ivFluidTables.forEach(s => {
     if (!Array.isArray(s.fluids)) s.fluids = []
@@ -385,6 +406,7 @@ function newDrug() {
     notes: '',
     sideEffects: '',
     references: [],
+    pending: false,
   }
 }
 
@@ -409,6 +431,7 @@ function newDisease() {
     relatedDrugIds: [],
     references: [],
     notes: '',
+    pending: false,
   }
 }
 
@@ -579,13 +602,13 @@ function drugsTabHTML() {
 }
 
 function drugsListHTML() {
-  const q = state.search.toLowerCase().trim()
+  const q = jpNorm(state.search)
   const cat = state.filter
   let drugs = state.data.drugs
   if (cat) drugs = drugs.filter(d => d.category === cat)
   if (q) {
     drugs = drugs.filter(d => {
-      const hay = [d.id, d.genericName, d.abbreviation, ...(d.brandNames||[]), d.category, d.subcategory].join(' ').toLowerCase()
+      const hay = jpNorm([d.id, d.genericName, d.abbreviation, ...(d.brandNames||[]), d.category, d.subcategory].join(' '))
       return hay.includes(q)
     })
   }
@@ -611,12 +634,14 @@ function drugsListHTML() {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.genericName || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-blue-50 text-blue-700">${esc(d.abbreviation)}</span>` : ''}
+                ${d.pending ? `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>` : ''}
                 ${d.brandNames && d.brandNames.length ? `<span class="text-xs text-gray-500">${esc(d.brandNames.join(' / '))}</span>` : ''}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">
                 ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · ${esc(d.route || '')} · 用量 ${(d.pediatricDoses||[]).length}件
               </div>
             </div>
+            <button data-act="toggle-pending-drug" data-id="${esc(d.id)}" class="${d.pending ? 'text-orange-600' : 'text-gray-300 hover:text-orange-500'} text-sm px-2" title="${d.pending ? '確認済みに戻す' : '未確認にする'}">${ICON.alert}</button>
             <button data-act="del-drug" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2" title="削除">${ICON.x}</button>
           </div>
         `).join('')}
@@ -626,13 +651,18 @@ function drugsListHTML() {
 }
 
 function drugFormHTML(d) {
+  const isPending = d.pending === true
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <button data-act="back-drug" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
+        <button data-act="toggle-pending-drug" data-id="${esc(d.id)}" class="${isPending ? 'btn-primary' : 'btn-secondary'} inline-flex items-center gap-1.5" title="${isPending ? '確認済みに戻す' : '未確認にする (利用者側で「未確認」タブに表示)'}">
+          ${isPending ? ICON.check + ' 確認済みに戻す' : ICON.alert + ' 未確認にする'}
+        </button>
         <button data-act="del-drug" data-id="${esc(d.id)}" class="btn-danger">この薬剤を削除</button>
       </div>
+      ${isPending ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この薬剤は <strong>未確認</strong> として保存されます。利用者側ではデフォルトで「未確認」タブにのみ表示されます。</div>` : ''}
 
       <div class="card p-5 space-y-4">
         <h3 class="section-title">基本情報</h3>
@@ -800,13 +830,13 @@ function diseasesTabHTML() {
 }
 
 function diseasesListHTML() {
-  const q = state.search.toLowerCase().trim()
+  const q = jpNorm(state.search)
   const cat = state.filter
   let diseases = state.data.diseases
   if (cat) diseases = diseases.filter(d => d.category === cat)
   if (q) {
     diseases = diseases.filter(d => {
-      const hay = [d.id, d.name, d.englishName, d.abbreviation, ...(d.tags||[])].join(' ').toLowerCase()
+      const hay = jpNorm([d.id, d.name, d.englishName, d.abbreviation, ...(d.tags||[])].join(' '))
       return hay.includes(q)
     })
   }
@@ -830,12 +860,14 @@ function diseasesListHTML() {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.name || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-purple-50 text-purple-700">${esc(d.abbreviation)}</span>` : ''}
+                ${d.pending ? `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>` : ''}
                 ${d.englishName ? `<span class="text-xs text-gray-500">${esc(d.englishName)}</span>` : ''}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">
                 ${esc(d.category || '')} · セクション ${(d.sections||[]).length}件
               </div>
             </div>
+            <button data-act="toggle-pending-disease" data-id="${esc(d.id)}" class="${d.pending ? 'text-orange-600' : 'text-gray-300 hover:text-orange-500'} text-sm px-2" title="${d.pending ? '確認済みに戻す' : '未確認にする'}">${ICON.alert}</button>
             <button data-act="del-disease" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2">${ICON.x}</button>
           </div>
         `).join('')}
@@ -845,13 +877,18 @@ function diseasesListHTML() {
 }
 
 function diseaseFormHTML(d) {
+  const isPending = d.pending === true
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <button data-act="back-disease" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
+        <button data-act="toggle-pending-disease" data-id="${esc(d.id)}" class="${isPending ? 'btn-primary' : 'btn-secondary'} inline-flex items-center gap-1.5" title="${isPending ? '確認済みに戻す' : '未確認にする (利用者側で「未確認」タブに表示)'}">
+          ${isPending ? ICON.check + ' 確認済みに戻す' : ICON.alert + ' 未確認にする'}
+        </button>
         <button data-act="del-disease" data-id="${esc(d.id)}" class="btn-danger">この疾患を削除</button>
       </div>
+      ${isPending ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この疾患は <strong>未確認</strong> として保存されます。利用者側ではデフォルトで「未確認」タブにのみ表示されます。</div>` : ''}
 
       <div class="card p-5 space-y-4">
         <h3 class="section-title">基本情報</h3>
@@ -1063,6 +1100,30 @@ function settingsTabHTML() {
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+        <h3 class="font-bold text-gray-900">未確認フラグ一括操作</h3>
+        <p class="text-xs text-gray-600 leading-relaxed">
+          薬剤・疾患を <strong>未確認 (pending)</strong> にすると、利用者側ではデフォルトで「未確認」タブにのみ表示されます。<br/>
+          利用者が個別に確認すると通常一覧に出るようになります。
+        </p>
+        <div class="grid grid-cols-2 gap-2 text-center">
+          <div class="bg-orange-50 rounded-lg p-3">
+            <div class="text-2xl font-bold text-orange-700">${state.data.drugs.filter(d=>d.pending).length}<span class="text-sm text-gray-500"> / ${state.data.drugs.length}</span></div>
+            <div class="text-xs text-orange-600">未確認の薬剤</div>
+          </div>
+          <div class="bg-orange-50 rounded-lg p-3">
+            <div class="text-2xl font-bold text-orange-700">${state.data.diseases.filter(d=>d.pending).length}<span class="text-sm text-gray-500"> / ${state.data.diseases.length}</span></div>
+            <div class="text-xs text-orange-600">未確認の疾患</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+          <button data-act="bulk-pending-drugs" class="btn-secondary text-xs inline-flex items-center justify-center gap-1.5">${ICON.alert} 全薬剤を未確認に</button>
+          <button data-act="bulk-confirmed-drugs" class="btn-secondary text-xs inline-flex items-center justify-center gap-1.5">${ICON.check} 全薬剤を確認済みに</button>
+          <button data-act="bulk-pending-diseases" class="btn-secondary text-xs inline-flex items-center justify-center gap-1.5">${ICON.alert} 全疾患を未確認に</button>
+          <button data-act="bulk-confirmed-diseases" class="btn-secondary text-xs inline-flex items-center justify-center gap-1.5">${ICON.check} 全疾患を確認済みに</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
         <h3 class="font-bold text-gray-900">データのインポート / 統計</h3>
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="bg-blue-50 rounded-lg p-3"><div class="text-2xl font-bold text-blue-700">${state.data.drugs.length}</div><div class="text-xs text-blue-600">薬剤</div></div>
@@ -1124,6 +1185,20 @@ function bindGlobalEvents() {
   document.addEventListener('click', onClick)
   document.addEventListener('change', onChange)
   document.addEventListener('input', onInput)
+  // IME 変換中は再描画を抑制 (日本語入力で1文字確定→DOM入れ替えで変換が中断される問題の対策)
+  document.addEventListener('compositionstart', e => {
+    if (e.target && (e.target.id === 'drugs-search' || e.target.id === 'diseases-search')) {
+      _imeComposing = true
+    }
+  }, true)
+  document.addEventListener('compositionend', e => {
+    if (e.target && (e.target.id === 'drugs-search' || e.target.id === 'diseases-search')) {
+      _imeComposing = false
+      // 確定後の値で検索を即時更新 (input イベントと別経路で発火させる)
+      state.search = e.target.value
+      debouncedRender(e.target)
+    }
+  }, true)
 }
 
 function onClick(e) {
@@ -1210,6 +1285,14 @@ function onClick(e) {
     state.data.drugs = state.data.drugs.filter(d => d.id !== id)
     state.editingDrugId = null; markDirty(); render(); return
   }
+  if (act === 'toggle-pending-drug') {
+    const id = t.dataset.id; const drug = findDrug(id)
+    if (!drug) return
+    drug.pending = !drug.pending
+    markDirty(); render()
+    showToast(drug.pending ? '未確認にしました' : '確認済みに戻しました', 'ok')
+    return
+  }
   if (act === 'add-dose') {
     const d = findDrug(state.editingDrugId); d.pediatricDoses.push(newDose()); markDirty(); render(); return
   }
@@ -1230,6 +1313,14 @@ function onClick(e) {
     if (!confirm(`「${dis.name || id}」を削除しますか？`)) return
     state.data.diseases = state.data.diseases.filter(d => d.id !== id)
     state.editingDiseaseId = null; markDirty(); render(); return
+  }
+  if (act === 'toggle-pending-disease') {
+    const id = t.dataset.id; const dis = findDisease(id)
+    if (!dis) return
+    dis.pending = !dis.pending
+    markDirty(); render()
+    showToast(dis.pending ? '未確認にしました' : '確認済みに戻しました', 'ok')
+    return
   }
   if (act === 'add-section') {
     const d = findDisease(state.editingDiseaseId); d.sections.push(newSection()); markDirty(); render(); return
@@ -1273,6 +1364,36 @@ function onClick(e) {
     if (act === 'cat-del') { arr.splice(i, 1) }
     markDirty(); render(); return
   }
+
+  // 一括 未確認 / 確認済み
+  if (act === 'bulk-pending-drugs') {
+    const n = state.data.drugs.length
+    if (n === 0) { showToast('薬剤がありません', 'err'); return }
+    if (!confirm(`全 ${n} 件の薬剤を「未確認」にします。よろしいですか？`)) return
+    state.data.drugs.forEach(d => { d.pending = true })
+    markDirty(); render(); showToast(`${n} 件を未確認にしました`, 'ok'); return
+  }
+  if (act === 'bulk-confirmed-drugs') {
+    const n = state.data.drugs.filter(d => d.pending).length
+    if (n === 0) { showToast('未確認の薬剤はありません', 'ok'); return }
+    if (!confirm(`未確認の薬剤 ${n} 件を「確認済み」にします。よろしいですか？`)) return
+    state.data.drugs.forEach(d => { d.pending = false })
+    markDirty(); render(); showToast(`${n} 件を確認済みに戻しました`, 'ok'); return
+  }
+  if (act === 'bulk-pending-diseases') {
+    const n = state.data.diseases.length
+    if (n === 0) { showToast('疾患がありません', 'err'); return }
+    if (!confirm(`全 ${n} 件の疾患を「未確認」にします。よろしいですか？`)) return
+    state.data.diseases.forEach(d => { d.pending = true })
+    markDirty(); render(); showToast(`${n} 件を未確認にしました`, 'ok'); return
+  }
+  if (act === 'bulk-confirmed-diseases') {
+    const n = state.data.diseases.filter(d => d.pending).length
+    if (n === 0) { showToast('未確認の疾患はありません', 'ok'); return }
+    if (!confirm(`未確認の疾患 ${n} 件を「確認済み」にします。よろしいですか？`)) return
+    state.data.diseases.forEach(d => { d.pending = false })
+    markDirty(); render(); showToast(`${n} 件を確認済みに戻しました`, 'ok'); return
+  }
 }
 
 function onChange(e) {
@@ -1287,7 +1408,8 @@ function onInput(e) {
   const t = e.target
   if (t.id === 'drugs-search' || t.id === 'diseases-search') {
     state.search = t.value
-    // リスト部分のみを再描画したいが、簡易に全体再描画 (フォーカスは戻らないので debounce)
+    // 日本語変換中は再描画しない (compositionend で発火する)
+    if (_imeComposing) return
     debouncedRender(t)
     return
   }
@@ -1297,11 +1419,13 @@ function onInput(e) {
 }
 
 const debouncedRender = debounce((focusEl) => {
+  // 変換中なら描画延期 (誤って変換途中で DOM が入れ替わるのを防ぐ)
+  if (_imeComposing) { setTimeout(() => debouncedRender(focusEl), 100); return }
   const id = focusEl.id, val = focusEl.value
   render()
   const after = document.getElementById(id)
   if (after) { after.focus(); after.value = val; after.setSelectionRange(val.length, val.length) }
-}, 200)
+}, 250)
 
 function applyBind(bind, value, inputType) {
   const parseListPipe = v => v.split('|').map(s => s.trim()).filter(Boolean)

@@ -291,6 +291,119 @@ let DRUGS = [
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
   { id:'tebipenem-pivoxil', genericName:'テビペネムピボキシル', abbreviation:'TBPM-PI', brandNames:['オラペネム'], category:'その他の抗菌薬', subcategory:'カルバペネム系(経口)', route:'内服', formulations:['小児用細粒 100mg/g'], adultDose:'（成人適応なし）',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:8,frequency:'分2',duration:'7日間以内',notes:'食後投与。最大12mg/kg/日。バルプロ酸投与中の患者に注意。血清中カルニチンを低下させ低血糖をきたすことがある'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。経口カルバペネム。', references:['新 小児薬用量 改訂第9版']},
+  // 抗ヒスタミン薬 (小児の薬の選び方・使い方 第5版)
+  { id:'alimemazine-v5', genericName:'アリメマジン', abbreviation:'アリメマジン', brandNames:['アリメジン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.05%'], adultDose:'7.5〜10mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.2,maxDosePerDay:10,frequency:'分3〜4'}], notes:'適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'clemastine-v5', genericName:'クレマスチンフマル酸塩', abbreviation:'クレマスチン', brandNames:['タベジール'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.01%','ドライシロップ 0.1%','散 0.1%・1%','錠 1mg'], adultDose:'2mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,maxDosePerDay:2,frequency:'分2'}], notes:'乳児・幼児には慎重投与（けいれん・興奮など）。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'chlorpheniramine-v5', genericName:'クロルフェニラミンマレイン酸塩 (dl体)', abbreviation:'クロルフェニラミン', brandNames:['クロダミン','アレルギン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.05%','散 1%'], adultDose:'4〜24mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.2,maxDosePerDay:24,frequency:'分2〜4'}], notes:'低出生体重児・新生児には禁忌。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'d-chlorpheniramine-v5', genericName:'d-クロルフェニラミンマレイン酸塩', abbreviation:'d-クロルフェニラミン', brandNames:['ポララミン','アニミング','ネオマレルミン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.04%','ドライシロップ 0.2%','散 1%','錠 2mg','TR錠 6mg'], adultDose:'2〜8mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.15,maxDosePerDay:8,frequency:'分1〜4'}], notes:'低出生体重児・新生児には禁忌。dl体の倍力価。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cyproheptadine-v5', genericName:'シプロヘプタジン塩酸塩', abbreviation:'シプロヘプタジン', brandNames:['ペリアクチン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.04%','散 1%','錠 4mg'], adultDose:'4〜12mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.25,maxDosePerDay:12,frequency:'分1〜3'}], notes:'低出生体重児・新生児には禁忌。気管支喘息の急性発作時には禁忌。乳児・幼児には慎重投与（けいれん・幻覚など）。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'hydroxyzine-pamoate-v5', genericName:'ヒドロキシジンパモ酸塩', abbreviation:'ヒドロキシジン', brandNames:['アタラックス-P'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.5%','ドライシロップ 2.5%','散 10%','錠 25mg','カプセル 25mg・50mg'], adultDose:'85〜128mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:1.5,maxDosePerDay:128,frequency:'分2〜3'}], notes:'けいれん既往児には慎重投与。適応: じんましんのみ。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'mequitazine-v5', genericName:'メキタジン', abbreviation:'メキタジン', brandNames:['ゼスラン','ニポラジン'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['小児用シロップ 0.03%','小児用細粒 0.6%','DS 0.6%'], adultDose:'アレルギー: 6mg/日　喘息: 12mg/日',
+    pediatricDoses:[{ageLabel:'アレルギー性鼻炎・じんましん・皮膚炎',purpose:'治療',dosePerKg:0.12,maxDosePerDay:6,frequency:'分2'},{ageLabel:'気管支喘息',purpose:'治療',dosePerKg:0.24,maxDosePerDay:12,frequency:'分2'}], notes:'乳児に対する安全性未確立。錠剤は小児に対する安全性未確立。適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'azelastine-v5', genericName:'アゼラスチン塩酸塩', abbreviation:'アゼラスチン', brandNames:['アゼプチン'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['錠 0.5mg・1mg'], adultDose:'2mg/日 (気管支喘息は4mg/日) 分2',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし (添付文書に小児の用量規定なし)'}], notes:'乳幼児に対する安全性未確立。適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'oxatomide-v5', genericName:'オキサトミド', abbreviation:'オキサトミド', brandNames:['オキサトーワ'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['小児用DS 2%','小児用シロップ 0.2%','錠 30mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:1,frequency:'分2',notes:'最大 1.5mg/kg/日'}], notes:'幼児（特に2歳以下）には過量投与を避ける（錐体外路症状のおそれ）。DSは気管支喘息・じんましん適応。錠は気管支喘息・アレルギー性鼻炎・じんましん適応。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'epinastine-v5', genericName:'エピナスチン塩酸塩', abbreviation:'エピナスチン', brandNames:['アレジオン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['ドライシロップ 1%'], adultDose:'アレルギー性鼻炎 10〜20mg/日　じんましん・湿疹・皮膚炎 20mg/日',
+    pediatricDoses:[{ageLabel:'アレルギー性鼻炎',purpose:'治療',dosePerKgMin:0.25,dosePerKgMax:0.5,maxDosePerDay:20,frequency:'分1',notes:'DSで投与: 3〜7歳未満 0.5〜1g/日, 7歳以上 1〜2g/日'},{ageLabel:'じんましん・湿疹・皮膚炎',purpose:'治療',dosePerKg:0.5,maxDosePerDay:20,frequency:'分1',notes:'DSで投与: 3〜7歳未満 1g/日, 7歳以上 2g/日'}], notes:'DSは乳児に対する安全性未確立。錠・液は小児に対する安全性未確立。錠の適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ebastine-v5', genericName:'エバスチン', abbreviation:'エバスチン', brandNames:['エバステル'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg・10mg','OD錠 5mg・10mg'], adultDose:'5〜10mg/日 分1',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし'}], notes:'乳幼児に対する安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fexofenadine-v5', genericName:'フェキソフェナジン塩酸塩', abbreviation:'フェキソフェナジン', brandNames:['アレグラ'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['ドライシロップ 5%','錠 30mg・60mg','OD錠 60mg'], adultDose:'120mg/日',
+    pediatricDoses:[{ageLabel:'6ヶ月〜2歳未満',ageMinMonths:6,ageMaxMonths:24,purpose:'治療',fixedDose:'30mg/日',frequency:'分2'},{ageLabel:'2〜12歳未満',ageMinMonths:24,ageMaxMonths:144,purpose:'治療',fixedDose:'60mg/日',frequency:'分2'},{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'120mg/日',frequency:'分2'}], notes:'DSは6ヶ月未満の乳幼児に対する安全性未確立。後発品DSおよび錠は7歳未満の乳幼児に対する安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bepotastine-v5', genericName:'ベポタスチンベシル酸塩', abbreviation:'ベポタスチン', brandNames:['タリオン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg・10mg','OD錠 5mg・10mg'], adultDose:'20mg/日',
+    pediatricDoses:[{ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'20mg/日',frequency:'分2'}], notes:'新生児・乳幼児の安全性未確立。後発品は小児適応なし。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'desloratadine-v5', genericName:'デスロラタジン', abbreviation:'デスロラタジン', brandNames:['デザレックス'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg'], adultDose:'5mg/日',
+    pediatricDoses:[{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'5mg/日',frequency:'分1'}], notes:'12歳未満の小児の安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bilastine-v5', genericName:'ビラスチン', abbreviation:'ビラスチン', brandNames:['ビラノア'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 20mg'], adultDose:'20mg/日 分1 (空腹時)',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし (適応は成人のみ)'}], notes:'15歳未満の小児への安全性未確立。空腹時投与。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'rupatadine-v5', genericName:'ルパタジンフマル酸塩', abbreviation:'ルパタジン', brandNames:['ルパフィン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 10mg'], adultDose:'10〜20mg/日',
+    pediatricDoses:[{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'10mg/日',frequency:'分1'}], notes:'12歳未満の小児の安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入β2刺激薬 (小児の薬の選び方・使い方 第5版)
+  { id:'isoproterenol-v5', genericName:'イソプレナリン', abbreviation:'イソプレナリン', brandNames:['アスプール'], category:'喘息薬', subcategory:'吸入β2刺激薬(第1世代)', route:'吸入', formulations:['液 0.5%'], adultDose:'1回3mg',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'添付文書参照',notes:'第1世代 (α<β, β1>β2)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'trimethoquinol-v5', genericName:'トリメトキノール塩酸塩', abbreviation:'トリメトキノール', brandNames:['イノリン'], category:'喘息薬', subcategory:'吸入β2刺激薬(第1世代)', route:'吸入', formulations:['吸入液 0.5%'], adultDose:'1回0.25〜0.5mL',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'小児用量設定なし'}], notes:'小児に対する安全性未確立。第1世代 (α≒0, β1<β2)。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'salbutamol-inhaled-v5', genericName:'サルブタモール硫酸塩 (吸入)', abbreviation:'サルブタモール (吸入)', brandNames:['ベネトリン','サルタノール'], category:'喘息薬', subcategory:'吸入β2刺激薬(第2世代)', route:'吸入', formulations:['ベネトリン吸入液 0.5%','サルタノールインヘラー 100μg'], adultDose:'1回0.1〜0.3mL or 1吸入',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回0.1〜0.3mL or 1吸入',notes:'第2世代 (α≒0, β1<β2)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'procaterol-inhaled-v5', genericName:'プロカテロール塩酸塩水和物 (吸入)', abbreviation:'プロカテロール (吸入)', brandNames:['メプチン'], category:'喘息薬', subcategory:'吸入β2刺激薬(第3世代)', route:'吸入', formulations:['メプチン吸入液 0.01%','ユニット 0.3mL・0.5mL','エアー 10μg(100回)','キッドエアー 5μg(100回)','スイングヘラー 10μg(100回)'], adultDose:'1回0.1〜0.3mL or 1吸入',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回0.1〜0.3mL or 1吸入',frequency:'1日4回まで',notes:'第3世代 (α≒0, β1≪β2)'}], notes:'ベロテックエロゾル100 (フェノテロール) は小児に使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 経口β2刺激薬
+  { id:'salbutamol-oral-v5', genericName:'サルブタモール硫酸塩 (経口)', abbreviation:'サルブタモール (経口)', brandNames:['ベネトリン'], category:'喘息薬', subcategory:'経口β2刺激薬(第2世代)', route:'内服', formulations:['シロップ 0.04%','錠 2mg'], adultDose:'24mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.3,maxDosePerDay:24,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'terbutaline-v5', genericName:'テルブタリン硫酸塩', abbreviation:'テルブタリン', brandNames:['ブリカニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第2世代)', route:'内服', formulations:['シロップ 0.5mg/mL','細粒 1%','錠 2mg'], adultDose:'12mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.225,maxDosePerDay:12,frequency:'分3'}], notes:'新生児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'clenbuterol-v5', genericName:'クレンブテロール塩酸塩', abbreviation:'クレンブテロール', brandNames:['スピロペント','トニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['顆粒 0.002%','錠 10μg'], adultDose:'40μg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.6μg/kg/日',frequency:'分2',notes:'最大 40μg/日。4歳以下に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tulobuterol-oral-v5', genericName:'ツロブテロール塩酸塩 (経口)', abbreviation:'ツロブテロール (経口)', brandNames:['ベラチン','ホクナリン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['ベラチンDS 0.1%','ホクナリンDS 0.1%','錠 1mg'], adultDose:'2mg/日 まで',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKg:0.04,maxDosePerDay:2,frequency:'分2'}], notes:'6ヶ月未満に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fenoterol-v5', genericName:'フェノテロール臭化水素酸塩', abbreviation:'フェノテロール', brandNames:['ベロテック'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 0.05%','DS 0.5% (オーハラ)'], adultDose:'7.5mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.375,maxDosePerDay:7.5,frequency:'分3'}], notes:'吸入薬は小児に使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'procaterol-oral-v5', genericName:'プロカテロール塩酸塩水和物 (経口)', abbreviation:'プロカテロール (経口)', brandNames:['メプチン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 5μg/mL','DS 0.005%','顆粒 0.01%','錠 50μg','ミニ錠 25μg'], adultDose:'100μg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'2.5μg/kg/日',frequency:'分2〜3',notes:'最大 100μg/日。新生児に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // ステロイド薬 - 経口
+  { id:'prednisolone-oral-v5', genericName:'プレドニゾロン (経口)', abbreviation:'プレドニゾロン (経口)', brandNames:['プレドニン','プレドニゾロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['散 1%','錠 1mg・2.5mg・5mg'], adultDose:'60mg/日 まで',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:60,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,frequency:'分3'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dexamethasone-oral-v5', genericName:'デキサメタゾン (経口)', abbreviation:'デキサメタゾン (経口)', brandNames:['デカドロン','レナデックス'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['エリキシル 0.01%','錠 0.5mg・4mg','レナデックス錠 4mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-oral-v5', genericName:'ベタメタゾン (経口)', abbreviation:'ベタメタゾン (経口)', brandNames:['リンデロン','リネステロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・坐剤', formulations:['リンデロンシロップ 0.01%','散 0.1%','坐剤 0.5mg・1.0mg','錠 0.5mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // ステロイド薬 - 静注
+  { id:'hydrocortisone-iv-v5', genericName:'ヒドロコルチゾン (静注)', abbreviation:'ヒドロコルチゾン', brandNames:['ソル・コーテフ','サクシゾン'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 100mg・300mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 5mg/kg',frequency:'定期 5mg/kg 6〜8時間ごと'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 5〜7mg/kg',frequency:'定期 5〜7mg/kg 6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'prednisolone-iv-v5', genericName:'プレドニゾロン (静注)', abbreviation:'プレドニゾロン (静注)', brandNames:['水溶性プレドニン'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 10mg・20mg・50mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 0.5〜1mg/kg',frequency:'定期 0.5〜1mg/kg 6〜12時間ごと (最大2mg/kg/日)'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 1〜1.5mg/kg',frequency:'定期 0.5mg/kg 6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'methylprednisolone-iv-v5', genericName:'メチルプレドニゾロン (静注)', abbreviation:'メチルプレドニゾロン', brandNames:['ソル・メドロール','ソル・メルコート'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 40mg・125mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 0.5〜1mg/kg',frequency:'定期 0.5〜1mg/kg 6〜12時間ごと'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 1〜1.5mg/kg',frequency:'定期 1〜1.5mg/kg 4〜6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 抗アレルギー薬 - Th2サイトカイン阻害薬・吸入抗アレルギー薬
+  { id:'suplatast-v5', genericName:'スプラタストトシル酸塩', abbreviation:'スプラタスト', brandNames:['アイピーディ'], category:'抗アレルギー薬', subcategory:'Th2サイトカイン阻害薬', route:'内服', formulations:['ドライシロップ 5%','カプセル 50mg・100mg'], adultDose:'300mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:6,frequency:'分2',notes:'DSとして: 3〜5歳未満 1.5g/日, 5〜11歳未満 3.0g/日 分2, 11歳以上 4.0g/日'}], notes:'カプセルは小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cromoglicate-v5', genericName:'クロモグリク酸ナトリウム', abbreviation:'DSCG', brandNames:['インタール','クロモリン','リノジェット'], category:'抗アレルギー薬', subcategory:'吸入抗アレルギー薬 (メディエーター遊離抑制薬)', route:'吸入', formulations:['エアロゾル 1mg','カプセル外用 20mg','吸入液 1%','ステリ・ネブクロモリン 1%'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'エアロゾル',purpose:'治療',fixedDose:'1回2噴霧',frequency:'1日4回吸入'},{ageLabel:'カプセル',purpose:'治療',fixedDose:'1回1個',frequency:'1日3〜4回 インヘラー使用'},{ageLabel:'吸入液',purpose:'治療',fixedDose:'1回1A',frequency:'1日3〜4回 ネブライザー使用'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入ステロイド
+  { id:'beclomethasone-inhaled-v5', genericName:'ベクロメタゾンプロピオン酸エステル', abbreviation:'ベクロメタゾン (吸入)', brandNames:['キュバール'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['エアゾール 50μg・100μg'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回50μg',frequency:'1日2回',notes:'小児最大 200μg/日'}], notes:'4歳以下に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluticasone-inhaled-v5', genericName:'フルチカゾンプロピオン酸エステル', abbreviation:'フルチカゾン (吸入)', brandNames:['フルタイド'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['ディスカス 50・100μg','ロタディスク 50・100μg','エアゾール 50μg(120吸入)','エアゾール 100μg(60吸入)'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回50μg',frequency:'1日2回',notes:'小児最大 200μg/日'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'budesonide-inhaled-v5', genericName:'ブデソニド (吸入)', abbreviation:'ブデソニド', brandNames:['パルミコート'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['吸入液 0.25mg・0.5mg','タービュヘイラー 100μg・200μg'], adultDose:'吸入液 最大2mg/日, タービュヘイラー 最大1600μg/日',
+    pediatricDoses:[{ageLabel:'吸入液 (6ヶ月以上)',ageMinMonths:6,purpose:'治療',fixedDose:'1回0.25mg 1日2回 or 1回0.5mg 1日1回',notes:'小児最大 1mg/日。6ヶ月未満の安全性未確立'},{ageLabel:'タービュヘイラー',purpose:'治療',fixedDose:'1回100〜200μg',frequency:'1日2回',notes:'小児最大 800μg/日。4歳以下の安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ciclesonide-v5', genericName:'シクレソニド', abbreviation:'シクレソニド', brandNames:['オルベスコ'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['インヘラー 50μg(112吸入用)','100μg(56・112吸入用)','200μg(56吸入用)'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回100〜200μg',frequency:'1日1回',notes:'小児最大 200μg/日。1回50μgまで減量可'}], notes:'4歳以下に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入ステロイド+LABA / LABA / 経皮 / テオフィリン
+  { id:'fluticasone-salmeterol-v5', genericName:'フルチカゾン+サルメテロール', abbreviation:'アドエア', brandNames:['アドエア'], category:'喘息薬', subcategory:'吸入ステロイド薬+LABA', route:'吸入', formulations:['アドエア 100ディスカス 28・60吸入用','アドエア 50エアゾール 120吸入用'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'ディスカス',purpose:'治療',fixedDose:'1回1吸入',frequency:'1日2回',notes:'小児最大 2吸入'},{ageLabel:'エアゾール',purpose:'治療',fixedDose:'1回1〜2吸入',frequency:'1日2回',notes:'小児最大 4吸入'}], notes:'4歳以下に対する安全性未確立。フルチカゾン+ホルモテロール (フルティフォーム, レルベア), ブデソニド+ホルモテロール (シムビコート) は小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'salmeterol-v5', genericName:'サルメテロールキシナホ酸塩', abbreviation:'サルメテロール', brandNames:['セレベント'], category:'喘息薬', subcategory:'長時間作用性吸入β2刺激薬', route:'吸入', formulations:['ロタディスカス 25μg・50μg','ディスカス 50μg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回25〜50μg',frequency:'1日2回'}], notes:'4歳以下に対する安全性未確立。単独使用は不適切で、吸入ステロイド薬と併用することが基本。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tulobuterol-patch-v5', genericName:'ツロブテロール (経皮)', abbreviation:'ツロブテロールテープ', brandNames:['ホクナリンテープ','ツロブテロール ルテープ'], category:'喘息薬', subcategory:'経皮吸収型β2刺激薬', route:'経皮', formulations:['テープ 0.5mg・1mg・2mg'], adultDose:'2mg 1日1回',
+    pediatricDoses:[{ageLabel:'0.5〜3歳未満',ageMinMonths:6,ageMaxMonths:36,purpose:'治療',fixedDose:'0.5mg',frequency:'1日1回'},{ageLabel:'3〜9歳未満',ageMinMonths:36,ageMaxMonths:108,purpose:'治療',fixedDose:'1mg',frequency:'1日1回'},{ageLabel:'9歳以上',ageMinMonths:108,purpose:'治療',fixedDose:'2mg',frequency:'1日1回'}], notes:'6ヶ月未満に対する安全性未確立。最高血中濃度に達するのは12時間後なので発作時の使用は不適切。安易な投与を避ける。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'theophylline-v5', genericName:'テオフィリン徐放製剤', abbreviation:'テオフィリン', brandNames:['テオドール','テオロング','スローピッド'], category:'喘息薬', subcategory:'テオフィリン徐放製剤', route:'内服', formulations:['シロップ 2%','DS 20%','顆粒 20%・50%','錠 50・100・200mg','カプセル 50・100・200mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKgMin:6,dosePerKgMax:10,frequency:'分2',notes:'目安 6〜8〜10mg/kg/日'}], notes:'2才未満は重症持続型に限定。2歳以上は中等症持続型以上の追加治療薬として位置づけ、安易に使用しない。血中濃度を5〜15μg/mL (2歳以下では5〜10) に保つよう調整する。6ヶ月未満には原則使用しない。けいれん性疾患を有する児には原則使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 鎮咳薬
+  { id:'cloperastine-v5', genericName:'クロペラスチン', abbreviation:'クロペラスチン', brandNames:['フスタゾール'], category:'鎮咳薬', route:'内服', formulations:['散 10%','小児用錠 2.5mg','糖衣錠 10mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,maxDosePerDay:60,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dimemorfan-v5', genericName:'ジメモルファンリン酸塩', abbreviation:'ジメモルファン', brandNames:['アストミン'], category:'鎮咳薬', route:'内服', formulations:['シロップ 0.25%','DS 2.5%','散 10%','錠 10mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,maxDosePerDay:60,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'noscapine-v5', genericName:'ノスカピン', abbreviation:'ノスカピン', brandNames:['「純生」ノスカピン'], category:'鎮咳薬', route:'内服', formulations:['末'], adultDose:'90mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:1.5,maxDosePerDay:90,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dextromethorphan-v5', genericName:'デキストロメトルファン+クレゾールスルホン酸', abbreviation:'メジコン配合', brandNames:['メジコン配合シロップ'], category:'鎮咳薬', route:'内服', formulations:['配合シロップ'], adultDose:'18〜24mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.3〜0.4mg/kg/日',frequency:'分3〜4',notes:'最大 18〜24mL/日 (シロップとして)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 鎮咳去痰薬
+  { id:'ouhi-extract-v5', genericName:'オウヒエキス', abbreviation:'オウヒ', brandNames:['サリパラ'], category:'鎮咳去痰薬', route:'内服', formulations:['液'], adultDose:'200〜400mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:4,dosePerKgMax:8,maxDosePerDay:400,frequency:'分3'}], notes:'中枢性鎮咳薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tipepidine-v5', genericName:'チペピジンヒベンズ酸塩', abbreviation:'チペピジン', brandNames:['アスベリン'], category:'鎮咳去痰薬', route:'内服', formulations:['シロップ 0.5%','調剤用 2%','DS 2%','散 10%','錠 10mg・20mg'], adultDose:'60〜120mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:120,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 去痰薬
+  { id:'ambroxol-v5', genericName:'アンブロキソール塩酸塩', abbreviation:'アンブロキソール', brandNames:['ムコソルバン','ムコサール','プルスマリンA'], category:'去痰薬', route:'内服', formulations:['小児用シロップ 0.3%','内用液 0.75%','DS 1.5%・3%','錠 15mg','Lカプセル 45mg'], adultDose:'45mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.9,maxDosePerDay:45,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'carbocisteine-v5', genericName:'L-カルボシステイン', abbreviation:'カルボシステイン', brandNames:['ムコダイン','C-チステン'], category:'去痰薬', route:'内服', formulations:['シロップ 5%','DS 50%','細粒 50%','錠 250mg・500mg'], adultDose:'1500mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:30,maxDosePerDay:1500,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'senega-syrup-v5', genericName:'セネガシロップ', abbreviation:'セネガ', brandNames:['セネガシロップ'], category:'去痰薬', route:'内服', formulations:['シロップ'], adultDose:'10〜35mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.2〜0.7mL/kg/日',frequency:'分3',notes:'最大 10〜35mL/日'}], notes:'ブロムヘキシン (ビソルボン) は内服・吸入ともに小児に対する安全性未確立。去痰薬の併用 (ムコダイン+ムコソルバン) は有効とのエビデンスはない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
 ]
 
 // ============================================================
@@ -341,17 +454,45 @@ function applyMasterData(data) {
   // Gist マスターは「信頼済みデータ」として扱う：
   //   confirmed_master に未登録だと getAllDrugs() で非表示になり、別端末で
   //   開いたときにデータが見えない問題が起きるため、自動で確認済み扱いにする。
+  //   ただし pending:true のものは編集者が「未確認」と明示しているので
+  //   自動確認の対象外とし、利用者側で「未確認」タブに残す。
   try {
     if (Array.isArray(data.drugs)) {
       const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
       let changed = false
-      for (const d of data.drugs) { if (d && d.id && !cm.has(d.id)) { cm.add(d.id); changed = true } }
+      for (const d of data.drugs) {
+        if (!d || !d.id) continue
+        if (d.pending === true) continue            // 編集者が未確認指定 → 自動確認しない
+        if (!cm.has(d.id)) { cm.add(d.id); changed = true }
+      }
       if (changed) localStorage.setItem('confirmed_master', JSON.stringify([...cm]))
     }
     if (Array.isArray(data.diseases)) {
       const cd = new Set(JSON.parse(localStorage.getItem('confirmed_master_diseases') || '[]'))
       let changed = false
-      for (const d of data.diseases) { if (d && d.id && !cd.has(d.id)) { cd.add(d.id); changed = true } }
+      for (const d of data.diseases) {
+        if (!d || !d.id) continue
+        if (d.pending === true) continue
+        if (!cd.has(d.id)) { cd.add(d.id); changed = true }
+      }
+      if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
+    }
+    // 逆方向: pending:true に切り替わった項目は confirmed_master から外す
+    //   (以前 確認済み だったものを編集者が未確認に戻したケースに対応)
+    if (Array.isArray(data.drugs)) {
+      const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
+      let changed = false
+      for (const d of data.drugs) {
+        if (d && d.id && d.pending === true && cm.has(d.id)) { cm.delete(d.id); changed = true }
+      }
+      if (changed) localStorage.setItem('confirmed_master', JSON.stringify([...cm]))
+    }
+    if (Array.isArray(data.diseases)) {
+      const cd = new Set(JSON.parse(localStorage.getItem('confirmed_master_diseases') || '[]'))
+      let changed = false
+      for (const d of data.diseases) {
+        if (d && d.id && d.pending === true && cd.has(d.id)) { cd.delete(d.id); changed = true }
+      }
       if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
     }
   } catch (e) { console.warn('master auto-confirm skipped', e) }
@@ -538,11 +679,11 @@ function getAllDrugs() {
 function getDrugById(id) { return getAllDrugs().find(d => d.id === id) }
 function getDrugsByCategory(cat) { return getAllDrugs().filter(d => d.category === cat) }
 function searchDrugsQ(q) {
-  const lq = q.toLowerCase()
+  const lq = jpNorm(q)
   return getAllDrugs().filter(d =>
-    d.genericName.toLowerCase().includes(lq) ||
-    (d.abbreviation||'').toLowerCase().includes(lq) ||
-    d.brandNames.some(b => b.toLowerCase().includes(lq))
+    jpNorm(d.genericName).includes(lq) ||
+    jpNorm(d.abbreviation).includes(lq) ||
+    d.brandNames.some(b => jpNorm(b).includes(lq))
   )
 }
 
@@ -575,12 +716,12 @@ function getAllDiseases() {
 function getDiseaseById(id) { return getAllDiseases().find(d => d.id === id) || getAllPendingDiseases().find(d => d.id === id) }
 function getDiseasesByCategory(cat) { return getAllDiseases().filter(d => d.category === cat) }
 function searchDiseasesQ(q) {
-  const lq = q.toLowerCase()
+  const lq = jpNorm(q)
   return getAllDiseases().filter(d =>
-    d.name.toLowerCase().includes(lq) ||
-    (d.englishName||'').toLowerCase().includes(lq) ||
-    (d.abbreviation||'').toLowerCase().includes(lq) ||
-    (d.tags||[]).some(t => t.toLowerCase().includes(lq))
+    jpNorm(d.name).includes(lq) ||
+    jpNorm(d.englishName).includes(lq) ||
+    jpNorm(d.abbreviation).includes(lq) ||
+    (d.tags||[]).some(t => jpNorm(t).includes(lq))
   )
 }
 
@@ -717,6 +858,19 @@ function render() {
 // ── ヘルパー ────────────────────────────────────────────────
 const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
+// 日本語検索用の正規化:
+//   ・ひらがな → カタカナ (例: あもきししりん → アモキシシリン に一致)
+//   ・全角英数 → 半角 (NFKC)
+//   ・小文字化、トリム
+function jpNorm(s) {
+  if (s == null) return ''
+  let v = String(s)
+  try { v = v.normalize('NFKC') } catch {}
+  // ひらがな(U+3041..U+3096) → カタカナ(U+30A1..U+30F6) は +0x60
+  v = v.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+  return v.toLowerCase().trim()
+}
+
 // IME対応テキスト入力: 日本語変換中は再描画しない
 function bindTextInput(id, callback) {
   const el = document.getElementById(id)
@@ -800,6 +954,45 @@ function filteredDoses(drug) {
   return m.length>0 ? m : drug.pediatricDoses
 }
 
+// 入力された年齢が、設定された小児用量の最大年齢を「すべて」超えているかを判定。
+//   - 全ての pediatricDoses に ageMaxMonths が設定されていて、
+//   - 入力年齢がすべての ageMaxMonths 以上の場合 → true
+//   - どれか1つでも上限未設定 (open-ended) の用量があれば false (高年齢もカバーされていると判断)
+function isAgeOverPediatric(drug) {
+  const am = ageToMonths()
+  if (am === undefined) return false
+  const doses = drug.pediatricDoses || []
+  if (doses.length === 0) return false
+  const hasOpenEnded = doses.some(d => d.ageMaxMonths == null)
+  if (hasOpenEnded) return false
+  const maxAge = Math.max(...doses.map(d => d.ageMaxMonths))
+  return am >= maxAge
+}
+
+// 成人量カード (年齢が小児用量範囲を超えた場合に表示)
+function adultDoseCard(drug, compact=false) {
+  const text = drug.adultDose && String(drug.adultDose).trim()
+    ? esc(drug.adultDose)
+    : '<span class="text-gray-400">成人量は登録されていません</span>'
+  return `
+    <div class="bg-white rounded-xl shadow-sm border-2 border-orange-300 overflow-hidden">
+      <div class="bg-orange-50 border-b border-orange-200 px-4 py-2 flex items-center gap-2">
+        <span class="text-sm font-semibold text-orange-700">成人量（小児用量範囲外）</span>
+      </div>
+      <div class="px-4 py-3">
+        <div class="text-orange-900 font-bold ${compact?'text-base':'text-lg'} leading-snug">${text}</div>
+        <div class="text-xs text-orange-600 mt-2 leading-relaxed">入力された年齢がこの薬剤の小児用量設定範囲を超えています。<br/>成人量を参考に、担当医の判断で投与量を決定してください。</div>
+      </div>
+    </div>`
+}
+
+// 用量カード一覧の HTML を返す共通ヘルパー。
+//   年齢が小児用量範囲を超えていれば成人量カード、そうでなければ通常の小児用量カードを並べる。
+function dosesHTML(drug, weight, compact=false) {
+  if (isAgeOverPediatric(drug)) return adultDoseCard(drug, compact)
+  return filteredDoses(drug).map(d => doseCard(d, weight, compact)).join('')
+}
+
 // ── リスト画面 ────────────────────────────────────────────
 
 function drugListItem(d) {
@@ -837,8 +1030,6 @@ function calcHolidaySegar(weight) {
   return {
     daily: Math.round(daily),
     hourly: Math.round(hourly * 10) / 10,
-    na: Math.round(daily / 1000 * 30 * 10) / 10,
-    k: Math.round(daily / 1000 * 20 * 10) / 10,
   }
 }
 
@@ -873,16 +1064,6 @@ function buildIVCalcResultHTML() {
     return `
       <div class="bg-blue-50 rounded-xl p-4 space-y-2">
         <div class="text-blue-800 font-bold text-2xl">${mode==='daily' ? result.daily + ' mL/日' : result.hourly + ' mL/時'}</div>
-        <div class="grid grid-cols-2 gap-2 mt-2">
-          <div class="bg-white rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500">Na補充量</div>
-            <div class="font-bold text-gray-800">${mode==='daily'?result.na:Math.round(result.na/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
-          </div>
-          <div class="bg-white rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500">K補充量</div>
-            <div class="font-bold text-gray-800">${mode==='daily'?result.k:Math.round(result.k/24*10)/10} mEq/${mode==='daily'?'日':'時'}</div>
-          </div>
-        </div>
       </div>`
   }
   return state.ivWeight ? '<div class="text-center text-gray-400 text-sm py-4">体重を正しく入力してください</div>' : ''
@@ -1496,7 +1677,6 @@ function attachList() {
 function renderDetail(drug) {
   if (!drug) return ''
   const isFav = state.favorites.has(drug.id)
-  const doses = filteredDoses(drug)
   const weight = state.weight
   const editDosesHTML = state.editMode && state.tab === 'calc' ? renderEditDoses(drug) : ''
   const calcTab = state.editMode && state.tab === 'calc' ? `
@@ -1516,7 +1696,7 @@ function renderDetail(drug) {
         <div class="flex justify-end mb-2">
           <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
         </div>
-        ${doses.map(d => doseCard(d, weight)).join('')}
+        ${dosesHTML(drug, weight)}
         <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
       </div>
     </div>`
@@ -1696,13 +1876,12 @@ function updateDetailDoseResults() {
   if (!drug) return
   const el = document.getElementById('dose-results')
   if (!el) return
-  const doses = filteredDoses(drug)
   const weight = state.weight
   el.innerHTML = `
     <div class="flex justify-end mb-2">
       <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
     </div>
-    ${doses.map(d => doseCard(d, weight)).join('')}
+    ${dosesHTML(drug, weight)}
     <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
   document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
     const drug = getDrugById(state.drugId)
@@ -1826,14 +2005,13 @@ function renderSetDetail() {
       ${ageWeightInput()}
       <div id="set-dose-results">
         ${drugs.map(drug => {
-          const doses = filteredDoses(drug)
           return `
             <div class="space-y-2">
               <div class="flex items-center gap-2 px-1">
                 <button data-drug-link="${drug.id}" class="font-bold text-gray-800 text-sm hover:text-blue-600">${esc(drug.genericName)}</button>
                 <span class="text-xs text-gray-400">${drug.abbreviation?'('+drug.abbreviation+')':''}</span>
               </div>
-              ${doses.map(d=>doseCard(d,weight,true)).join('')}
+              ${dosesHTML(drug, weight, true)}
             </div>`
         }).join('<div class="border-t border-gray-200 my-1"></div>')}
         <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
@@ -1885,14 +2063,13 @@ function updateSetDoseResults() {
   const drugs = set.drugIds.map(id=>getDrugById(id)).filter(Boolean)
   const weight = state.weight
   el.innerHTML = drugs.map(drug => {
-    const doses = filteredDoses(drug)
     return `
       <div class="space-y-2">
         <div class="flex items-center gap-2 px-1">
           <button data-drug-link="${drug.id}" class="font-bold text-gray-800 text-sm hover:text-blue-600">${esc(drug.genericName)}</button>
           <span class="text-xs text-gray-400">${drug.abbreviation?'('+drug.abbreviation+')':''}</span>
         </div>
-        ${doses.map(d=>doseCard(d,weight,true)).join('')}
+        ${dosesHTML(drug, weight, true)}
       </div>`
   }).join('<div class="border-t border-gray-200 my-1"></div>') + `<div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
   el.querySelectorAll('[data-drug-link]').forEach(b => b.addEventListener('click', () => {
