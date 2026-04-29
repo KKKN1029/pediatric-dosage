@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>小児薬用量 — 編集ツール</title>
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png" />
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html, body { height: 100%; }
@@ -51,6 +54,25 @@
 
 <script>
 'use strict'
+
+// ============================================================
+// アイコン (Lucide ベース)
+// ============================================================
+const _SVG = 'xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.15em;flex-shrink:0"'
+const ICON = {
+  search:    `<svg ${_SVG}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  x:         `<svg ${_SVG}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+  check:     `<svg ${_SVG}><path d="M20 6 9 17l-5-5"/></svg>`,
+  plus:      `<svg ${_SVG}><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+  pencil:    `<svg ${_SVG}><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`,
+  chevUp:    `<svg ${_SVG}><path d="m18 15-6-6-6 6"/></svg>`,
+  chevDown:  `<svg ${_SVG}><path d="m6 9 6 6 6-6"/></svg>`,
+  arrowLeft: `<svg ${_SVG}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+  save:      `<svg ${_SVG}><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>`,
+  globe:     `<svg ${_SVG}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
+  download:  `<svg ${_SVG}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  alert:     `<svg ${_SVG}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+}
 
 // ============================================================
 // 定数
@@ -420,7 +442,7 @@ function headerHTML() {
       </div>
       ${state.view === 'main' ? `
         <button data-act="save" class="btn-primary" ${(!state.dirty || state.saving) ? 'disabled' : ''}>
-          ${state.saving ? '保存中' : '💾 保存'}
+          ${state.saving ? '保存中' : `<span class="inline-flex items-center gap-1.5">${ICON.save} 保存</span>`}
         </button>
       ` : ''}
     </header>
@@ -500,7 +522,7 @@ function setupScreenHTML() {
             スコープは <code class="px-1 bg-gray-100 rounded">gist</code> のみ ON にすれば OK です。
           </p>
           <div class="bg-amber-50 border border-amber-200 rounded p-2 text-[11px] text-amber-900 leading-relaxed">
-            ⚠️ <strong>Fine-grained token は使えません</strong> (Gist API 非対応)。必ず <strong>Personal access tokens (classic)</strong> の方で作成してください。
+            <span class="inline-flex items-center gap-1.5">${ICON.alert} <strong>Fine-grained token は使えません</strong></span> (Gist API 非対応)。必ず <strong>Personal access tokens (classic)</strong> の方で作成してください。
           </div>
           <input id="setup-token" type="password" placeholder="ghp_… (トークン)" value="${esc(state.token)}"
             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
@@ -571,7 +593,7 @@ function drugsListHTML() {
   return `
     <div class="p-4 space-y-3">
       <div class="flex flex-col sm:flex-row gap-2">
-        <input type="text" id="drugs-search" placeholder="🔍 薬剤を検索 (薬剤名・略称・商品名)" value="${esc(state.search)}"
+        <input type="text" id="drugs-search" placeholder="薬剤を検索 (薬剤名・略称・商品名)" value="${esc(state.search)}"
           class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <select id="drugs-filter" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
           <option value="">全カテゴリ (${state.data.drugs.length}件)</option>
@@ -595,7 +617,7 @@ function drugsListHTML() {
                 ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · ${esc(d.route || '')} · 用量 ${(d.pediatricDoses||[]).length}件
               </div>
             </div>
-            <button data-act="del-drug" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2" title="削除">✕</button>
+            <button data-act="del-drug" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2" title="削除">${ICON.x}</button>
           </div>
         `).join('')}
       </div>
@@ -607,7 +629,7 @@ function drugFormHTML(d) {
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
       <div class="flex items-center gap-2">
-        <button data-act="back-drug" class="btn-ghost">← 一覧へ戻る</button>
+        <button data-act="back-drug" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
         <button data-act="del-drug" data-id="${esc(d.id)}" class="btn-danger">この薬剤を削除</button>
       </div>
@@ -677,9 +699,9 @@ function doseRowHTML(dose, i) {
       <div class="dose-card-header">
         <div class="dose-card-title">用量 #${i + 1}</div>
         <div class="flex gap-1">
-          <button data-act="dose-up" data-i="${i}" class="btn-ghost" title="上へ">↑</button>
-          <button data-act="dose-down" data-i="${i}" class="btn-ghost" title="下へ">↓</button>
-          <button data-act="dose-del" data-i="${i}" class="btn-ghost" style="color:#dc2626;" title="削除">✕</button>
+          <button data-act="dose-up" data-i="${i}" class="btn-ghost" title="上へ">${ICON.chevUp}</button>
+          <button data-act="dose-down" data-i="${i}" class="btn-ghost" title="下へ">${ICON.chevDown}</button>
+          <button data-act="dose-del" data-i="${i}" class="btn-ghost" style="color:#dc2626;" title="削除">${ICON.x}</button>
         </div>
       </div>
 
@@ -791,7 +813,7 @@ function diseasesListHTML() {
   return `
     <div class="p-4 space-y-3">
       <div class="flex flex-col sm:flex-row gap-2">
-        <input type="text" id="diseases-search" placeholder="🔍 疾患を検索" value="${esc(state.search)}" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input type="text" id="diseases-search" placeholder="疾患を検索" value="${esc(state.search)}" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <select id="diseases-filter" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
           <option value="">全カテゴリ (${state.data.diseases.length}件)</option>
           ${state.data.diseaseCategories.map(c => `<option value="${esc(c)}" ${state.filter===c?'selected':''}>${esc(c)} (${state.data.diseases.filter(d=>d.category===c).length})</option>`).join('')}
@@ -814,7 +836,7 @@ function diseasesListHTML() {
                 ${esc(d.category || '')} · セクション ${(d.sections||[]).length}件
               </div>
             </div>
-            <button data-act="del-disease" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2">✕</button>
+            <button data-act="del-disease" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2">${ICON.x}</button>
           </div>
         `).join('')}
       </div>
@@ -826,7 +848,7 @@ function diseaseFormHTML(d) {
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
       <div class="flex items-center gap-2">
-        <button data-act="back-disease" class="btn-ghost">← 一覧へ戻る</button>
+        <button data-act="back-disease" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
         <button data-act="del-disease" data-id="${esc(d.id)}" class="btn-danger">この疾患を削除</button>
       </div>
@@ -882,9 +904,9 @@ function sectionRowHTML(s, i) {
     <div class="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
       <div class="flex items-center gap-2">
         <input data-bind="section.${i}.title" type="text" value="${esc(s.title || '')}" class="input flex-1" placeholder="セクションタイトル (例: 診断)" />
-        <button data-act="section-up" data-i="${i}" class="btn-ghost text-sm px-2">↑</button>
-        <button data-act="section-down" data-i="${i}" class="btn-ghost text-sm px-2">↓</button>
-        <button data-act="section-del" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">✕</button>
+        <button data-act="section-up" data-i="${i}" class="btn-ghost text-sm px-2">${ICON.chevUp}</button>
+        <button data-act="section-down" data-i="${i}" class="btn-ghost text-sm px-2">${ICON.chevDown}</button>
+        <button data-act="section-del" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">${ICON.x}</button>
       </div>
       <textarea data-bind="section.${i}.content" class="input min-h-[120px]" placeholder="本文">${esc(s.content || '')}</textarea>
     </div>
@@ -915,8 +937,8 @@ function ivSectionHTML(sect, si) {
     <div class="card overflow-hidden">
       <div style="background:#dbeafe;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.5rem;border-bottom:1px solid #bfdbfe;">
         <input data-bind="ivSect.${si}.category" type="text" value="${esc(sect.category)}" class="input" style="flex:1;font-weight:600;" placeholder="区分名（例: 細胞外液補充液）" />
-        <button data-act="iv-sect-up" data-i="${si}" class="btn-ghost">↑</button>
-        <button data-act="iv-sect-down" data-i="${si}" class="btn-ghost">↓</button>
+        <button data-act="iv-sect-up" data-i="${si}" class="btn-ghost">${ICON.chevUp}</button>
+        <button data-act="iv-sect-down" data-i="${si}" class="btn-ghost">${ICON.chevDown}</button>
         <button data-act="iv-sect-del" data-i="${si}" class="btn-danger" style="padding:0.4rem 0.7rem;font-size:12px;">区分削除</button>
       </div>
       <div style="padding:0.5rem 1rem;background:#fafbfc;border-bottom:1px solid #e2e8f0;">
@@ -941,7 +963,7 @@ function ivFluidRowHTML(f, si, fi) {
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.75rem;">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
         <input data-bind="ivFluid.${si}.${fi}.name" type="text" value="${esc(f.name || '')}" class="input" style="flex:1;font-weight:600;" placeholder="製品名（例: 生理食塩液）" />
-        <button data-act="iv-fluid-del" data-si="${si}" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">✕</button>
+        <button data-act="iv-fluid-del" data-si="${si}" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">${ICON.x}</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap:0.4rem;">
         <div><label class="label" style="text-align:center;margin-bottom:0.15rem;">Na</label>
@@ -985,9 +1007,9 @@ function categoryListHTML(kind, title, list) {
       ${list.map((c, i) => `
         <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
           <input data-bind="cat.${kind}.${i}" type="text" value="${esc(c)}" class="input flex-1" />
-          <button data-act="cat-up" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">↑</button>
-          <button data-act="cat-down" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">↓</button>
-          <button data-act="cat-del" data-kind="${kind}" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">✕</button>
+          <button data-act="cat-up" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">${ICON.chevUp}</button>
+          <button data-act="cat-down" data-kind="${kind}" data-i="${i}" class="btn-ghost text-sm px-2">${ICON.chevDown}</button>
+          <button data-act="cat-del" data-kind="${kind}" data-i="${i}" class="text-gray-400 hover:text-red-600 px-1">${ICON.x}</button>
         </div>
       `).join('')}
     </div>
@@ -1011,7 +1033,7 @@ function settingsTabHTML() {
         </div>
         <div class="flex gap-2 flex-wrap pt-2 border-t border-gray-100">
           <button data-act="reload" class="btn-secondary">🔄 Gist から再読込</button>
-          <button data-act="export-json" class="btn-secondary">💾 JSON ダウンロード</button>
+          <button data-act="export-json" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} JSON ダウンロード</button>
           <button data-act="logout" class="btn-danger">設定をクリア</button>
         </div>
       </div>
@@ -1050,13 +1072,13 @@ function settingsTabHTML() {
         <div class="pt-3 border-t border-gray-100 space-y-3">
           <div class="space-y-2">
             <label class="label">同じサーバーの index.html から取り込む（推奨・1クリック）</label>
-            <button data-act="import-from-url" class="btn-primary w-full">🌐 index.html を自動取得してインポート</button>
+            <button data-act="import-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5">${ICON.globe} index.html を自動取得してインポート</button>
             <div class="text-[11px] text-gray-500">編集ツールと同じ場所にある index.html を読み込みます。ファイル選択不要。</div>
           </div>
           <div class="space-y-2 pt-3 border-t border-gray-100">
             <label class="label">手動でファイルを選んで取り込む</label>
             <input id="import-file" type="file" accept=".html,.htm" class="text-xs" />
-            <button data-act="import-replace" class="btn-secondary">📥 ファイルからインポート</button>
+            <button data-act="import-replace" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} ファイルからインポート</button>
           </div>
         </div>
       </div>
