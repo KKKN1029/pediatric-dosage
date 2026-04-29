@@ -446,39 +446,14 @@ function setGistId(id) {
 
 function applyMasterData(data) {
   if (!data || typeof data !== 'object') return false
+  // Gist のデータをそのまま採用（pending フラグは未確認タブのマーカーとしてだけ機能）
   if (Array.isArray(data.drugs)) DRUGS = data.drugs
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
   if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
-  // Gist マスターは「信頼済みデータ」として扱う：
-  //   confirmed_master に未登録だと getAllDrugs() で非表示になり、別端末で
-  //   開いたときにデータが見えない問題が起きるため、自動で確認済み扱いにする。
-  //   ただし pending:true のものは編集者が「未確認」と明示しているので
-  //   自動確認の対象外とし、利用者側で「未確認」タブに残す。
+  // pending:true に戻された項目は confirmed_master から外して未確認タブに復帰させる
   try {
-    if (Array.isArray(data.drugs)) {
-      const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
-      let changed = false
-      for (const d of data.drugs) {
-        if (!d || !d.id) continue
-        if (d.pending === true) continue            // 編集者が未確認指定 → 自動確認しない
-        if (!cm.has(d.id)) { cm.add(d.id); changed = true }
-      }
-      if (changed) localStorage.setItem('confirmed_master', JSON.stringify([...cm]))
-    }
-    if (Array.isArray(data.diseases)) {
-      const cd = new Set(JSON.parse(localStorage.getItem('confirmed_master_diseases') || '[]'))
-      let changed = false
-      for (const d of data.diseases) {
-        if (!d || !d.id) continue
-        if (d.pending === true) continue
-        if (!cd.has(d.id)) { cd.add(d.id); changed = true }
-      }
-      if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
-    }
-    // 逆方向: pending:true に切り替わった項目は confirmed_master から外す
-    //   (以前 確認済み だったものを編集者が未確認に戻したケースに対応)
     if (Array.isArray(data.drugs)) {
       const cm = new Set(JSON.parse(localStorage.getItem('confirmed_master') || '[]'))
       let changed = false
@@ -495,7 +470,7 @@ function applyMasterData(data) {
       }
       if (changed) localStorage.setItem('confirmed_master_diseases', JSON.stringify([...cd]))
     }
-  } catch (e) { console.warn('master auto-confirm skipped', e) }
+  } catch (e) { console.warn('master sync (pending → unconfirm) skipped', e) }
   return true
 }
 
@@ -644,9 +619,11 @@ const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
 const confirmMasterDrug = id => { const s = loadConfirmedMaster(); s.add(id); LS.set('confirmed_master', [...s]) }
 // マスターデータのうち未確認のもの（confirmed_master に未登録のもの全て）
 function getPendingMasterDrugs() {
-  const confirmed = loadConfirmedMaster()
+  // pending:true のマスター薬剤のみ未確認タブに表示
+  // (利用者が「確認」ボタンを押すと confirmed_master に入り、未確認タブから消える)
   const hidden = loadHiddenDrugs()
-  return DRUGS.filter(d => !confirmed.has(d.id) && !hidden.has(d.id))
+  const confirmed = loadConfirmedMaster()
+  return DRUGS.filter(d => d.pending === true && !hidden.has(d.id) && !confirmed.has(d.id))
 }
 // カスタム＋マスター両方の未確認薬剤を返す
 function getAllPendingDrugs() {
@@ -668,10 +645,9 @@ function deleteDrug(id) {
 function getAllDrugs() {
   const edits = loadEdits()
   const hidden = loadHiddenDrugs()
-  const confirmed = loadConfirmedMaster()
+  // 全マスター薬剤を表示（pending フラグは未確認タブのマーカーとしてだけ使用）
   return [
-    // confirmed_master に登録済みの薬のみ表示（全薬剤が確認制）
-    ...DRUGS.filter(d => !hidden.has(d.id) && confirmed.has(d.id))
+    ...DRUGS.filter(d => !hidden.has(d.id))
              .map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
     ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
   ]
@@ -700,16 +676,15 @@ const confirmMasterDisease = id => { const s = loadConfirmedMasterDiseases(); s.
 
 function getPendingMasterDiseases() {
   const confirmed = loadConfirmedMasterDiseases()
-  return DISEASES.filter(d => !confirmed.has(d.id))
+  return DISEASES.filter(d => d.pending === true && !confirmed.has(d.id))
 }
 function getAllPendingDiseases() {
   return [...loadPendingDiseases(), ...getPendingMasterDiseases()]
 }
 function getAllDiseases() {
-  const confirmed = loadConfirmedMasterDiseases()
   const hidden = new Set(LS.get('hidden_diseases','[]'))
   return [
-    ...DISEASES.filter(d => confirmed.has(d.id) && !hidden.has(d.id)),
+    ...DISEASES.filter(d => !hidden.has(d.id)),
     ...loadCustomDiseases().filter(d => !hidden.has(d.id)),
   ]
 }
