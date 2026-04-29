@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v7-asthma'
+const CACHE = 'pediatric-v8-merge'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

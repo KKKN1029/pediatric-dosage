@@ -1134,7 +1134,12 @@ function settingsTabHTML() {
           <div class="space-y-2">
             <label class="label">同じサーバーの index.html から取り込む（推奨・1クリック）</label>
             <button data-act="import-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5">${ICON.globe} index.html を自動取得してインポート</button>
-            <div class="text-[11px] text-gray-500">編集ツールと同じ場所にある index.html を読み込みます。ファイル選択不要。</div>
+            <div class="text-[11px] text-gray-500">編集ツールと同じ場所にある index.html を読み込みます。ファイル選択不要。<b class="text-red-600">※ 全データを上書きします</b></div>
+          </div>
+          <div class="space-y-2 pt-3 border-t border-gray-100">
+            <label class="label">新規 builtin だけを追加（既存データは保持）</label>
+            <button data-act="merge-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5" style="background:#10b981;border-color:#10b981">${ICON.plus} 新規 builtin だけマージ追加</button>
+            <div class="text-[11px] text-gray-500">index.html にあって現在の Gist データに無い id だけを <b>未確認</b> 状態で追加します。既存の編集内容は失われません。</div>
           </div>
           <div class="space-y-2 pt-3 border-t border-gray-100">
             <label class="label">手動でファイルを選んで取り込む</label>
@@ -1271,6 +1276,38 @@ function onClick(e) {
       // 詳細をアラートで全文表示 (toast だと長文が切れるため)
       console.error('[import-from-url] 失敗', err)
       alert('インポート失敗\n\n' + err.message + '\n\n手動でファイル選択するか、上記の URL を直接ブラウザで開いて確認してください。')
+    })
+    return
+  }
+  if (act === 'merge-from-url') {
+    if (!confirm('index.html を取り込み、現在の Gist データに無い id の薬剤・疾患だけを「未確認」として追加します。既存データは変更しません。よろしいですか？')) return
+    showToast('取得中…', 'ok')
+    importFromUrl().then(d => {
+      const existingDrugIds = new Set((state.data.drugs || []).map(x => x.id))
+      const existingDiseaseIds = new Set((state.data.diseases || []).map(x => x.id))
+      const newDrugs = (d.drugs || []).filter(x => x && x.id && !existingDrugIds.has(x.id)).map(x => ({...x, pending: true}))
+      const newDiseases = (d.diseases || []).filter(x => x && x.id && !existingDiseaseIds.has(x.id)).map(x => ({...x, pending: true}))
+      // カテゴリも追加 (重複しないように)
+      const newDrugCats = (d.drugCategories || []).filter(c => !(state.data.drugCategories || []).includes(c))
+      const newDiseaseCats = (d.diseaseCategories || []).filter(c => !(state.data.diseaseCategories || []).includes(c))
+      if (newDrugs.length === 0 && newDiseases.length === 0 && newDrugCats.length === 0 && newDiseaseCats.length === 0) {
+        showToast('追加すべき新規データはありません (全て既存)', 'ok')
+        return
+      }
+      state.data.drugs = [...(state.data.drugs || []), ...newDrugs]
+      state.data.diseases = [...(state.data.diseases || []), ...newDiseases]
+      state.data.drugCategories = [...(state.data.drugCategories || []), ...newDrugCats]
+      state.data.diseaseCategories = [...(state.data.diseaseCategories || []), ...newDiseaseCats]
+      markDirty()
+      const msg = `薬剤 +${newDrugs.length} / 疾患 +${newDiseases.length}` +
+        (newDrugCats.length ? ` / 薬カテゴリ +${newDrugCats.length}` : '') +
+        (newDiseaseCats.length ? ` / 疾患カテゴリ +${newDiseaseCats.length}` : '') +
+        ' を未確認で追加しました。「保存」で Gist に反映してください'
+      showToast(msg, 'ok')
+      render()
+    }).catch(err => {
+      console.error('[merge-from-url] 失敗', err)
+      alert('マージ失敗\n\n' + err.message)
     })
     return
   }
