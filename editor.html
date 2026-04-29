@@ -225,11 +225,14 @@ function normalizeData(raw) {
   return d
 }
 
-// index.html からデータを抽出（File オブジェクト経由）
-async function importFromIndexHtml(file) {
-  const text = await file.text()
+// index.html からデータを抽出（File または text を受け付ける）
+async function importFromIndexHtml(source) {
+  const text = (typeof source === 'string')
+    ? source
+    : await source.text()
+  // const / let / var どれでも許可 (index.html 側は Gist 同期対応で let に変更済)
   const extract = (name) => {
-    const re = new RegExp(`const\\s+${name}\\s*=\\s*(\\[[\\s\\S]*?\\n\\])`, '')
+    const re = new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*(\\[[\\s\\S]*?\\n\\])`, '')
     const m = text.match(re)
     if (!m) return null
     return Function('"use strict"; return (' + m[1] + ')')()
@@ -244,9 +247,17 @@ async function importFromIndexHtml(file) {
   if (iv) d.ivFluidTables = iv
   if (drugCats) d.drugCategories = drugCats
   // DISEASE_CATEGORIES は 1 行
-  const m = text.match(/const\s+DISEASE_CATEGORIES\s*=\s*(\[[^\]]*\])/)
+  const m = text.match(/(?:const|let|var)\s+DISEASE_CATEGORIES\s*=\s*(\[[^\]]*\])/)
   if (m) d.diseaseCategories = Function('return ' + m[1])()
   return normalizeData(d)
+}
+
+// 同じサーバーの index.html を fetch して取り込む
+async function importFromUrl(url = './index.html') {
+  const res = await fetch(url, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const text = await res.text()
+  return importFromIndexHtml(text)
 }
 
 // ============================================================
@@ -1012,10 +1023,17 @@ function settingsTabHTML() {
           <div class="bg-purple-50 rounded-lg p-3"><div class="text-2xl font-bold text-purple-700">${state.data.diseases.length}</div><div class="text-xs text-purple-600">疾患</div></div>
           <div class="bg-cyan-50 rounded-lg p-3"><div class="text-2xl font-bold text-cyan-700">${state.data.ivFluidTables.reduce((n,s)=>n+s.fluids.length,0)}</div><div class="text-xs text-cyan-600">輸液製剤</div></div>
         </div>
-        <div class="pt-3 border-t border-gray-100 space-y-2">
-          <label class="label">既存の index.html から取り込む (現在のデータに上書き)</label>
-          <input id="import-file" type="file" accept=".html,.htm" class="text-xs" />
-          <button data-act="import-replace" class="btn-secondary">📥 インポート (置き換え)</button>
+        <div class="pt-3 border-t border-gray-100 space-y-3">
+          <div class="space-y-2">
+            <label class="label">同じサーバーの index.html から取り込む（推奨・1クリック）</label>
+            <button data-act="import-from-url" class="btn-primary w-full">🌐 index.html を自動取得してインポート</button>
+            <div class="text-[11px] text-gray-500">編集ツールと同じ場所にある index.html を読み込みます。ファイル選択不要。</div>
+          </div>
+          <div class="space-y-2 pt-3 border-t border-gray-100">
+            <label class="label">手動でファイルを選んで取り込む</label>
+            <input id="import-file" type="file" accept=".html,.htm" class="text-xs" />
+            <button data-act="import-replace" class="btn-secondary">📥 ファイルからインポート</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1117,6 +1135,18 @@ function onClick(e) {
     if (!f) { showToast('ファイルを選択してください', 'err'); return }
     if (!confirm('現在のデータに上書きします。よろしいですか？')) return
     importFromIndexHtml(f).then(d => { state.data = d; markDirty(); showToast('インポートしました。「保存」を押して Gist に反映してください', 'ok'); render() }).catch(err => showToast('失敗: ' + err.message, 'err'))
+    return
+  }
+  if (act === 'import-from-url') {
+    if (!confirm('同じサーバーの index.html から取り込み、現在のデータに上書きします。よろしいですか？')) return
+    showToast('取得中…', 'ok')
+    importFromUrl('./index.html').then(d => {
+      state.data = d
+      markDirty()
+      const stat = `薬剤 ${d.drugs.length} / 疾患 ${d.diseases.length} / 輸液 ${d.ivFluidTables.reduce((n,s)=>n+(s.fluids?.length||0),0)}`
+      showToast(`インポート成功: ${stat}。「保存」で Gist に反映してください`, 'ok')
+      render()
+    }).catch(err => showToast('失敗: ' + err.message, 'err'))
     return
   }
 
