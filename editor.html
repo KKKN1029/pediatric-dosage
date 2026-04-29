@@ -1132,19 +1132,20 @@ function settingsTabHTML() {
         </div>
         <div class="pt-3 border-t border-gray-100 space-y-3">
           <div class="space-y-2">
-            <label class="label">同じサーバーの index.html から取り込む（推奨・1クリック）</label>
-            <button data-act="import-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5">${ICON.globe} index.html を自動取得してインポート</button>
-            <div class="text-[11px] text-gray-500">編集ツールと同じ場所にある index.html を読み込みます。ファイル選択不要。<b class="text-red-600">※ 全データを上書きします</b></div>
-          </div>
-          <div class="space-y-2 pt-3 border-t border-gray-100">
-            <label class="label">新規 builtin だけを追加（既存データは保持）</label>
-            <button data-act="merge-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5" style="background:#10b981;border-color:#10b981">${ICON.plus} 新規 builtin だけマージ追加</button>
-            <div class="text-[11px] text-gray-500">index.html にあって現在の Gist データに無い id だけを <b>未確認</b> 状態で追加します。既存の編集内容は失われません。</div>
+            <label class="label">index.html から自動取得（既存データは保持・推奨）</label>
+            <button data-act="import-from-url" class="btn-primary w-full inline-flex items-center justify-center gap-1.5" style="background:#10b981;border-color:#10b981">${ICON.globe} index.html を自動取得してマージ</button>
+            <div class="text-[11px] text-gray-500">同じ場所にある index.html を読み込み、<b>現在の Gist に無い id だけ</b>を「未確認」として追加します。既存の編集内容は失われません。</div>
           </div>
           <div class="space-y-2 pt-3 border-t border-gray-100">
             <label class="label">手動でファイルを選んで取り込む</label>
             <input id="import-file" type="file" accept=".html,.htm" class="text-xs" />
-            <button data-act="import-replace" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} ファイルからインポート</button>
+            <button data-act="import-replace" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} ファイルからインポート（上書き）</button>
+            <div class="text-[11px] text-gray-500">手動 HTML ファイルから全データを置換します。<b class="text-red-600">※ 既存データは失われます</b></div>
+          </div>
+          <div class="space-y-2 pt-3 border-t border-gray-100">
+            <label class="label">危険: index.html で全データを置換</label>
+            <button data-act="import-from-url-replace" class="btn-secondary w-full inline-flex items-center justify-center gap-1.5" style="color:#b91c1c;border-color:#fca5a5">${ICON.alert} 全データを上書き取り込み</button>
+            <div class="text-[11px] text-gray-500">編集内容を全て破棄して index.html の内容で置換します。基本は使わないでください。</div>
           </div>
         </div>
       </div>
@@ -1264,30 +1265,14 @@ function onClick(e) {
     return
   }
   if (act === 'import-from-url') {
-    if (!confirm('同じサーバーの index.html から取り込み、現在のデータに上書きします。よろしいですか？')) return
-    showToast('取得中…', 'ok')
-    importFromUrl().then(d => {
-      state.data = d
-      markDirty()
-      const stat = `薬剤 ${d.drugs.length} / 疾患 ${d.diseases.length} / 輸液 ${d.ivFluidTables.reduce((n,s)=>n+(s.fluids?.length||0),0)}`
-      showToast(`インポート成功: ${stat}。「保存」で Gist に反映してください`, 'ok')
-      render()
-    }).catch(err => {
-      // 詳細をアラートで全文表示 (toast だと長文が切れるため)
-      console.error('[import-from-url] 失敗', err)
-      alert('インポート失敗\n\n' + err.message + '\n\n手動でファイル選択するか、上記の URL を直接ブラウザで開いて確認してください。')
-    })
-    return
-  }
-  if (act === 'merge-from-url') {
-    if (!confirm('index.html を取り込み、現在の Gist データに無い id の薬剤・疾患だけを「未確認」として追加します。既存データは変更しません。よろしいですか？')) return
+    // 安全なマージ動作: 既存データを保持し、index.html にあって現在の Gist データに無い id だけを未確認として追加
+    if (!confirm('index.html を取り込み、現在の Gist データに無い id の薬剤・疾患だけを「未確認」として追加します。既存の編集内容は変更しません。よろしいですか？')) return
     showToast('取得中…', 'ok')
     importFromUrl().then(d => {
       const existingDrugIds = new Set((state.data.drugs || []).map(x => x.id))
       const existingDiseaseIds = new Set((state.data.diseases || []).map(x => x.id))
       const newDrugs = (d.drugs || []).filter(x => x && x.id && !existingDrugIds.has(x.id)).map(x => ({...x, pending: true}))
       const newDiseases = (d.diseases || []).filter(x => x && x.id && !existingDiseaseIds.has(x.id)).map(x => ({...x, pending: true}))
-      // カテゴリも追加 (重複しないように)
       const newDrugCats = (d.drugCategories || []).filter(c => !(state.data.drugCategories || []).includes(c))
       const newDiseaseCats = (d.diseaseCategories || []).filter(c => !(state.data.diseaseCategories || []).includes(c))
       if (newDrugs.length === 0 && newDiseases.length === 0 && newDrugCats.length === 0 && newDiseaseCats.length === 0) {
@@ -1306,8 +1291,24 @@ function onClick(e) {
       showToast(msg, 'ok')
       render()
     }).catch(err => {
-      console.error('[merge-from-url] 失敗', err)
-      alert('マージ失敗\n\n' + err.message)
+      console.error('[import-from-url] 失敗', err)
+      alert('インポート失敗\n\n' + err.message + '\n\n手動でファイル選択するか、上記の URL を直接ブラウザで開いて確認してください。')
+    })
+    return
+  }
+  if (act === 'import-from-url-replace') {
+    if (!confirm('⚠️ 全データを上書きします。現在の編集内容は全て失われます。本当によろしいですか？')) return
+    if (!confirm('もう一度確認します: 編集内容を全て破棄して index.html の内容で置換しますか？')) return
+    showToast('取得中…', 'ok')
+    importFromUrl().then(d => {
+      state.data = d
+      markDirty()
+      const stat = `薬剤 ${d.drugs.length} / 疾患 ${d.diseases.length} / 輸液 ${d.ivFluidTables.reduce((n,s)=>n+(s.fluids?.length||0),0)}`
+      showToast(`置換成功: ${stat}。「保存」で Gist に反映してください`, 'ok')
+      render()
+    }).catch(err => {
+      console.error('[import-from-url-replace] 失敗', err)
+      alert('インポート失敗\n\n' + err.message)
     })
     return
   }
