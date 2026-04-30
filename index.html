@@ -404,6 +404,28 @@ let DRUGS = [
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:30,maxDosePerDay:1500,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'senega-syrup-v5', genericName:'セネガシロップ', abbreviation:'セネガ', brandNames:['セネガシロップ'], category:'去痰薬', route:'内服', formulations:['シロップ'], adultDose:'10〜35mL/日',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.2〜0.7mL/kg/日',frequency:'分3',notes:'最大 10〜35mL/日'}], notes:'ブロムヘキシン (ビソルボン) は内服・吸入ともに小児に対する安全性未確立。去痰薬の併用 (ムコダイン+ムコソルバン) は有効とのエビデンスはない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 抗インフルエンザウイルス薬 (小児の薬の選び方・使い方 第5版)
+  { id:'baloxavir-v5', genericName:'バロキサビル マルボキシル', abbreviation:'バロキサビル', brandNames:['ゾフルーザ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'内服', formulations:['顆粒 2%分包','錠 10mg','錠 20mg'], adultDose:'20mg錠2錠 または 顆粒4包 を単回経口投与',
+    pediatricDoses:[
+      {ageLabel:'12歳未満 体重10〜20kg未満',ageMaxMonths:144,purpose:'治療',fixedDose:'10mg錠 1錠 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重20〜40kg未満',ageMaxMonths:144,purpose:'治療',fixedDose:'20mg錠 1錠 または 顆粒2包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重40kg以上',ageMaxMonths:144,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
+    ], notes:'いずれも単回経口投与。日本小児科学会は2018-2019シーズンA香港型耐性率70%超・発熱再燃の報告から、12歳未満への積極的投与を推奨していない。インフルエンザウイルスのmRNA合成を阻害。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'laninamivir-v5', genericName:'ラニナミビル オクタン酸エステル水和物', abbreviation:'ラニナミビル', brandNames:['イナビル'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'吸入', formulations:['吸入粉末剤 20mg/キット','吸入懸濁用 160mgセット'], adultDose:'40mg (2キット) を単回吸入',
+    pediatricDoses:[
+      {ageLabel:'10歳未満',ageMaxMonths:120,purpose:'治療',fixedDose:'20mg (1キット) を単回吸入',frequency:'単回'},
+      {ageLabel:'10歳以上',ageMinMonths:120,purpose:'治療',fixedDose:'40mg (2キット) を単回吸入',frequency:'単回'},
+    ], notes:'懸濁用 160mgセットは生理食塩液2mLで懸濁し、ネブライザを用いて単回吸入投与。ノイラミニダーゼ阻害薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'peramivir-v5', genericName:'ペラミビル水和物', abbreviation:'ペラミビル', brandNames:['ラピアクタ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'静注', formulations:['点滴静注液バッグ 300mg','点滴静注液バイアル 150mg'], adultDose:'300〜600mg を単回点滴静注',
+    pediatricDoses:[{ageLabel:'小児',purpose:'治療',dosePerKg:10,maxDosePerDay:600,frequency:'分1',notes:'15分以上かけて単回点滴静注。症状に応じて連日反復投与できる'}], notes:'低出生体重児・新生児に対する安全性は確立していない。ノイラミニダーゼ阻害薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 水痘・帯状疱疹に対する抗ウイルス薬 (小児の薬の選び方・使い方 第5版)
+  { id:'aciclovir-v5', genericName:'アシクロビル', abbreviation:'ACV', brandNames:['ゾビラックス'], category:'抗ウイルス薬', subcategory:'抗ヘルペス薬', route:'内服', formulations:['シロップ 8%','DS 80%','顆粒 40%','錠 200mg','錠 400mg'], adultDose:'帯状疱疹: 4,000mg/日 分5　単純疱疹: 1,000mg/日 分5',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:80,maxDosePerDay:3200,frequency:'分4',notes:'水痘・帯状疱疹に対する小児用量も同量'}], notes:'錠は水痘に保険適用なし。帯状疱疹に対する小児用量も同様。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'valaciclovir-v5', genericName:'バラシクロビル塩酸塩', abbreviation:'VACV', brandNames:['バルトレックス'], category:'抗ウイルス薬', subcategory:'抗ヘルペス薬', route:'内服', formulations:['顆粒 50%','錠 500mg'], adultDose:'帯状疱疹: 3,000mg/日 分3　単純疱疹: 1,000mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:75,maxDosePerDay:3000,frequency:'分3',notes:'水痘5日間、帯状疱疹7日間投与'}], notes:'乳児に対する安全性未確立。帯状疱疹に対する小児用量も同量。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
 ]
 
 // ============================================================
