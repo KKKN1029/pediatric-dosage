@@ -162,7 +162,7 @@ let DRUGS = [
   // βラクタム系
   { id:'amoxicillin', genericName:'アモキシシリン水和物', abbreviation:'AMPC', brandNames:['サワシリン','パセトシン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'250〜500mg 1日3〜4回',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,maxDosePerDay:1500,frequency:'分3',notes:'重症例では最大90mg/kg/日'}], notes:'ペニシリンアレルギーに注意。', references:['新 小児薬用量 改訂第9版']},
-  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン','クラバモックス'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['オーグメンチン配合錠 250RS (AMPC 250mg)',{text:'クラバモックス小児用配合DS 600mg/g',notes:'1包 1.01g中 AMPC 600mg・CVA 42.9mg'}], adultDose:'AMPC として 750〜1000mg/日 分3',
+  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン','クラバモックス'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['オーグメンチン配合錠 250RS (AMPC 250mg)',{text:'クラバモックス小児用配合DS 600mg/g (1.01g/包)',notes:'1包1.01g中 AMPC 600mg・CVA 42.9mg'}], adultDose:'AMPC として 750〜1000mg/日 分3',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:45,maxDosePerDay:1500,frequency:'分3',unit:'mg',activeLabel:'AMPC',notes:'AMPC量として計算'}], notes:'βラクタマーゼ産生菌にも有効。', references:['新 小児薬用量 改訂第9版']},
   // セフェム系
   { id:'cefdinir', genericName:'セフジニル', abbreviation:'CFDN', brandNames:['セフゾン'], category:'セフェム系', route:'内服', formulations:['カプセル 100mg','細粒 10%'], adultDose:'300mg/日 分3',
@@ -734,7 +734,12 @@ function parseFormulation(s) {
   if (m) return { kind: 'mg_per_mL', value: +m[1], displayUnit: 'mL', formText: text }
   // X mg/g (DS, 細粒)
   m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*g/i)
-  if (m) return { kind: 'mg_per_g', value: +m[1], displayUnit: 'g', formText: text }
+  if (m) {
+    // 副情報として「Y g/包」(1包あたりのg数) も拾う → 換算結果に "X g (= P 包)" を併記
+    const ppm = text.match(/(\d+(?:\.\d+)?)\s*g\s*\/\s*包/i)
+    const perPacketG = ppm ? +ppm[1] : null
+    return { kind: 'mg_per_g', value: +m[1], displayUnit: 'g', formText: text, perPacketG }
+  }
   // X mg/包 (分包品)
   m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*包/)
   if (m) return { kind: 'mg_per_unit', value: +m[1], displayUnit: '包', formText: text }
@@ -787,12 +792,13 @@ function guessUnitLabel(text) {
   if (/坐剤|坐薬|座薬|suppos/i.test(text)) return '個'
   if (/吸入|inhal|ブリスター/i.test(text)) return '吸入'
   if (/パッチ|貼付|テープ/.test(text)) return '枚'
-  // 粉末・顆粒系 (錠剤ではない: 包/分包/瓶)
+  // 包・分包 (1包あたりの記載があるもの)
   if (/分包|包/.test(text)) return '包'
-  if (/DS|ドライシロップ|ドライシ|細粒|顆粒|散剤|散\b|末|粉末/.test(text)) return '包'
+  // 粉末・顆粒系 (DS等は重量で計量するため '錠' や '包' ではなく g)
+  if (/DS|ドライシロップ|ドライシ|細粒|顆粒|散剤|散\b|末|粉末/.test(text)) return 'g'
   // 液剤系
   if (/シロップ|液|ドロップ/.test(text)) return 'mL'
-  return '個'  // デフォルト ('錠' は誤誘導しやすいので '個' に変更)
+  return '個'  // デフォルト
 }
 
 // 必要 mg 量から、各 formulation で必要な実数量を計算する。
@@ -819,8 +825,13 @@ function buildFormulationAmounts(needMg, forms, dose) {
     let amount
     if (p.kind === 'mg_per_mL' || p.kind === 'mg_per_g' || p.kind === 'mg_per_unit') {
       amount = needMg / p.value
-      const amountStr = `${round(amount)} ${p.displayUnit}`
-      // mg/g 形式の場合: 製剤の合計g数も計算結果として有用
+      let amountStr = `${round(amount)} ${p.displayUnit}`
+      // mg/g 形式 + 1包あたりのg数が指定されていれば包数を併記
+      // 例: "クラバモックス配合DS 600mg/g (1.01g/包)" → "2.1 g (= 2.08 包)"
+      if (p.kind === 'mg_per_g' && p.perPacketG && p.perPacketG > 0) {
+        const packets = amount / p.perPacketG
+        amountStr = `${round(amount)} g (= ${round(packets)} 包)`
+      }
       // notes (例: "1包 1.01g中 AMPC 600mg") を補助情報として返す
       return { formText: p.formText, amountStr, notes: norm.notes || '', amountValue: amount, amountUnit: p.displayUnit }
     }
