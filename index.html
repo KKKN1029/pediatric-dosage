@@ -834,18 +834,20 @@ function calcDoseResult(dose, weight) {
   if (dose.fixedDose) return {text: dose.fixedDose, perDose: null}
   if (!weight || weight <= 0) return null
   const unit = dose.unit || 'mg'
+  // 力価ラベル (例: "AMPC として") を 1日量・1回量の文頭に付ける
+  const activePrefix = dose.activeLabel ? `${dose.activeLabel} ` : ''
   let text, min, max
   if (dose.dosePerKg) {
     const t = round1(Math.min(dose.dosePerKg*weight, dose.maxDosePerDay??Infinity))
-    text=`${t} ${unit}/日`; min=max=t
+    text=`${activePrefix}${t} ${unit}/日`; min=max=t
   } else if (dose.dosePerKgMin!=null && dose.dosePerKgMax!=null) {
     const lo=round1(Math.min(dose.dosePerKgMin*weight, dose.maxDosePerDay??Infinity))
     const hi=round1(Math.min(dose.dosePerKgMax*weight, dose.maxDosePerDay??Infinity))
-    text = lo===hi ? `${lo} ${unit}/日` : `${lo}〜${hi} ${unit}/日`; min=lo; max=hi
+    text = lo===hi ? `${activePrefix}${lo} ${unit}/日` : `${activePrefix}${lo}〜${hi} ${unit}/日`; min=lo; max=hi
   } else return null
   let perDose=null
   const m=dose.frequency?.match(/分(\d+)/)
-  if (m) { const n=parseInt(m[1]); perDose=min===max?`1回 ${round1(min/n)} ${unit}`:`1回 ${round1(min/n)}〜${round1(max/n)} ${unit}` }
+  if (m) { const n=parseInt(m[1]); perDose=min===max?`1回 ${activePrefix}${round1(min/n)} ${unit}`:`1回 ${activePrefix}${round1(min/n)}〜${round1(max/n)} ${unit}` }
   return {text, perDose}
 }
 
@@ -993,9 +995,10 @@ const infoRow = (l,v) => `<div class="flex px-4 py-3 gap-3"><span class="text-sm
 function doseCard(dose, weight, compact=false, drug=null) {
   const result = calcDoseResult(dose, weight)
   const unit = dose.unit || 'mg'
+  const activePref = dose.activeLabel ? `${dose.activeLabel} として ` : ''
   const prescText = dose.fixedDose ? dose.fixedDose
-    : dose.dosePerKg ? `${dose.dosePerKg} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
-    : dose.dosePerKgMin!=null ? `${dose.dosePerKgMin}〜${dose.dosePerKgMax} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
+    : dose.dosePerKg ? `${activePref}${dose.dosePerKg} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
+    : dose.dosePerKgMin!=null ? `${activePref}${dose.dosePerKgMin}〜${dose.dosePerKgMax} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
     : ''
   // 固定量の場合は処方内容そのものを青ボックスで大きく表示し、上の灰色プレ表示は省略する。
   // mg/kg の場合は、灰色の処方式 (例: 0.06 mg/kg/日) と青の計算結果 (例: 0.6 mg/日) を分けて表示。
@@ -1005,39 +1008,40 @@ function doseCard(dose, weight, compact=false, drug=null) {
         <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
         ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
       </div>`
-  // 製剤量換算 (mg ベースの用量のみ対応)
+  // 製剤量換算 (mg / g / μg ベースの用量に対応)
+  // 単位 → mg 変換係数。null は換算不可 (mL, IU, 包, カプセル など)
+  const unitMgFactor = (u) => u === 'mg' ? 1 : u === 'g' ? 1000 : (u === 'μg' || u === 'ug') ? 0.001 : null
+  const factor = unitMgFactor(unit)
   let formulationsHtml = ''
-  if (result && drug && unit === 'mg' && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
-    // 1日量と1回量の両方を計算
+  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
+    // 1日量と1回量の両方を計算 (dose.unit 単位で算出後に mg へ変換)
     const freq = (() => { const m = dose.frequency?.match(/分(\d+)/); return m ? parseInt(m[1]) : null })()
-    let dailyMin, dailyMax
+    let dailyMin, dailyMax  // dose.unit 単位
     if (dose.dosePerKg) {
       dailyMin = dailyMax = Math.min(dose.dosePerKg * weight, dose.maxDosePerDay ?? Infinity)
     } else if (dose.dosePerKgMin != null && dose.dosePerKgMax != null) {
       dailyMin = Math.min(dose.dosePerKgMin * weight, dose.maxDosePerDay ?? Infinity)
       dailyMax = Math.min(dose.dosePerKgMax * weight, dose.maxDosePerDay ?? Infinity)
     } else if (dose.fixedDose) {
-      // 「X mg/日」「X〜Y mg/日」のパターンのみ 1日 mg 量として抽出 (per-dose との混同を避けるため /日 必須)
+      // 「X mg/日」「X g/日」「X μg/日」「範囲」のパターンを抽出 (dose.unit と一致しない場合も対応)
       const fd = String(dose.fixedDose)
-      let mm = fd.match(/(\d+(?:\.\d+)?)\s*[〜~]\s*(\d+(?:\.\d+)?)\s*mg\s*\/\s*日/i)
+      const unitPat = unit === 'g' ? 'g' : unit === 'μg' || unit === 'ug' ? '(?:μg|ug)' : 'mg'
+      let mm = fd.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*[〜~]\\s*(\\d+(?:\\.\\d+)?)\\s*${unitPat}\\s*/\\s*日`, 'i'))
       if (mm) { dailyMin = parseFloat(mm[1]); dailyMax = parseFloat(mm[2]) }
       else {
-        const m1 = fd.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*日/i)
+        const m1 = fd.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${unitPat}\\s*/\\s*日`, 'i'))
         if (m1) dailyMin = dailyMax = parseFloat(m1[1])
         else {
-          // 「1回 X mg を 1日 N 回」パターン → daily = X * N
-          const m2 = fd.match(/(\d+(?:\.\d+)?)\s*mg.*?1日\s*(\d+)\s*回/)
-          if (m2) {
-            const per = parseFloat(m2[1]); const n = parseInt(m2[2])
-            dailyMin = dailyMax = per * n
-          }
+          const m2 = fd.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${unitPat}.*?1日\\s*(\\d+)\\s*回`, 'i'))
+          if (m2) { dailyMin = dailyMax = parseFloat(m2[1]) * parseInt(m2[2]) }
         }
       }
     }
     if (dailyMin != null && dailyMax != null) {
-      // 各 formulation について 1日量 と 1回量 を同じ行に表示
-      // 例: シロップ 8%   10 mL (1回: 2.5 mL)
-      const buildAmount = (mgMin, mgMax) => {
+      // dose の単位を mg に変換して buildFormulationAmounts に渡す
+      const toMg = v => v * factor
+      const buildAmount = (valMin, valMax) => {
+        const mgMin = toMg(valMin); const mgMax = toMg(valMax)
         const list = buildFormulationAmounts(mgMin, drug.formulations, dose)
         if (mgMin === mgMax) return list.map(a => ({ formText: a.formText, str: a.amountStr }))
         const maxList = buildFormulationAmounts(mgMax, drug.formulations, dose)
@@ -1049,6 +1053,17 @@ function doseCard(dose, weight, compact=false, drug=null) {
       const daily = buildAmount(dailyMin, dailyMax)
       const perDose = freq ? buildAmount(dailyMin/freq, dailyMax/freq) : []
       if (daily.length > 0) {
+        // 力価ラベル付きの場合: "AMPC 換算 X mg" のような表示
+        const activePrefix = dose.activeLabel ? `${dose.activeLabel} ` : ''
+        const fmtUnit = unit
+        const fmtAmount = v => {
+          if (v >= 100) return Math.round(v).toString()
+          if (v >= 10) return (Math.round(v * 10) / 10).toString()
+          return (Math.round(v * 100) / 100).toString()
+        }
+        const activeStr = dailyMin === dailyMax
+          ? `${activePrefix}${fmtAmount(dailyMin)} ${fmtUnit}/日`
+          : `${activePrefix}${fmtAmount(dailyMin)}〜${fmtAmount(dailyMax)} ${fmtUnit}/日`
         const headerLabel = freq ? `1日量 (1回量 ${dose.frequency})` : '1日量'
         const rows = daily.map(d => {
           const p = perDose.find(x => x.formText === d.formText)
@@ -1058,8 +1073,12 @@ function doseCard(dose, weight, compact=false, drug=null) {
             <span class="text-gray-800 font-semibold whitespace-nowrap">${d.str}${perStr}</span>
           </div>`
         }).join('')
+        const activeBadge = dose.activeLabel
+          ? `<div class="text-[11px] text-emerald-700 font-semibold mb-1">${esc(activeStr)}</div>`
+          : ''
         formulationsHtml = `
           <div class="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+            ${activeBadge}
             <div class="text-[11px] text-gray-500 font-medium mb-1">${headerLabel}</div>
             <div class="space-y-0.5">${rows}</div>
           </div>`

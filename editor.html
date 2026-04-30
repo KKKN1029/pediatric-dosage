@@ -415,6 +415,7 @@ function newDose() {
     ageLabel: '全年齢',
     purpose: '治療',
     frequency: '分3',
+    unit: 'mg',
   }
 }
 
@@ -736,14 +737,37 @@ function drugFormHTML(d) {
 }
 
 // 剤形 1 件を編集する行 (テキスト入力 + 詳細展開で年齢/体重制約)
+// "錠 5mg・10mg" → ["錠 5mg", "錠 10mg"] 等の分割を試みる
+function trySplitFormulation(text) {
+  if (!text) return null
+  // 形式1: 各エントリに単位が付いている (例: "錠 5mg・10mg", "OD錠 2.5mg・5mg")
+  let m = text.match(/^(.+?)\s+((?:\d+(?:\.\d+)?\s*(?:mg|μg|ug|g|mL))(?:\s*[・,]\s*\d+(?:\.\d+)?\s*(?:mg|μg|ug|g|mL))+)\s*$/i)
+  if (m) {
+    const prefix = m[1].trim()
+    const amounts = m[2].split(/[・,]/).map(s => s.trim()).filter(Boolean)
+    if (amounts.length >= 2) return amounts.map(a => `${prefix} ${a}`)
+  }
+  // 形式2: 数字のみ並列・末尾に共通単位 (例: "錠 200・300mg", "坐剤 100/200/400mg")
+  m = text.match(/^(.+?)\s+((?:\d+(?:\.\d+)?)(?:\s*[・,/]\s*\d+(?:\.\d+)?)+)\s*(mg|μg|ug|g|mL)\s*$/i)
+  if (m) {
+    const prefix = m[1].trim()
+    const numbers = m[2].split(/[・,/]/).map(s => s.trim()).filter(Boolean)
+    const unit = m[3]
+    if (numbers.length >= 2) return numbers.map(n => `${prefix} ${n}${unit}`)
+  }
+  return null
+}
+
 function formulationRowHTML(f, fi) {
   // string も object も受け付ける
   const obj = (typeof f === 'string') ? { text: f } : (f || { text: '' })
   const hasConstraint = obj.ageMinMonths != null || obj.ageMaxMonths != null || obj.weightMinKg != null || obj.weightMaxKg != null || (obj.notes && obj.notes.trim() !== '')
+  const splittable = trySplitFormulation(obj.text)
   return `
     <div class="border border-gray-200 rounded-lg bg-white">
       <div class="flex items-center gap-1 p-2">
         <input data-bind="form.${fi}.text" type="text" value="${esc(obj.text || '')}" class="input flex-1" placeholder="例: 錠 250mg / 細粒 10% / 点滴静注液バッグ 300mg" />
+        ${splittable ? `<button data-act="form-split" data-fi="${fi}" class="btn-ghost" style="color:#2563eb;font-size:11px;padding:0.25rem 0.4rem;" title="${splittable.length}件に分割: ${esc(splittable.join(' / '))}">⊟ 分割</button>` : ''}
         <button data-act="form-up" data-fi="${fi}" class="btn-ghost" title="上へ">${ICON.chevUp}</button>
         <button data-act="form-down" data-fi="${fi}" class="btn-ghost" title="下へ">${ICON.chevDown}</button>
         <button data-act="form-del" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">${ICON.x}</button>
@@ -802,6 +826,16 @@ function doseRowHTML(dose, i) {
         <!-- 用量本体 -->
         <div>
           <div class="group-label">用量 <span style="color:#dc2626;font-weight:500;text-transform:none;letter-spacing:0;">（A・B・C のいずれか1つを使用）</span></div>
+          <!-- 単位選択 -->
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <label class="label" style="margin:0;">単位</label>
+            <select data-bind="dose.${i}.unit" class="input" style="max-width:180px;">
+              ${['mg','g','μg','mEq','IU','mL','包','カプセル'].map(u => `<option value="${u}" ${(dose.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+            <label class="label" style="margin:0;">力価ラベル <span class="text-gray-400 font-normal">(任意)</span></label>
+            <input data-bind="dose.${i}.activeLabel" type="text" value="${esc(dose.activeLabel || '')}" class="input" style="max-width:160px;" placeholder="例: AMPC" />
+            <span class="text-[11px] text-gray-500">合剤の力価計算用 (例: AMPC として X mg/kg/日)</span>
+          </div>
           <div class="space-y-3">
 
             <!-- A: 固定用量 -->
@@ -813,29 +847,29 @@ function doseRowHTML(dose, i) {
               <input data-bind="dose.${i}.fixedDose" type="text" value="${esc(dose.fixedDose || '')}" class="input" placeholder="例: 5mg/日、10mg を 1日2回" />
             </div>
 
-            <!-- B: mg/kg 単一 -->
+            <!-- B: 単位/kg 単一 -->
             <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
               <label class="label" style="display:flex;align-items:center;gap:0.4rem;">
                 <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:0.1rem 0.4rem;border-radius:0.25rem;">B</span>
-                mg/kg/日（単一値）
+                ${esc(dose.unit||'mg')}/kg/日（単一値）
               </label>
               <div style="display:flex;align-items:center;gap:0.5rem;">
                 <input data-bind="dose.${i}.dosePerKg" type="number" step="0.01" value="${dose.dosePerKg ?? ''}" class="input" style="max-width:140px;" placeholder="例: 6" />
-                <span class="text-sm text-gray-500">mg/kg/日</span>
+                <span class="text-sm text-gray-500">${esc(dose.unit||'mg')}/kg/日</span>
               </div>
             </div>
 
-            <!-- C: mg/kg 範囲 -->
+            <!-- C: 単位/kg 範囲 -->
             <div style="background:#fff;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;">
               <label class="label" style="display:flex;align-items:center;gap:0.4rem;">
                 <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:0.1rem 0.4rem;border-radius:0.25rem;">C</span>
-                mg/kg/日（範囲）
+                ${esc(dose.unit||'mg')}/kg/日（範囲）
               </label>
               <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                 <input data-bind="dose.${i}.dosePerKgMin" type="number" step="0.01" value="${dose.dosePerKgMin ?? ''}" class="input" style="max-width:120px;" placeholder="最小" />
                 <span class="text-sm text-gray-500">〜</span>
                 <input data-bind="dose.${i}.dosePerKgMax" type="number" step="0.01" value="${dose.dosePerKgMax ?? ''}" class="input" style="max-width:120px;" placeholder="最大" />
-                <span class="text-sm text-gray-500">mg/kg/日</span>
+                <span class="text-sm text-gray-500">${esc(dose.unit||'mg')}/kg/日</span>
               </div>
             </div>
 
@@ -844,7 +878,7 @@ function doseRowHTML(dose, i) {
               <label class="label">1日最大量（上限）</label>
               <div style="display:flex;align-items:center;gap:0.5rem;">
                 <input data-bind="dose.${i}.maxDosePerDay" type="number" value="${dose.maxDosePerDay ?? ''}" class="input" style="max-width:140px;" placeholder="例: 1500" />
-                <span class="text-sm text-gray-500">mg/日</span>
+                <span class="text-sm text-gray-500">${esc(dose.unit||'mg')}/日</span>
               </div>
             </div>
           </div>
@@ -1420,6 +1454,23 @@ function onClick(e) {
     if (act === 'form-del') { d.formulations.splice(i, 1) }
     markDirty(); render(); return
   }
+  if (act === 'form-split') {
+    const d = findDrug(state.editingDrugId); if (!d) return
+    if (!Array.isArray(d.formulations)) return
+    const i = +t.dataset.fi
+    const entry = d.formulations[i]
+    const text = typeof entry === 'string' ? entry : (entry && entry.text) || ''
+    const split = trySplitFormulation(text)
+    if (!split) return
+    // 制約付きエントリの場合は同じ制約を各分割先にも継承する
+    const base = (typeof entry === 'object' && entry) ? entry : null
+    const hasConstraint = base && (base.ageMinMonths != null || base.ageMaxMonths != null || base.weightMinKg != null || base.weightMaxKg != null || (base.notes && base.notes !== ''))
+    const newEntries = split.map(s => hasConstraint ? { ...base, text: s } : s)
+    d.formulations.splice(i, 1, ...newEntries)
+    markDirty(); render()
+    showToast(`${split.length}件に分割しました`, 'ok')
+    return
+  }
 
   // 疾患
   if (act === 'add-disease') { const d = newDisease(); state.data.diseases.push(d); state.editingDiseaseId = d.id; markDirty(); render(); return }
@@ -1628,9 +1679,26 @@ function applyBind(bind, value, inputType) {
     markDirty(); return
   }
   if (root === 'cat') {
+    // カテゴリ名変更時は、そのカテゴリに所属する薬剤・疾患の category も自動更新する
     const kind = parts[1]; const i = +parts[2]
     const arr = kind === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
-    arr[i] = value; markDirty(); return
+    const oldName = arr[i]
+    if (oldName === value) { arr[i] = value; markDirty(); return }
+    arr[i] = value
+    if (kind === 'drug') {
+      let count = 0
+      for (const d of (state.data.drugs || [])) {
+        if (d.category === oldName) { d.category = value; count++ }
+      }
+      if (count > 0) showToast(`「${oldName}」→「${value}」に ${count}件 の薬剤を移動しました`, 'ok')
+    } else {
+      let count = 0
+      for (const d of (state.data.diseases || [])) {
+        if (d.category === oldName) { d.category = value; count++ }
+      }
+      if (count > 0) showToast(`「${oldName}」→「${value}」に ${count}件 の疾患を移動しました`, 'ok')
+    }
+    markDirty(); return
   }
 }
 
