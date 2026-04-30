@@ -994,12 +994,18 @@ function doseCard(dose, weight, compact=false, drug=null) {
     : dose.dosePerKg ? `${dose.dosePerKg} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
     : dose.dosePerKgMin!=null ? `${dose.dosePerKgMin}〜${dose.dosePerKgMax} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
     : ''
-  const resultHtml = result
-    ? `<div class="bg-blue-50 rounded-lg p-3 mt-2">
-        <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
-        ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
-      </div>`
-    : parseFloat(weight)>0 ? `<div class="text-gray-400 text-xs mt-1">この年齢では対象外</div>` : ''
+  // 固定量の場合は処方内容と計算結果が同じテキストになるため、青ボックスは出さず
+  // 灰色の処方文 + 用法 (frequency/duration) のみ表示する。
+  const isFixedDose = !!dose.fixedDose
+  const resultHtml = !result ? (parseFloat(weight)>0 ? `<div class="text-gray-400 text-xs mt-1">この年齢では対象外</div>` : '')
+    : isFixedDose
+      ? (dose.frequency || dose.duration
+          ? `<div class="text-gray-600 text-sm mt-1">${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`
+          : '')
+      : `<div class="bg-blue-50 rounded-lg p-3 mt-2">
+          <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
+          ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
+        </div>`
   // 製剤量換算 (mg ベースの用量のみ対応)
   let formulationsHtml = ''
   if (result && drug && unit === 'mg' && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
@@ -1011,6 +1017,23 @@ function doseCard(dose, weight, compact=false, drug=null) {
     } else if (dose.dosePerKgMin != null && dose.dosePerKgMax != null) {
       dailyMin = Math.min(dose.dosePerKgMin * weight, dose.maxDosePerDay ?? Infinity)
       dailyMax = Math.min(dose.dosePerKgMax * weight, dose.maxDosePerDay ?? Infinity)
+    } else if (dose.fixedDose) {
+      // 「X mg/日」「X〜Y mg/日」のパターンのみ 1日 mg 量として抽出 (per-dose との混同を避けるため /日 必須)
+      const fd = String(dose.fixedDose)
+      let mm = fd.match(/(\d+(?:\.\d+)?)\s*[〜~]\s*(\d+(?:\.\d+)?)\s*mg\s*\/\s*日/i)
+      if (mm) { dailyMin = parseFloat(mm[1]); dailyMax = parseFloat(mm[2]) }
+      else {
+        const m1 = fd.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*日/i)
+        if (m1) dailyMin = dailyMax = parseFloat(m1[1])
+        else {
+          // 「1回 X mg を 1日 N 回」パターン → daily = X * N
+          const m2 = fd.match(/(\d+(?:\.\d+)?)\s*mg.*?1日\s*(\d+)\s*回/)
+          if (m2) {
+            const per = parseFloat(m2[1]); const n = parseInt(m2[2])
+            dailyMin = dailyMax = per * n
+          }
+        }
+      }
     }
     if (dailyMin != null && dailyMax != null) {
       // 各 formulation について 1日量 と 1回量 を同じ行に表示

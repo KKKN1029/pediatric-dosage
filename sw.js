@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v18-compact-amount'
+const CACHE = 'pediatric-v19-fixed-dose-conv'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
