@@ -630,8 +630,12 @@ function drugsListHTML() {
         ${drugs.length === 0 ? `
           <div class="p-8 text-center text-sm text-gray-500">該当する薬剤がありません</div>
         ` : drugs.map(d => `
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" data-edit-drug="${esc(d.id)}">
-            <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 px-3 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+            <div class="flex flex-col gap-0.5 shrink-0">
+              <button data-act="drug-up" data-id="${esc(d.id)}" class="btn-ghost text-gray-400 hover:text-blue-600" style="padding:0.1rem 0.3rem;line-height:1;" title="上へ">${ICON.chevUp}</button>
+              <button data-act="drug-down" data-id="${esc(d.id)}" class="btn-ghost text-gray-400 hover:text-blue-600" style="padding:0.1rem 0.3rem;line-height:1;" title="下へ">${ICON.chevDown}</button>
+            </div>
+            <div class="flex-1 min-w-0 cursor-pointer" data-edit-drug="${esc(d.id)}">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.genericName || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-blue-50 text-blue-700">${esc(d.abbreviation)}</span>` : ''}
@@ -856,8 +860,12 @@ function diseasesListHTML() {
         ${diseases.length === 0 ? `
           <div class="p-8 text-center text-sm text-gray-500">該当する疾患がありません</div>
         ` : diseases.map(d => `
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" data-edit-disease="${esc(d.id)}">
-            <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 px-3 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+            <div class="flex flex-col gap-0.5 shrink-0">
+              <button data-act="disease-up" data-id="${esc(d.id)}" class="btn-ghost text-gray-400 hover:text-blue-600" style="padding:0.1rem 0.3rem;line-height:1;" title="上へ">${ICON.chevUp}</button>
+              <button data-act="disease-down" data-id="${esc(d.id)}" class="btn-ghost text-gray-400 hover:text-blue-600" style="padding:0.1rem 0.3rem;line-height:1;" title="下へ">${ICON.chevDown}</button>
+            </div>
+            <div class="flex-1 min-w-0 cursor-pointer" data-edit-disease="${esc(d.id)}">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.name || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-purple-50 text-purple-700">${esc(d.abbreviation)}</span>` : ''}
@@ -1336,6 +1344,15 @@ function onClick(e) {
     showToast(drug.pending ? '未確認にしました' : '確認済みに戻しました', 'ok')
     return
   }
+  if (act === 'drug-up' || act === 'drug-down') {
+    const id = t.dataset.id
+    const arr = state.data.drugs
+    const i = arr.findIndex(d => d.id === id)
+    if (i < 0) return
+    if (act === 'drug-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'drug-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    markDirty(); render(); return
+  }
   if (act === 'add-dose') {
     const d = findDrug(state.editingDrugId); d.pediatricDoses.push(newDose()); markDirty(); render(); return
   }
@@ -1364,6 +1381,15 @@ function onClick(e) {
     markDirty(); render()
     showToast(dis.pending ? '未確認にしました' : '確認済みに戻しました', 'ok')
     return
+  }
+  if (act === 'disease-up' || act === 'disease-down') {
+    const id = t.dataset.id
+    const arr = state.data.diseases
+    const i = arr.findIndex(d => d.id === id)
+    if (i < 0) return
+    if (act === 'disease-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'disease-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    markDirty(); render(); return
   }
   if (act === 'add-section') {
     const d = findDisease(state.editingDiseaseId); d.sections.push(newSection()); markDirty(); render(); return

@@ -686,6 +686,104 @@ function searchDiseasesQ(q) {
 // ============================================================
 
 function round1(n) { return Math.round(n*10)/10 }
+// 製剤文字列から濃度を解釈し、必要 mg を実際の量 (g/mL/mg/錠/包/V) に換算する。
+//   戻り値: { label, amount }[] または [] (該当なし)
+//   amount は文字列で、単位込みで返す ("3 g", "12.5 mL", "1.5 錠" など)
+//
+// 認識する記法:
+//   "細粒 10%"        → solid (粉/末/細粒/顆粒/DS/散) → X% = (X*10) mg/g
+//   "シロップ 0.5mg/mL" → liquid → X mg/mL
+//   "シロップ 0.2%"   → liquid → X% = (X*10) mg/mL
+//   "DS 100mg/g"     → solid → X mg/g
+//   "錠 250mg"        → 1錠あたり X mg (その他: カプセル, OD錠, チュアブル錠, 散剤..)
+//   "注射用 1g/V"     → 1V あたり X g (バイアル換算)
+//   "顆粒 4mg/包"     → 1包あたり X mg
+function parseFormulation(s) {
+  if (!s) return null
+  const text = String(s).trim()
+  // 区切り (空白) で本体名と濃度部分に分けるが、含むキーワードを判定するため全体も使う
+  const isLiquid = /シロップ|液|内用液|懸濁液|ドロップ|ドライシロップ|エリキシル|drops?|syrup/i.test(text)
+  const isSolid = /細粒|顆粒|散|末|粉|DS|ドライ|ドライシロップ|G\b|granul/i.test(text) && !isLiquid
+  // ドライシロップ (DS) は溶解前は固形だが、調剤時は固形として扱う (mg/g 表記が一般的)
+  // X mg/mL
+  let m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*ml/i)
+  if (m) return { kind: 'mg_per_mL', value: +m[1], displayUnit: 'mL', formText: text }
+  // X mg/g (DS, 細粒)
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*g/i)
+  if (m) return { kind: 'mg_per_g', value: +m[1], displayUnit: 'g', formText: text }
+  // X mg/包 (分包品)
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*包/)
+  if (m) return { kind: 'mg_per_unit', value: +m[1], displayUnit: '包', formText: text }
+  // X mg/V (バイアル, 注射剤)
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*V/i)
+  if (m) return { kind: 'mg_per_unit', value: +m[1], displayUnit: 'V', formText: text }
+  m = text.match(/(\d+(?:\.\d+)?)\s*g\s*\/\s*V/i)
+  if (m) return { kind: 'mg_per_unit', value: +m[1] * 1000, displayUnit: 'V', formText: text }
+  // X mg/ブリスター (吸入剤)
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*ブリスター/)
+  if (m) return { kind: 'mg_per_unit', value: +m[1], displayUnit: 'ブリスター', formText: text }
+  // X% (濃度)
+  m = text.match(/(\d+(?:\.\d+)?)\s*%/)
+  if (m) {
+    const pct = +m[1]
+    if (isLiquid) return { kind: 'mg_per_mL', value: pct * 10, displayUnit: 'mL', formText: text }
+    if (isSolid) return { kind: 'mg_per_g', value: pct * 10, displayUnit: 'g', formText: text }
+    // どちらか不明 → 固形扱い (DS や細粒/散で % 表記が圧倒的に多い)
+    return { kind: 'mg_per_g', value: pct * 10, displayUnit: 'g', formText: text }
+  }
+  // 単位用量 (錠, カプセル, 坐剤, OD錠, チュアブル錠 ..)
+  // 例: "錠 250mg" / "錠 100/200mg" / "錠 5mg・10mg" / "坐剤 100/200/400mg" → 一番小さい代表値で換算
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg(?!\s*\/)/i)
+  if (m) {
+    // 単位ラベル推定
+    let unit = '錠'
+    if (/カプセル|capsule/i.test(text)) unit = 'カプセル'
+    else if (/坐剤|坐薬|座薬|suppos/i.test(text)) unit = '個'
+    else if (/OD錠/.test(text)) unit = 'OD錠'
+    else if (/チュアブル/.test(text)) unit = '錠'
+    else if (/包/.test(text)) unit = '包'
+    return { kind: 'mg_per_unit', value: +m[1], displayUnit: unit, formText: text }
+  }
+  m = text.match(/(\d+(?:\.\d+)?)\s*g(?!\s*\/)/i)
+  if (m) {
+    return { kind: 'mg_per_unit', value: +m[1] * 1000, displayUnit: 'g', formText: text }
+  }
+  return null
+}
+
+// 必要 mg 量から、各 formulation で必要な実数量を計算する。
+//   needMg: 必要 mg 量 (単一値)
+//   forms: drug.formulations (string[])
+//   戻り値: { formText, amountStr }[]
+function buildFormulationAmounts(needMg, forms) {
+  if (!Array.isArray(forms) || forms.length === 0) return []
+  if (!isFinite(needMg) || needMg <= 0) return []
+  const round = (v) => {
+    if (!isFinite(v)) return '?'
+    if (v >= 100) return Math.round(v).toString()
+    if (v >= 10) return (Math.round(v * 10) / 10).toString()
+    return (Math.round(v * 100) / 100).toString()
+  }
+  return forms.map(f => {
+    const p = parseFormulation(f)
+    if (!p) return null
+    let amount
+    if (p.kind === 'mg_per_mL') {
+      amount = needMg / p.value
+      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
+    }
+    if (p.kind === 'mg_per_g') {
+      amount = needMg / p.value
+      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
+    }
+    if (p.kind === 'mg_per_unit') {
+      amount = needMg / p.value
+      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
+    }
+    return null
+  }).filter(Boolean)
+}
+
 function calcDoseResult(dose, weight) {
   if (!weight || weight <= 0) return null
   if (dose.fixedDose) return {text: dose.fixedDose, perDose: null}
@@ -846,7 +944,7 @@ function bindNumericInput(id, callback) {
 const purposeBadge = p => p&&p!=='両方' ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium ${p==='治療'?'bg-blue-100 text-blue-700':'bg-green-100 text-green-700'}">${p}</span>` : ''
 const infoRow = (l,v) => `<div class="flex px-4 py-3 gap-3"><span class="text-sm text-gray-500 w-20 shrink-0">${l}</span><span class="text-sm text-gray-800">${esc(v)}</span></div>`
 
-function doseCard(dose, weight, compact=false) {
+function doseCard(dose, weight, compact=false, drug=null) {
   const result = calcDoseResult(dose, weight)
   const unit = dose.unit || 'mg'
   const prescText = dose.fixedDose ? dose.fixedDose
@@ -859,6 +957,42 @@ function doseCard(dose, weight, compact=false) {
         ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
       </div>`
     : parseFloat(weight)>0 ? `<div class="text-gray-400 text-xs mt-1">この年齢では対象外</div>` : ''
+  // 製剤量換算 (mg ベースの用量のみ対応)
+  let formulationsHtml = ''
+  if (result && drug && unit === 'mg' && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
+    // 1日量と1回量の両方を計算
+    const freq = (() => { const m = dose.frequency?.match(/分(\d+)/); return m ? parseInt(m[1]) : null })()
+    let dailyMin, dailyMax
+    if (dose.dosePerKg) {
+      dailyMin = dailyMax = Math.min(dose.dosePerKg * weight, dose.maxDosePerDay ?? Infinity)
+    } else if (dose.dosePerKgMin != null && dose.dosePerKgMax != null) {
+      dailyMin = Math.min(dose.dosePerKgMin * weight, dose.maxDosePerDay ?? Infinity)
+      dailyMax = Math.min(dose.dosePerKgMax * weight, dose.maxDosePerDay ?? Infinity)
+    }
+    if (dailyMin != null && dailyMax != null) {
+      const fmtRow = (label, mgMin, mgMax) => {
+        const items = buildFormulationAmounts(mgMin, drug.formulations).map(a => {
+          let val = a.amountStr
+          if (mgMin !== mgMax) {
+            const max = buildFormulationAmounts(mgMax, drug.formulations).find(b => b.formText === a.formText)
+            if (max) val = a.amountStr.replace(/^([^ ]+)/, '$1') + '〜' + max.amountStr
+          }
+          return `<div class="flex justify-between gap-2 text-xs"><span class="text-gray-500 truncate">${esc(a.formText)}</span><span class="text-gray-800 font-semibold whitespace-nowrap">${val}</span></div>`
+        }).join('')
+        if (!items) return ''
+        return `<div class="space-y-0.5"><div class="text-[11px] text-gray-500 font-medium">${label}</div>${items}</div>`
+      }
+      const dailyHtml = fmtRow('1日量の換算', dailyMin, dailyMax)
+      const perDoseHtml = freq ? fmtRow(`1回量の換算 (${dose.frequency})`, dailyMin/freq, dailyMax/freq) : ''
+      if (dailyHtml || perDoseHtml) {
+        formulationsHtml = `
+          <div class="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 space-y-2">
+            ${dailyHtml}
+            ${perDoseHtml}
+          </div>`
+      }
+    }
+  }
   return `
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center justify-between">
@@ -868,6 +1002,7 @@ function doseCard(dose, weight, compact=false) {
       <div class="px-4 py-3">
         <div class="text-sm text-gray-500">${prescText}</div>
         ${resultHtml}
+        ${formulationsHtml}
         ${dose.notes?`<div class="mt-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">${esc(dose.notes)}</div>`:''}
       </div>
     </div>`
@@ -902,12 +1037,27 @@ function ageWeightInput() {
 function filteredDoses(drug) {
   const am = ageToMonths()
   if (am===undefined) return drug.pediatricDoses
-  const m = drug.pediatricDoses.filter(d => {
+  // 年齢が入力されている場合: 該当年齢の用量のみ表示。マッチが0件なら空配列を返す
+  // (最小年齢未満・最大年齢以上の用量は表示しない)
+  return drug.pediatricDoses.filter(d => {
     const minOk = d.ageMinMonths==null || am>=d.ageMinMonths
     const maxOk = d.ageMaxMonths==null || am<d.ageMaxMonths
     return minOk&&maxOk
   })
-  return m.length>0 ? m : drug.pediatricDoses
+}
+
+// 入力された年齢が、設定された小児用量の最小年齢を「すべて」下回っているかを判定。
+//   - 全ての pediatricDoses に ageMinMonths が設定されていて、
+//   - 入力年齢がすべての ageMinMonths 未満の場合 → true
+function isAgeUnderPediatric(drug) {
+  const am = ageToMonths()
+  if (am === undefined) return false
+  const doses = drug.pediatricDoses || []
+  if (doses.length === 0) return false
+  const minAges = doses.map(d => d.ageMinMonths).filter(v => v != null)
+  if (minAges.length === 0) return false
+  if (minAges.length < doses.length) return false  // 最小年齢未設定の用量があれば該当しない
+  return am < Math.min(...minAges)
 }
 
 // 入力された年齢が、設定された小児用量の最大年齢を「すべて」超えているかを判定。
@@ -946,7 +1096,25 @@ function adultDoseCard(drug, compact=false) {
 //   年齢が小児用量範囲を超えていれば成人量カード、そうでなければ通常の小児用量カードを並べる。
 function dosesHTML(drug, weight, compact=false) {
   if (isAgeOverPediatric(drug)) return adultDoseCard(drug, compact)
-  return filteredDoses(drug).map(d => doseCard(d, weight, compact)).join('')
+  if (isAgeUnderPediatric(drug)) {
+    return `
+      <div class="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div class="bg-gray-50 border-b border-gray-200 px-4 py-2">
+          <span class="text-sm font-semibold text-gray-700">適応外（最小年齢未満）</span>
+        </div>
+        <div class="px-4 py-3">
+          <div class="text-gray-500 text-xs leading-relaxed">入力された年齢がこの薬剤の小児用量設定の最小年齢を下回っています。<br/>必要に応じて担当医の判断で投与量を決定してください。</div>
+        </div>
+      </div>`
+  }
+  const matched = filteredDoses(drug)
+  if (matched.length === 0) {
+    return `
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center text-xs text-gray-500">
+        この年齢に該当する用量設定がありません
+      </div>`
+  }
+  return matched.map(d => doseCard(d, weight, compact, drug)).join('')
 }
 
 // ── リスト画面 ────────────────────────────────────────────
