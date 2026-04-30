@@ -886,6 +886,22 @@ function doseRowHTML(dose, i) {
                 <span class="text-sm text-gray-500">${esc(dose.unit||'mg')}/日</span>
               </div>
             </div>
+
+            <!-- 成分内訳 (合剤・配合処方用) -->
+            <details style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:0.5rem;padding:0.5rem 0.8rem;" ${(dose.components && dose.components.length > 0) ? 'open' : ''}>
+              <summary class="text-xs text-purple-700 cursor-pointer font-medium">成分内訳 (合剤・配合処方用) <span class="text-gray-400 font-normal">- 各成分の 1日 mg を登録すると、体重あたり mg/kg/日 と比率が表示される</span></summary>
+              <div class="mt-2 space-y-2">
+                ${((dose.components || []).map((c, ci) => `
+                  <div class="flex items-center gap-2">
+                    <input data-bind="dose.${i}.components.${ci}.label" type="text" value="${esc(c.label || '')}" class="input" style="max-width:140px;" placeholder="成分名 (例: AMPC)" />
+                    <input data-bind="dose.${i}.components.${ci}.mgPerDay" type="number" step="0.1" value="${c.mgPerDay ?? ''}" class="input" style="max-width:140px;" placeholder="1日 mg" />
+                    <span class="text-xs text-gray-500">mg/日</span>
+                    <button data-act="comp-del" data-i="${i}" data-ci="${ci}" class="btn-ghost" style="color:#dc2626;font-size:11px;padding:0.25rem 0.4rem;" title="削除">${ICON.x}</button>
+                  </div>
+                `).join('')) || '<div class="text-xs text-gray-400">成分が登録されていません</div>'}
+                <button data-act="add-comp" data-i="${i}" class="btn-secondary text-xs" style="padding:0.25rem 0.6rem;">＋ 成分追加</button>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1444,6 +1460,14 @@ function onClick(e) {
     if (act === 'dose-del') { d.pediatricDoses.splice(i, 1) }
     markDirty(); render(); return
   }
+  if (act === 'add-comp' || act === 'comp-del') {
+    const d = findDrug(state.editingDrugId); if (!d) return
+    const i = +t.dataset.i; const dose = d.pediatricDoses[i]; if (!dose) return
+    if (!Array.isArray(dose.components)) dose.components = []
+    if (act === 'add-comp') { dose.components.push({ label: '', mgPerDay: '' }) }
+    if (act === 'comp-del') { const ci = +t.dataset.ci; dose.components.splice(ci, 1) }
+    markDirty(); render(); return
+  }
   if (act === 'add-formulation') {
     const d = findDrug(state.editingDrugId); if (!d) return
     if (!Array.isArray(d.formulations)) d.formulations = []
@@ -1652,6 +1676,19 @@ function applyBind(bind, value, inputType) {
   }
   if (root === 'dose' && drug) {
     const i = +parts[1]; const f = parts[2]; const dose = drug.pediatricDoses[i]
+    // 成分内訳: dose.<i>.components.<ci>.<field>
+    if (f === 'components') {
+      const ci = +parts[3]; const cf = parts[4]
+      if (!Array.isArray(dose.components)) dose.components = []
+      if (!dose.components[ci]) dose.components[ci] = { label: '', mgPerDay: '' }
+      if (cf === 'mgPerDay') {
+        const n = value === '' ? '' : +value
+        dose.components[ci][cf] = n
+      } else {
+        dose.components[ci][cf] = value
+      }
+      markDirty(); return
+    }
     if (['ageMinMonths','ageMaxMonths','weightMinKg','weightMaxKg','dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay'].includes(f)) {
       const n = value === '' ? undefined : +value
       if (n === undefined) delete dose[f]; else dose[f] = n
