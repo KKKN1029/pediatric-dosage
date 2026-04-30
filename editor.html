@@ -684,10 +684,17 @@ function drugFormHTML(d) {
             </select></div>
           <div><label class="label">サブカテゴリ <span class="text-gray-400 font-normal">（任意）</span></label>
             <input data-bind="drug.subcategory" type="text" value="${esc(d.subcategory || '')}" class="input" placeholder="例: ペニシリン系" /></div>
-          <div><label class="label">投与経路</label>
+          <div class="sm:col-span-2"><label class="label">投与経路</label>
             <input data-bind="drug.route" type="text" value="${esc(d.route || '')}" class="input" placeholder="例: 内服, 点滴静注, 吸入" /></div>
-          <div><label class="label">剤形 <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
-            <input data-bind="drug.formulations" type="text" value="${esc((d.formulations||[]).join(' | '))}" class="input" placeholder="例: 錠 250mg | 細粒 10%" /></div>
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="label" style="margin-bottom:0;">剤形 <span class="text-gray-400 font-normal">（年齢/体重制約も指定可）</span></label>
+              <button data-act="add-formulation" class="btn-secondary text-xs" style="padding:0.25rem 0.6rem;">＋ 剤形追加</button>
+            </div>
+            <div class="space-y-2">
+              ${(d.formulations||[]).length === 0 ? `<div class="text-xs text-gray-400 px-2 py-3 text-center bg-gray-50 rounded-lg">剤形がありません</div>` : (d.formulations||[]).map((f, fi) => formulationRowHTML(f, fi)).join('')}
+            </div>
+          </div>
           <div class="sm:col-span-2"><label class="label">成人用量</label>
             <input data-bind="drug.adultDose" type="text" value="${esc(d.adultDose || '')}" class="input" placeholder="例: 250〜500mg 1日3〜4回" /></div>
           <div class="sm:col-span-2">
@@ -726,6 +733,37 @@ function drugFormHTML(d) {
       </div>
     </div>
   `
+}
+
+// 剤形 1 件を編集する行 (テキスト入力 + 詳細展開で年齢/体重制約)
+function formulationRowHTML(f, fi) {
+  // string も object も受け付ける
+  const obj = (typeof f === 'string') ? { text: f } : (f || { text: '' })
+  const hasConstraint = obj.ageMinMonths != null || obj.ageMaxMonths != null || obj.weightMinKg != null || obj.weightMaxKg != null || (obj.notes && obj.notes.trim() !== '')
+  return `
+    <div class="border border-gray-200 rounded-lg bg-white">
+      <div class="flex items-center gap-1 p-2">
+        <input data-bind="form.${fi}.text" type="text" value="${esc(obj.text || '')}" class="input flex-1" placeholder="例: 錠 250mg / 細粒 10% / 点滴静注液バッグ 300mg" />
+        <button data-act="form-up" data-fi="${fi}" class="btn-ghost" title="上へ">${ICON.chevUp}</button>
+        <button data-act="form-down" data-fi="${fi}" class="btn-ghost" title="下へ">${ICON.chevDown}</button>
+        <button data-act="form-del" data-fi="${fi}" class="btn-ghost" style="color:#dc2626;" title="削除">${ICON.x}</button>
+      </div>
+      <details ${hasConstraint ? 'open' : ''} style="border-top:1px solid #f1f5f9;">
+        <summary class="text-[11px] text-gray-500 cursor-pointer px-3 py-1.5">${hasConstraint ? '✓ 年齢/体重制約あり' : '年齢/体重制約を指定 (任意)'}</summary>
+        <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-2">
+          <div><label class="label">最小月齢</label>
+            <input data-bind="form.${fi}.ageMinMonths" type="number" value="${obj.ageMinMonths ?? ''}" class="input" placeholder="例: 3" /></div>
+          <div><label class="label">最大月齢 (未満)</label>
+            <input data-bind="form.${fi}.ageMaxMonths" type="number" value="${obj.ageMaxMonths ?? ''}" class="input" placeholder="例: 144" /></div>
+          <div><label class="label">最小体重 kg</label>
+            <input data-bind="form.${fi}.weightMinKg" type="number" step="0.1" value="${obj.weightMinKg ?? ''}" class="input" placeholder="例: 10" /></div>
+          <div><label class="label">最大体重 kg (未満)</label>
+            <input data-bind="form.${fi}.weightMaxKg" type="number" step="0.1" value="${obj.weightMaxKg ?? ''}" class="input" placeholder="例: 40" /></div>
+          <div class="col-span-2"><label class="label">メモ <span class="text-gray-400 font-normal">(例: 12歳未満禁忌)</span></label>
+            <input data-bind="form.${fi}.notes" type="text" value="${esc(obj.notes || '')}" class="input" placeholder="" /></div>
+        </div>
+      </details>
+    </div>`
 }
 
 function doseRowHTML(dose, i) {
@@ -1367,6 +1405,21 @@ function onClick(e) {
     if (act === 'dose-del') { d.pediatricDoses.splice(i, 1) }
     markDirty(); render(); return
   }
+  if (act === 'add-formulation') {
+    const d = findDrug(state.editingDrugId); if (!d) return
+    if (!Array.isArray(d.formulations)) d.formulations = []
+    d.formulations.push('')
+    markDirty(); render(); return
+  }
+  if (act === 'form-up' || act === 'form-down' || act === 'form-del') {
+    const d = findDrug(state.editingDrugId); if (!d) return
+    if (!Array.isArray(d.formulations)) return
+    const i = +t.dataset.fi
+    if (act === 'form-up' && i > 0) { [d.formulations[i-1], d.formulations[i]] = [d.formulations[i], d.formulations[i-1]] }
+    if (act === 'form-down' && i < d.formulations.length - 1) { [d.formulations[i+1], d.formulations[i]] = [d.formulations[i], d.formulations[i+1]] }
+    if (act === 'form-del') { d.formulations.splice(i, 1) }
+    markDirty(); render(); return
+  }
 
   // 疾患
   if (act === 'add-disease') { const d = newDisease(); state.data.diseases.push(d); state.editingDiseaseId = d.id; markDirty(); render(); return }
@@ -1516,8 +1569,29 @@ function applyBind(bind, value, inputType) {
 
   if (root === 'drug' && drug) {
     const f = parts[1]
-    if (f === 'brandNames' || f === 'formulations' || f === 'references') drug[f] = parseListPipe(value)
+    if (f === 'brandNames' || f === 'references') drug[f] = parseListPipe(value)
     else drug[f] = value
+    markDirty(); return
+  }
+  if (root === 'form' && drug) {
+    // 剤形の構造化編集: form.<idx>.<field>
+    const i = +parts[1]; const f = parts[2]
+    if (!Array.isArray(drug.formulations)) drug.formulations = []
+    let entry = drug.formulations[i]
+    // 必要に応じて object に昇格させる
+    if (typeof entry === 'string') entry = { text: entry }
+    if (entry == null) entry = { text: '' }
+    if (['ageMinMonths','ageMaxMonths','weightMinKg','weightMaxKg'].includes(f)) {
+      const n = value === '' ? undefined : +value
+      if (n === undefined) delete entry[f]; else entry[f] = n
+    } else if (f === 'text') {
+      entry.text = value
+    } else if (f === 'notes') {
+      if (value === '') delete entry.notes; else entry.notes = value
+    }
+    // 制約が一切なくなったらシンプル文字列に戻す (Gist の容量節約)
+    const onlyText = entry.text != null && entry.ageMinMonths == null && entry.ageMaxMonths == null && entry.weightMinKg == null && entry.weightMaxKg == null && (entry.notes == null || entry.notes === '')
+    drug.formulations[i] = onlyText ? entry.text : entry
     markDirty(); return
   }
   if (root === 'dose' && drug) {

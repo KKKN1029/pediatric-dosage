@@ -791,8 +791,8 @@ function guessUnitLabel(text) {
 
 // 必要 mg 量から、各 formulation で必要な実数量を計算する。
 //   needMg: 必要 mg 量 (単一値)
-//   forms: drug.formulations (string[])
-//   戻り値: { formText, amountStr }[]
+//   forms: drug.formulations (string[] または object[])
+//   戻り値: { formText, amountStr }[]  (患者の年齢/体重に合わない剤形は除外)
 function buildFormulationAmounts(needMg, forms) {
   if (!Array.isArray(forms) || forms.length === 0) return []
   if (!isFinite(needMg) || needMg <= 0) return []
@@ -802,8 +802,13 @@ function buildFormulationAmounts(needMg, forms) {
     if (v >= 10) return (Math.round(v * 10) / 10).toString()
     return (Math.round(v * 100) / 100).toString()
   }
+  const am = ageToMonths()
+  const w = parseFloat(state.weight)
   return forms.map(f => {
-    const p = parseFormulation(f)
+    const norm = normalizeFormulation(f)
+    if (!norm) return null
+    if (!isFormulationAllowed(norm, am, w)) return null  // 年齢/体重制約に合わない剤形は除外
+    const p = parseFormulation(norm.text)
     if (!p) return null
     let amount
     if (p.kind === 'mg_per_mL') {
@@ -1173,6 +1178,90 @@ function dosesHTML(drug, weight, compact=false) {
 
 // ── リスト画面 ────────────────────────────────────────────
 
+// 投与経路文字列をカラーバッジ HTML に変換する。
+//   freeform string ('内服', '点滴静注', '内服・坐剤', etc.) を「・」で分割し、
+//   各経路をキーワード判定して色付きの小さなバッジで返す。
+function routeBadge(route) {
+  if (!route) return ''
+  const parts = String(route).split(/[・,、\/]/).map(s => s.trim()).filter(Boolean)
+  return parts.map(p => {
+    let color, label = p
+    if (/点滴|静注|筋注|皮下注|注射/.test(p)) {
+      color = 'bg-purple-100 text-purple-700'
+      // 短縮表示
+      if (p === '点滴静注') label = '点滴'
+    } else if (/吸入/.test(p)) color = 'bg-cyan-100 text-cyan-700'
+    else if (/坐剤|坐薬|座薬/.test(p)) { color = 'bg-orange-100 text-orange-700'; label = '坐剤' }
+    else if (/外用|塗布|貼付|貼/.test(p)) color = 'bg-green-100 text-green-700'
+    else if (/点眼|点鼻|点耳/.test(p)) color = 'bg-teal-100 text-teal-700'
+    else if (/内服/.test(p)) color = 'bg-blue-100 text-blue-700'
+    else color = 'bg-gray-100 text-gray-700'
+    return `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium leading-none ${color} shrink-0">${esc(label)}</span>`
+  }).join('')
+}
+
+// 製剤文字列または { text, ageMinMonths, ageMaxMonths, weightMinKg, weightMaxKg, notes } 形式を
+// 共通の object に正規化する。
+function normalizeFormulation(f) {
+  if (typeof f === 'string') return { text: f }
+  if (f && typeof f === 'object' && typeof f.text === 'string') return { ...f }
+  return null
+}
+
+// 制約 object → 表示用テキスト (例: "≥6歳", "≥10kg, <40kg", "<3ヶ月禁忌")
+function formulationConstraintText(form) {
+  if (!form) return ''
+  const parts = []
+  const fmtAge = m => {
+    if (m === 0) return '0ヶ月'
+    if (m < 12) return `${m}ヶ月`
+    if (m % 12 === 0) return `${m/12}歳`
+    return `${m}ヶ月`
+  }
+  if (form.ageMinMonths != null && form.ageMaxMonths != null) {
+    parts.push(`${fmtAge(form.ageMinMonths)}〜${fmtAge(form.ageMaxMonths)}未満`)
+  } else if (form.ageMinMonths != null) {
+    parts.push(`${fmtAge(form.ageMinMonths)}以上`)
+  } else if (form.ageMaxMonths != null) {
+    parts.push(`${fmtAge(form.ageMaxMonths)}未満`)
+  }
+  if (form.weightMinKg != null && form.weightMaxKg != null) {
+    parts.push(`${form.weightMinKg}〜${form.weightMaxKg}kg未満`)
+  } else if (form.weightMinKg != null) {
+    parts.push(`${form.weightMinKg}kg以上`)
+  } else if (form.weightMaxKg != null) {
+    parts.push(`${form.weightMaxKg}kg未満`)
+  }
+  if (form.notes) parts.push(form.notes)
+  return parts.join(' / ')
+}
+
+// 全 formulations を表示用テキスト (制約付き) に変換 (info 行用)
+function formulationDisplay(forms) {
+  if (!Array.isArray(forms)) return ''
+  return forms.map(f => {
+    const n = normalizeFormulation(f)
+    if (!n) return ''
+    const c = formulationConstraintText(n)
+    return c ? `${n.text} [${c}]` : n.text
+  }).filter(Boolean).join('、')
+}
+
+// 患者の年齢 (月数) と体重 (kg) で formulation が使用可能か判定する。
+// am, w が undefined なら制約をチェックしない (適用可と判定)。
+function isFormulationAllowed(form, am, w) {
+  if (!form) return false
+  if (am !== undefined) {
+    if (form.ageMinMonths != null && am < form.ageMinMonths) return false
+    if (form.ageMaxMonths != null && am >= form.ageMaxMonths) return false
+  }
+  if (isFinite(w) && w > 0) {
+    if (form.weightMinKg != null && w < form.weightMinKg) return false
+    if (form.weightMaxKg != null && w >= form.weightMaxKg) return false
+  }
+  return true
+}
+
 // サブカテゴリで items をグループ化して見出し付き <ul> 文字列を返す。
 // item ごとに renderItem(item) が呼ばれ、<li> を返すこと。
 // グループ分けが不要 (全アイテムにサブカテゴリが無い) 場合は単純なリストを返す。
@@ -1202,7 +1291,10 @@ function renderListBySubcategory(items, renderItem) {
 function drugListItem(d) {
   return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
     <div class="flex-1 min-w-0">
-      <div class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</div>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</span>
+        ${routeBadge(d.route)}
+      </div>
       <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${d.brandNames.map(b=>b+'®').join('・')}</div>
     </div>
     <span class="text-gray-300 text-lg shrink-0">›</span>
@@ -1917,7 +2009,7 @@ function renderDetail(drug) {
         ${infoRow('商品名', drug.brandNames.join('、'))}
         ${drug.subcategory?infoRow('分類',drug.subcategory):''}
         ${infoRow('投与経路', drug.route)}
-        ${drug.formulations?infoRow('規格',drug.formulations.join('、')):''}
+        ${drug.formulations?infoRow('規格',formulationDisplay(drug.formulations)):''}
         ${drug.adultDose?infoRow('成人量',drug.adultDose):''}
       </div>
       ${drug.notes?`<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4"><h3 class="text-sm font-semibold text-gray-700 mb-2">注意事項</h3><p class="text-sm text-gray-600 leading-relaxed">${esc(drug.notes)}</p></div>`:''}
@@ -2040,7 +2132,7 @@ function renderEditForm(drug) {
         ${ef('略称','edit-abbreviation',d.abbreviation||'')}
         ${ef('商品名（カンマ区切り）','edit-brandNames',d.brandNames.join(', '))}
         ${ef('投与経路','edit-route',d.route)}
-        ${ef('規格（カンマ区切り）','edit-formulations',(d.formulations||[]).join(', '))}
+        ${ef('規格（カンマ区切り）','edit-formulations',(d.formulations||[]).map(f => typeof f === 'string' ? f : (f && f.text) || '').filter(Boolean).join(', '))}
         ${ef('成人量','edit-adultDose',d.adultDose||'')}
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
@@ -2235,7 +2327,7 @@ function renderSetDetail() {
           <div class="divide-y divide-gray-100">
             ${infoRow('商品名', drug.brandNames.join('、'))}
             ${infoRow('投与経路', drug.route)}
-            ${drug.formulations?infoRow('規格', drug.formulations.join('、')):''}
+            ${drug.formulations?infoRow('規格', formulationDisplay(drug.formulations)):''}
             ${drug.adultDose?infoRow('成人量', drug.adultDose):''}
           </div>
           ${drug.notes?`<div class="px-4 py-3 border-t border-gray-100"><p class="text-xs text-gray-600 leading-relaxed">${esc(drug.notes)}</p></div>`:''}

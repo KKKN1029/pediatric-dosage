@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v16-weight-range'
+const CACHE = 'pediatric-v17-form-rules'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
