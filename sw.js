@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v17-form-rules'
+const CACHE = 'pediatric-v18-compact-amount'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
