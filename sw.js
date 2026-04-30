@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v24-combo-g'
+const CACHE = 'pediatric-v25-unit-prom'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

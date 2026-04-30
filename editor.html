@@ -766,7 +766,7 @@ function formulationRowHTML(f, fi) {
   return `
     <div class="border border-gray-200 rounded-lg bg-white">
       <div class="flex items-center gap-1 p-2">
-        <input data-bind="form.${fi}.text" type="text" value="${esc(obj.text || '')}" class="input flex-1" placeholder="例: 錠 250mg / 細粒 10% / 点滴静注液バッグ 300mg" />
+        <input data-bind="form.${fi}.text" type="text" value="${esc(obj.text || '')}" class="input flex-1" placeholder="例: 錠 250mg / DS 50mg/g / 配合DS 600mg/g (1.01g/包) / 点滴静注液バッグ 300mg" />
         ${splittable ? `<button data-act="form-split" data-fi="${fi}" class="btn-ghost" style="color:#2563eb;font-size:11px;padding:0.25rem 0.4rem;" title="${splittable.length}件に分割: ${esc(splittable.join(' / '))}">⊟ 分割</button>` : ''}
         <button data-act="form-up" data-fi="${fi}" class="btn-ghost" title="上へ">${ICON.chevUp}</button>
         <button data-act="form-down" data-fi="${fi}" class="btn-ghost" title="下へ">${ICON.chevDown}</button>
@@ -826,15 +826,20 @@ function doseRowHTML(dose, i) {
         <!-- 用量本体 -->
         <div>
           <div class="group-label">用量 <span style="color:#dc2626;font-weight:500;text-transform:none;letter-spacing:0;">（A・B・C のいずれか1つを使用）</span></div>
-          <!-- 単位選択 -->
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.6rem 0.8rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-            <label class="label" style="margin:0;">単位</label>
-            <select data-bind="dose.${i}.unit" class="input" style="max-width:180px;">
-              ${['mg','g','μg','mEq','IU','mL','包','カプセル'].map(u => `<option value="${u}" ${(dose.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
-            </select>
-            <label class="label" style="margin:0;">力価ラベル <span class="text-gray-400 font-normal">(任意)</span></label>
-            <input data-bind="dose.${i}.activeLabel" type="text" value="${esc(dose.activeLabel || '')}" class="input" style="max-width:160px;" placeholder="例: AMPC" />
-            <span class="text-[11px] text-gray-500">合剤の力価計算用 (例: AMPC として X mg/kg/日)</span>
+          <!-- 単位選択 (重要) -->
+          <div style="background:#fef3c7;border:2px solid #fbbf24;border-radius:0.5rem;padding:0.7rem 0.9rem;margin-bottom:0.75rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+              <span style="background:#f59e0b;color:#fff;padding:0.15rem 0.5rem;border-radius:0.25rem;font-size:11px;font-weight:700;">単位 (必須)</span>
+              <select data-bind="dose.${i}.unit" class="input" style="max-width:160px;font-weight:600;">
+                ${['mg','g','μg','mEq','IU','mL','包','カプセル'].map(u => `<option value="${u}" ${(dose.unit||'mg')===u?'selected':''}>${u}</option>`).join('')}
+              </select>
+              <span class="text-[11px] text-gray-700">→ B/C 入力欄が <b>${esc(dose.unit||'mg')}/kg/日</b> として扱われる</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+              <span style="background:#94a3b8;color:#fff;padding:0.15rem 0.5rem;border-radius:0.25rem;font-size:11px;font-weight:700;">力価ラベル (任意)</span>
+              <input data-bind="dose.${i}.activeLabel" type="text" value="${esc(dose.activeLabel || '')}" class="input" style="max-width:160px;" placeholder="例: AMPC" />
+              <span class="text-[11px] text-gray-600">合剤の力価計算用 (例: AMPC として X mg/kg/日)</span>
+            </div>
           </div>
           <div class="space-y-3">
 
