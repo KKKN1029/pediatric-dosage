@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v20-fixed-prominent'
+const CACHE = 'pediatric-v21-form-overlap'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

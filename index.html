@@ -793,7 +793,7 @@ function guessUnitLabel(text) {
 //   needMg: 必要 mg 量 (単一値)
 //   forms: drug.formulations (string[] または object[])
 //   戻り値: { formText, amountStr }[]  (患者の年齢/体重に合わない剤形は除外)
-function buildFormulationAmounts(needMg, forms) {
+function buildFormulationAmounts(needMg, forms, dose) {
   if (!Array.isArray(forms) || forms.length === 0) return []
   if (!isFinite(needMg) || needMg <= 0) return []
   const round = (v) => {
@@ -807,7 +807,7 @@ function buildFormulationAmounts(needMg, forms) {
   return forms.map(f => {
     const norm = normalizeFormulation(f)
     if (!norm) return null
-    if (!isFormulationAllowed(norm, am, w)) return null  // 年齢/体重制約に合わない剤形は除外
+    if (!isFormulationAllowed(norm, am, w, dose)) return null  // 年齢/体重制約に合わない剤形は除外
     const p = parseFormulation(norm.text)
     if (!p) return null
     let amount
@@ -828,8 +828,9 @@ function buildFormulationAmounts(needMg, forms) {
 }
 
 function calcDoseResult(dose, weight) {
-  if (!weight || weight <= 0) return null
+  // 固定量は体重に依存しないため、体重未入力でも結果を返す
   if (dose.fixedDose) return {text: dose.fixedDose, perDose: null}
+  if (!weight || weight <= 0) return null
   const unit = dose.unit || 'mg'
   let text, min, max
   if (dose.dosePerKg) {
@@ -1035,9 +1036,9 @@ function doseCard(dose, weight, compact=false, drug=null) {
       // 各 formulation について 1日量 と 1回量 を同じ行に表示
       // 例: シロップ 8%   10 mL (1回: 2.5 mL)
       const buildAmount = (mgMin, mgMax) => {
-        const list = buildFormulationAmounts(mgMin, drug.formulations)
+        const list = buildFormulationAmounts(mgMin, drug.formulations, dose)
         if (mgMin === mgMax) return list.map(a => ({ formText: a.formText, str: a.amountStr }))
-        const maxList = buildFormulationAmounts(mgMax, drug.formulations)
+        const maxList = buildFormulationAmounts(mgMax, drug.formulations, dose)
         return list.map(a => {
           const max = maxList.find(b => b.formText === a.formText)
           return { formText: a.formText, str: max ? `${a.amountStr.split(' ')[0]}〜${max.amountStr}` : a.amountStr }
@@ -1275,16 +1276,26 @@ function formulationDisplay(forms) {
 }
 
 // 患者の年齢 (月数) と体重 (kg) で formulation が使用可能か判定する。
-// am, w が undefined なら制約をチェックしない (適用可と判定)。
-function isFormulationAllowed(form, am, w) {
+// 患者値が未入力でも、dose の年齢/体重範囲があればそれを使って範囲オーバーラップ判定する。
+function isFormulationAllowed(form, am, w, dose) {
   if (!form) return false
+  // 年齢: 患者の年齢が入力されていればそれで判定。未入力なら dose の年齢範囲と重なるかチェック
   if (am !== undefined) {
     if (form.ageMinMonths != null && am < form.ageMinMonths) return false
     if (form.ageMaxMonths != null && am >= form.ageMaxMonths) return false
+  } else if (dose) {
+    // form が必要とする最小年齢が dose の最大年齢以上 → 範囲が交わらないので除外
+    if (dose.ageMaxMonths != null && form.ageMinMonths != null && form.ageMinMonths >= dose.ageMaxMonths) return false
+    // form の最大年齢が dose の最小年齢以下 → 同上
+    if (dose.ageMinMonths != null && form.ageMaxMonths != null && form.ageMaxMonths <= dose.ageMinMonths) return false
   }
+  // 体重: 同様
   if (isFinite(w) && w > 0) {
     if (form.weightMinKg != null && w < form.weightMinKg) return false
     if (form.weightMaxKg != null && w >= form.weightMaxKg) return false
+  } else if (dose) {
+    if (dose.weightMaxKg != null && form.weightMinKg != null && form.weightMinKg >= dose.weightMaxKg) return false
+    if (dose.weightMinKg != null && form.weightMaxKg != null && form.weightMaxKg <= dose.weightMinKg) return false
   }
   return true
 }
