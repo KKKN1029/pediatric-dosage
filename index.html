@@ -994,18 +994,14 @@ function doseCard(dose, weight, compact=false, drug=null) {
     : dose.dosePerKg ? `${dose.dosePerKg} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
     : dose.dosePerKgMin!=null ? `${dose.dosePerKgMin}〜${dose.dosePerKgMax} ${unit}/kg/日${dose.maxDosePerDay?` ［最大${dose.maxDosePerDay}${unit}/日］`:''}`
     : ''
-  // 固定量の場合は処方内容と計算結果が同じテキストになるため、青ボックスは出さず
-  // 灰色の処方文 + 用法 (frequency/duration) のみ表示する。
+  // 固定量の場合は処方内容そのものを青ボックスで大きく表示し、上の灰色プレ表示は省略する。
+  // mg/kg の場合は、灰色の処方式 (例: 0.06 mg/kg/日) と青の計算結果 (例: 0.6 mg/日) を分けて表示。
   const isFixedDose = !!dose.fixedDose
   const resultHtml = !result ? (parseFloat(weight)>0 ? `<div class="text-gray-400 text-xs mt-1">この年齢では対象外</div>` : '')
-    : isFixedDose
-      ? (dose.frequency || dose.duration
-          ? `<div class="text-gray-600 text-sm mt-1">${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`
-          : '')
-      : `<div class="bg-blue-50 rounded-lg p-3 mt-2">
-          <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
-          ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
-        </div>`
+    : `<div class="bg-blue-50 rounded-lg p-3 ${isFixedDose ? '' : 'mt-2'}">
+        <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
+        ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
+      </div>`
   // 製剤量換算 (mg ベースの用量のみ対応)
   let formulationsHtml = ''
   if (result && drug && unit === 'mg' && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
@@ -1074,7 +1070,7 @@ function doseCard(dose, weight, compact=false, drug=null) {
         ${purposeBadge(dose.purpose)}
       </div>
       <div class="px-4 py-3">
-        <div class="text-sm text-gray-500">${prescText}</div>
+        ${isFixedDose ? '' : `<div class="text-sm text-gray-500">${prescText}</div>`}
         ${resultHtml}
         ${formulationsHtml}
         ${dose.notes?`<div class="mt-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">${esc(dose.notes)}</div>`:''}
