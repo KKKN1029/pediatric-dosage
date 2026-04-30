@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v14-antivirals'
+const CACHE = 'pediatric-v15-unit-label'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

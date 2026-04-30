@@ -753,24 +753,40 @@ function parseFormulation(s) {
     // どちらか不明 → 固形扱い (DS や細粒/散で % 表記が圧倒的に多い)
     return { kind: 'mg_per_g', value: pct * 10, displayUnit: 'g', formText: text }
   }
-  // 単位用量 (錠, カプセル, 坐剤, OD錠, チュアブル錠 ..)
-  // 例: "錠 250mg" / "錠 100/200mg" / "錠 5mg・10mg" / "坐剤 100/200/400mg" → 一番小さい代表値で換算
+  // 単位用量 (錠, カプセル, 坐剤, OD錠, チュアブル錠, バッグ, バイアル, アンプル, キット ..)
+  // 例: "錠 250mg" / "錠 100/200mg" / "坐剤 100/200/400mg" / "点滴静注液バッグ 300mg"
   m = text.match(/(\d+(?:\.\d+)?)\s*mg(?!\s*\/)/i)
   if (m) {
-    // 単位ラベル推定
-    let unit = '錠'
-    if (/カプセル|capsule/i.test(text)) unit = 'カプセル'
-    else if (/坐剤|坐薬|座薬|suppos/i.test(text)) unit = '個'
-    else if (/OD錠/.test(text)) unit = 'OD錠'
-    else if (/チュアブル/.test(text)) unit = '錠'
-    else if (/包/.test(text)) unit = '包'
-    return { kind: 'mg_per_unit', value: +m[1], displayUnit: unit, formText: text }
+    return { kind: 'mg_per_unit', value: +m[1], displayUnit: guessUnitLabel(text), formText: text }
   }
   m = text.match(/(\d+(?:\.\d+)?)\s*g(?!\s*\/)/i)
   if (m) {
-    return { kind: 'mg_per_unit', value: +m[1] * 1000, displayUnit: 'g', formText: text }
+    return { kind: 'mg_per_unit', value: +m[1] * 1000, displayUnit: guessUnitLabel(text), formText: text }
   }
   return null
+}
+
+// 製剤文字列から単位ラベル ("錠"/"カプセル"/"バイアル" など) を推定する
+function guessUnitLabel(text) {
+  // 注射剤 (より具体的なものから判定)
+  if (/バッグ|bag\b/i.test(text)) return 'バッグ'
+  if (/バイアル|vial\b/i.test(text)) return 'バイアル'
+  if (/アンプル|ampoule|ampule\b/i.test(text)) return 'アンプル'
+  if (/キット/.test(text)) return 'キット'
+  if (/プレフィルド|シリンジ/.test(text)) return '本'
+  // 注射剤 (一般指定)
+  if (/注射用|注射液|点滴|静注|筋注|皮下注/.test(text)) return 'V'
+  // 経口固形剤
+  if (/カプセル|capsule/i.test(text)) return 'カプセル'
+  if (/OD錠/.test(text)) return 'OD錠'
+  if (/チュアブル/.test(text)) return '錠'
+  if (/錠/.test(text)) return '錠'
+  // その他
+  if (/坐剤|坐薬|座薬|suppos/i.test(text)) return '個'
+  if (/吸入|inhal|ブリスター/i.test(text)) return '吸入'
+  if (/包/.test(text)) return '包'
+  if (/パッチ|貼付|テープ/.test(text)) return '枚'
+  return '錠'  // デフォルト
 }
 
 // 必要 mg 量から、各 formulation で必要な実数量を計算する。
