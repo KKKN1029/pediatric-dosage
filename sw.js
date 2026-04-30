@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v26-components'
+const CACHE = 'pediatric-v27-cat-blur'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

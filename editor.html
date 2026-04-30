@@ -1297,10 +1297,58 @@ function renderHeader() {
 // ============================================================
 // イベント処理
 // ============================================================
+// カテゴリ名変更の伝播を遅延実行するためのオリジナル値マップ (key: "drug.0" / "disease.3" 等)
+const _catOriginalValues = new Map()
+
+// カテゴリ名変更を確定 (blur や compositionend で呼ばれる)
+function commitCatRename(kind, i) {
+  const key = `${kind}.${i}`
+  if (!_catOriginalValues.has(key)) return
+  const oldName = _catOriginalValues.get(key)
+  _catOriginalValues.delete(key)
+  const arr = kind === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
+  const newName = arr[i]
+  if (oldName === newName) return
+  if (newName == null || newName === '') return
+  if (kind === 'drug') {
+    let count = 0
+    for (const d of (state.data.drugs || [])) {
+      if (d.category === oldName) { d.category = newName; count++ }
+    }
+    if (count > 0) showToast(`「${oldName}」→「${newName}」に ${count}件 の薬剤を移動しました`, 'ok')
+  } else {
+    let count = 0
+    for (const d of (state.data.diseases || [])) {
+      if (d.category === oldName) { d.category = newName; count++ }
+    }
+    if (count > 0) showToast(`「${oldName}」→「${newName}」に ${count}件 の疾患を移動しました`, 'ok')
+  }
+  markDirty()
+}
+
 function bindGlobalEvents() {
   document.addEventListener('click', onClick)
   document.addEventListener('change', onChange)
   document.addEventListener('input', onInput)
+  // カテゴリ入力の focusin: 編集開始時のオリジナル名を記憶
+  document.addEventListener('focusin', e => {
+    const t = e.target
+    const bind = t && t.dataset && t.dataset.bind
+    if (bind && bind.startsWith('cat.')) {
+      const parts = bind.split('.')  // ['cat', kind, i]
+      const key = `${parts[1]}.${parts[2]}`
+      if (!_catOriginalValues.has(key)) _catOriginalValues.set(key, t.value)
+    }
+  })
+  // カテゴリ入力の focusout (blur): 変更があれば伝播
+  document.addEventListener('focusout', e => {
+    const t = e.target
+    const bind = t && t.dataset && t.dataset.bind
+    if (bind && bind.startsWith('cat.')) {
+      const parts = bind.split('.')
+      commitCatRename(parts[1], +parts[2])
+    }
+  })
   // IME 変換中は再描画を抑制 (日本語入力で1文字確定→DOM入れ替えで変換が中断される問題の対策)
   document.addEventListener('compositionstart', e => {
     if (e.target && (e.target.id === 'drugs-search' || e.target.id === 'diseases-search')) {
@@ -1571,7 +1619,19 @@ function onClick(e) {
     const arr = k === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
     if (act === 'cat-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
     if (act === 'cat-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
-    if (act === 'cat-del') { arr.splice(i, 1) }
+    if (act === 'cat-del') {
+      const removed = arr[i]
+      const items = k === 'drug' ? (state.data.drugs || []) : (state.data.diseases || [])
+      const affected = items.filter(d => d.category === removed)
+      if (affected.length > 0) {
+        if (!confirm(`カテゴリ「${removed}」を削除します。所属する ${affected.length}件 の${k==='drug'?'薬剤':'疾患'}は「その他」に移動されます。よろしいですか？`)) return
+        // 「その他」が無ければ追加
+        if (!arr.includes('その他')) arr.push('その他')
+        for (const d of affected) d.category = 'その他'
+      }
+      arr.splice(i, 1)
+      if (affected.length > 0) showToast(`「${removed}」削除: ${affected.length}件 を「その他」に移動`, 'ok')
+    }
     markDirty(); render(); return
   }
 
@@ -1721,25 +1781,11 @@ function applyBind(bind, value, inputType) {
     markDirty(); return
   }
   if (root === 'cat') {
-    // カテゴリ名変更時は、そのカテゴリに所属する薬剤・疾患の category も自動更新する
+    // カテゴリ名変更: キーストロークごとには伝播しない (IME を妨害しない)
+    // arr[i] の更新だけ行い、伝播は blur/compositionend で実施 (commitCatRename を参照)
     const kind = parts[1]; const i = +parts[2]
     const arr = kind === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
-    const oldName = arr[i]
-    if (oldName === value) { arr[i] = value; markDirty(); return }
     arr[i] = value
-    if (kind === 'drug') {
-      let count = 0
-      for (const d of (state.data.drugs || [])) {
-        if (d.category === oldName) { d.category = value; count++ }
-      }
-      if (count > 0) showToast(`「${oldName}」→「${value}」に ${count}件 の薬剤を移動しました`, 'ok')
-    } else {
-      let count = 0
-      for (const d of (state.data.diseases || [])) {
-        if (d.category === oldName) { d.category = value; count++ }
-      }
-      if (count > 0) showToast(`「${oldName}」→「${value}」に ${count}件 の疾患を移動しました`, 'ok')
-    }
     markDirty(); return
   }
 }
