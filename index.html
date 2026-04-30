@@ -408,9 +408,9 @@ let DRUGS = [
   // 抗インフルエンザウイルス薬 (小児の薬の選び方・使い方 第5版)
   { id:'baloxavir-v5', genericName:'バロキサビル マルボキシル', abbreviation:'バロキサビル', brandNames:['ゾフルーザ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'内服', formulations:['顆粒 2%分包','錠 10mg','錠 20mg'], adultDose:'20mg錠2錠 または 顆粒4包 を単回経口投与',
     pediatricDoses:[
-      {ageLabel:'12歳未満 体重10〜20kg未満',ageMaxMonths:144,purpose:'治療',fixedDose:'10mg錠 1錠 (単回)',frequency:'単回'},
-      {ageLabel:'12歳未満 体重20〜40kg未満',ageMaxMonths:144,purpose:'治療',fixedDose:'20mg錠 1錠 または 顆粒2包 (単回)',frequency:'単回'},
-      {ageLabel:'12歳未満 体重40kg以上',ageMaxMonths:144,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重10〜20kg未満',ageMaxMonths:144,weightMinKg:10,weightMaxKg:20,purpose:'治療',fixedDose:'10mg錠 1錠 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重20〜40kg未満',ageMaxMonths:144,weightMinKg:20,weightMaxKg:40,purpose:'治療',fixedDose:'20mg錠 1錠 または 顆粒2包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重40kg以上',ageMaxMonths:144,weightMinKg:40,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
     ], notes:'いずれも単回経口投与。日本小児科学会は2018-2019シーズンA香港型耐性率70%超・発熱再燃の報告から、12歳未満への積極的投与を推奨していない。インフルエンザウイルスのmRNA合成を阻害。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'laninamivir-v5', genericName:'ラニナミビル オクタン酸エステル水和物', abbreviation:'ラニナミビル', brandNames:['イナビル'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'吸入', formulations:['吸入粉末剤 20mg/キット','吸入懸濁用 160mgセット'], adultDose:'40mg (2キット) を単回吸入',
@@ -1074,13 +1074,22 @@ function ageWeightInput() {
 
 function filteredDoses(drug) {
   const am = ageToMonths()
-  if (am===undefined) return drug.pediatricDoses
-  // 年齢が入力されている場合: 該当年齢の用量のみ表示。マッチが0件なら空配列を返す
-  // (最小年齢未満・最大年齢以上の用量は表示しない)
+  const w = parseFloat(state.weight)
+  const hasWeight = isFinite(w) && w > 0
   return drug.pediatricDoses.filter(d => {
-    const minOk = d.ageMinMonths==null || am>=d.ageMinMonths
-    const maxOk = d.ageMaxMonths==null || am<d.ageMaxMonths
-    return minOk&&maxOk
+    // 年齢フィルタ (年齢未入力なら通過)
+    if (am !== undefined) {
+      const minOk = d.ageMinMonths==null || am>=d.ageMinMonths
+      const maxOk = d.ageMaxMonths==null || am<d.ageMaxMonths
+      if (!(minOk && maxOk)) return false
+    }
+    // 体重フィルタ (体重未入力なら通過)
+    if (hasWeight) {
+      const wMinOk = d.weightMinKg==null || w>=d.weightMinKg
+      const wMaxOk = d.weightMaxKg==null || w<d.weightMaxKg
+      if (!(wMinOk && wMaxOk)) return false
+    }
+    return true
   })
 }
 
@@ -1147,9 +1156,16 @@ function dosesHTML(drug, weight, compact=false) {
   }
   const matched = filteredDoses(drug)
   if (matched.length === 0) {
+    const w = parseFloat(state.weight)
+    const hasW = isFinite(w) && w > 0
+    const am = ageToMonths()
+    const reasons = []
+    if (am !== undefined) reasons.push('年齢')
+    if (hasW) reasons.push('体重')
+    const reason = reasons.length > 0 ? `この${reasons.join('・')}` : '入力条件'
     return `
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center text-xs text-gray-500">
-        この年齢に該当する用量設定がありません
+        ${reason}に該当する用量設定がありません
       </div>`
   }
   return matched.map(d => doseCard(d, weight, compact, drug)).join('')

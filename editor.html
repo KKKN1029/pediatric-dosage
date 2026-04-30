@@ -753,8 +753,12 @@ function doseRowHTML(dose, i) {
               <input data-bind="dose.${i}.ageMaxMonths" type="number" value="${dose.ageMaxMonths ?? ''}" class="input" placeholder="制限なしなら空欄" /></div>
             <div><label class="label">目的</label>
               <input data-bind="dose.${i}.purpose" type="text" value="${esc(dose.purpose || '')}" class="input" placeholder="治療 / 予防" /></div>
+            <div><label class="label">最小体重 <span class="text-gray-400 font-normal">(kg, 任意)</span></label>
+              <input data-bind="dose.${i}.weightMinKg" type="number" step="0.1" value="${dose.weightMinKg ?? ''}" class="input" placeholder="例: 10" /></div>
+            <div><label class="label">最大体重 <span class="text-gray-400 font-normal">(kg, 任意, 未満)</span></label>
+              <input data-bind="dose.${i}.weightMaxKg" type="number" step="0.1" value="${dose.weightMaxKg ?? ''}" class="input" placeholder="例: 20" /></div>
           </div>
-          <div class="text-[11px] text-gray-500 mt-1">月齢: 1歳=12 / 6歳=72 / 12歳=144</div>
+          <div class="text-[11px] text-gray-500 mt-1">月齢: 1歳=12 / 6歳=72 / 12歳=144 　体重: 「最大体重」は未満で判定 (例: 40 → 39.9kg まで該当)</div>
         </div>
 
         <!-- 用量本体 -->
@@ -1518,7 +1522,7 @@ function applyBind(bind, value, inputType) {
   }
   if (root === 'dose' && drug) {
     const i = +parts[1]; const f = parts[2]; const dose = drug.pediatricDoses[i]
-    if (['ageMinMonths','ageMaxMonths','dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay'].includes(f)) {
+    if (['ageMinMonths','ageMaxMonths','weightMinKg','weightMaxKg','dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay'].includes(f)) {
       const n = value === '' ? undefined : +value
       if (n === undefined) delete dose[f]; else dose[f] = n
     } else {

@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v15-unit-label'
+const CACHE = 'pediatric-v16-weight-range'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
