@@ -162,8 +162,8 @@ let DRUGS = [
   // βラクタム系
   { id:'amoxicillin', genericName:'アモキシシリン水和物', abbreviation:'AMPC', brandNames:['サワシリン','パセトシン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'250〜500mg 1日3〜4回',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,maxDosePerDay:1500,frequency:'分3',notes:'重症例では最大90mg/kg/日'}], notes:'ペニシリンアレルギーに注意。', references:['新 小児薬用量 改訂第9版']},
-  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['配合錠 250RS','配合DS'], adultDose:'AMPC として 750〜1000mg/日 分3',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:45,maxDosePerDay:1500,frequency:'分3',notes:'AMPC量として計算'}], notes:'βラクタマーゼ産生菌にも有効。', references:['新 小児薬用量 改訂第9版']},
+  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン','クラバモックス'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['オーグメンチン配合錠 250RS (AMPC 250mg)',{text:'クラバモックス小児用配合DS 600mg/g',notes:'1包 1.01g中 AMPC 600mg・CVA 42.9mg'}], adultDose:'AMPC として 750〜1000mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:45,maxDosePerDay:1500,frequency:'分3',unit:'mg',activeLabel:'AMPC',notes:'AMPC量として計算'}], notes:'βラクタマーゼ産生菌にも有効。', references:['新 小児薬用量 改訂第9版']},
   // セフェム系
   { id:'cefdinir', genericName:'セフジニル', abbreviation:'CFDN', brandNames:['セフゾン'], category:'セフェム系', route:'内服', formulations:['カプセル 100mg','細粒 10%'], adultDose:'300mg/日 分3',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,maxDosePerDay:600,frequency:'分3',duration:'5〜7日間'}], references:['新 小児薬用量 改訂第9版']},
@@ -783,12 +783,16 @@ function guessUnitLabel(text) {
   if (/OD錠/.test(text)) return 'OD錠'
   if (/チュアブル/.test(text)) return '錠'
   if (/錠/.test(text)) return '錠'
-  // その他
+  // 坐剤・吸入・パッチ
   if (/坐剤|坐薬|座薬|suppos/i.test(text)) return '個'
   if (/吸入|inhal|ブリスター/i.test(text)) return '吸入'
-  if (/包/.test(text)) return '包'
   if (/パッチ|貼付|テープ/.test(text)) return '枚'
-  return '錠'  // デフォルト
+  // 粉末・顆粒系 (錠剤ではない: 包/分包/瓶)
+  if (/分包|包/.test(text)) return '包'
+  if (/DS|ドライシロップ|ドライシ|細粒|顆粒|散剤|散\b|末|粉末/.test(text)) return '包'
+  // 液剤系
+  if (/シロップ|液|ドロップ/.test(text)) return 'mL'
+  return '個'  // デフォルト ('錠' は誤誘導しやすいので '個' に変更)
 }
 
 // 必要 mg 量から、各 formulation で必要な実数量を計算する。
@@ -813,17 +817,12 @@ function buildFormulationAmounts(needMg, forms, dose) {
     const p = parseFormulation(norm.text)
     if (!p) return null
     let amount
-    if (p.kind === 'mg_per_mL') {
+    if (p.kind === 'mg_per_mL' || p.kind === 'mg_per_g' || p.kind === 'mg_per_unit') {
       amount = needMg / p.value
-      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
-    }
-    if (p.kind === 'mg_per_g') {
-      amount = needMg / p.value
-      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
-    }
-    if (p.kind === 'mg_per_unit') {
-      amount = needMg / p.value
-      return { formText: p.formText, amountStr: `${round(amount)} ${p.displayUnit}` }
+      const amountStr = `${round(amount)} ${p.displayUnit}`
+      // mg/g 形式の場合: 製剤の合計g数も計算結果として有用
+      // notes (例: "1包 1.01g中 AMPC 600mg") を補助情報として返す
+      return { formText: p.formText, amountStr, notes: norm.notes || '', amountValue: amount, amountUnit: p.displayUnit }
     }
     return null
   }).filter(Boolean)
@@ -1043,11 +1042,11 @@ function doseCard(dose, weight, compact=false, drug=null) {
       const buildAmount = (valMin, valMax) => {
         const mgMin = toMg(valMin); const mgMax = toMg(valMax)
         const list = buildFormulationAmounts(mgMin, drug.formulations, dose)
-        if (mgMin === mgMax) return list.map(a => ({ formText: a.formText, str: a.amountStr }))
+        if (mgMin === mgMax) return list.map(a => ({ formText: a.formText, str: a.amountStr, notes: a.notes || '' }))
         const maxList = buildFormulationAmounts(mgMax, drug.formulations, dose)
         return list.map(a => {
           const max = maxList.find(b => b.formText === a.formText)
-          return { formText: a.formText, str: max ? `${a.amountStr.split(' ')[0]}〜${max.amountStr}` : a.amountStr }
+          return { formText: a.formText, str: max ? `${a.amountStr.split(' ')[0]}〜${max.amountStr}` : a.amountStr, notes: a.notes || '' }
         })
       }
       const daily = buildAmount(dailyMin, dailyMax)
@@ -1068,8 +1067,12 @@ function doseCard(dose, weight, compact=false, drug=null) {
         const rows = daily.map(d => {
           const p = perDose.find(x => x.formText === d.formText)
           const perStr = p ? `<span class="text-gray-500 text-[11px] ml-1">(1回 ${p.str})</span>` : ''
+          const noteStr = d.notes ? `<div class="text-[10px] text-gray-500 leading-tight">${esc(d.notes)}</div>` : ''
           return `<div class="flex justify-between items-baseline gap-2 text-xs">
-            <span class="text-gray-600 truncate">${esc(d.formText)}</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-gray-600 truncate">${esc(d.formText)}</div>
+              ${noteStr}
+            </div>
             <span class="text-gray-800 font-semibold whitespace-nowrap">${d.str}${perStr}</span>
           </div>`
         }).join('')

@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v22-units-split'
+const CACHE = 'pediatric-v23-combo-fix'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
