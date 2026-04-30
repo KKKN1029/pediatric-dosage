@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v11-iv-reorder'
+const CACHE = 'pediatric-v12-subcategory'
 
 self.addEventListener('install', e => {
   self.skipWaiting()

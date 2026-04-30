@@ -951,6 +951,32 @@ function dosesHTML(drug, weight, compact=false) {
 
 // ── リスト画面 ────────────────────────────────────────────
 
+// サブカテゴリで items をグループ化して見出し付き <ul> 文字列を返す。
+// item ごとに renderItem(item) が呼ばれ、<li> を返すこと。
+// グループ分けが不要 (全アイテムにサブカテゴリが無い) 場合は単純なリストを返す。
+function renderListBySubcategory(items, renderItem) {
+  if (!items || items.length === 0) return ''
+  const hasAnySub = items.some(i => i && typeof i.subcategory === 'string' && i.subcategory.trim() !== '')
+  if (!hasAnySub) return items.map(renderItem).join('')
+  // 出現順を維持しつつグループ化
+  const order = []
+  const groups = new Map()
+  for (const i of items) {
+    const sub = (i && typeof i.subcategory === 'string') ? i.subcategory.trim() : ''
+    const key = sub || '__other__'
+    if (!groups.has(key)) { groups.set(key, []); order.push(key) }
+    groups.get(key).push(i)
+  }
+  // 「__other__」(サブカテゴリなし) は末尾へ
+  const ordered = order.filter(k => k !== '__other__').concat(order.includes('__other__') ? ['__other__'] : [])
+  return ordered.map(key => {
+    const list = groups.get(key)
+    const label = key === '__other__' ? 'その他' : key
+    const header = `<li class="px-4 py-1.5 text-[11px] font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">${esc(label)} <span class="text-gray-400 font-normal">(${list.length})</span></li>`
+    return header + list.map(renderItem).join('')
+  }).join('')
+}
+
 function drugListItem(d) {
   return `<li><button data-drug="${d.id}" class="w-full flex items-center px-4 py-3 hover:bg-gray-50 active:bg-gray-100 text-left gap-3 border-b border-gray-100">
     <div class="flex-1 min-w-0">
@@ -1352,7 +1378,9 @@ function buildListBodyHTML(query) {
 
     const diseaseItems = diseaseList.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-4xl">${ICON.hospital}</span><span>${isPendingDiseaseCat?'未確認の疾患はありません':'疾患がありません'}</span></div>`
-      : diseaseList.map(d => diseaseListItem(d, isPendingDiseaseCat)).join('')
+      : (isPendingDiseaseCat
+          ? diseaseList.map(d => diseaseListItem(d, true)).join('')
+          : renderListBySubcategory(diseaseList, d => diseaseListItem(d, false)))
 
     return `
       <aside class="w-20 bg-white border-r border-gray-200 overflow-y-auto shrink-0">${diseaseSidebar}</aside>
@@ -1430,7 +1458,7 @@ function buildListBodyHTML(query) {
     let drugs = isFav ? getAllDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
     const items = drugs.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
-      : drugs.map(drugListItem).join('')
+      : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
@@ -1463,7 +1491,7 @@ function attachListBody() {
     render()
   }))
   document.getElementById('btn-add-drug')?.addEventListener('click', () => {
-    setState({screen:'add-drug', addForm:{genericName:'',abbreviation:'',brandNames:'',category:state.category==='__favorites__'||state.category==='__sets__'||state.category==='__pending__'?getCategories()[0]:state.category,route:'内服',formulations:'',adultDose:'',notes:'',sideEffects:'',references:''}, addDoses:[newDoseEntry()]})
+    setState({screen:'add-drug', addForm:{genericName:'',abbreviation:'',brandNames:'',category:state.category==='__favorites__'||state.category==='__sets__'||state.category==='__pending__'?getCategories()[0]:state.category,subcategory:'',route:'内服',formulations:'',adultDose:'',notes:'',sideEffects:'',references:''}, addDoses:[newDoseEntry()]})
   })
   document.getElementById('btn-create-set')?.addEventListener('click', () => {
     setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
@@ -2276,6 +2304,7 @@ function renderAddDrug() {
             ${getCategories().map(c=>`<option ${f.category===c?'selected':''}>${c}</option>`).join('')}
           </select>
         </div>
+        ${ef('サブカテゴリ（任意）','add-subcategory',f.subcategory||'')}
         ${ef('投与経路','add-route',f.route||'内服')}
         ${ef('規格（カンマ区切り）','add-formulations',f.formulations||'')}
         ${ef('成人量','add-adultDose',f.adultDose||'')}
@@ -2334,6 +2363,7 @@ function attachAddDrug() {
       abbreviation: document.getElementById('add-abbreviation').value.trim(),
       brandNames: document.getElementById('add-brandNames').value.split(',').map(s=>s.trim()).filter(Boolean),
       category: document.getElementById('add-category').value,
+      subcategory: document.getElementById('add-subcategory').value.trim(),
       route: document.getElementById('add-route').value.trim() || '内服',
       formulations: document.getElementById('add-formulations').value.split(',').map(s=>s.trim()).filter(Boolean),
       adultDose: document.getElementById('add-adultDose').value.trim(),
@@ -2576,6 +2606,11 @@ function renderAddDisease() {
             ${cats.map(c=>`<option value="${esc(c)}" ${(f.category||cats[0])===c?'selected':''}>${esc(c)}</option>`).join('')}
           </select>
         </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-gray-600">サブカテゴリ（任意）</label>
+          <input id="ad-subcategory" type="text" value="${esc(f.subcategory||'')}" placeholder="例: ウイルス性"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
       </div>
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2">
         <label class="text-xs font-medium text-gray-600">ポイント（1行1項目）</label>
@@ -2676,6 +2711,7 @@ function attachAddDisease() {
       englishName: document.getElementById('ad-englishName').value.trim(),
       abbreviation: document.getElementById('ad-abbreviation').value.trim(),
       category: document.getElementById('ad-category').value,
+      subcategory: document.getElementById('ad-subcategory').value.trim(),
       tags: [],
       points: document.getElementById('ad-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
       sections,

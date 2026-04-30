@@ -425,6 +425,7 @@ function newDisease() {
     englishName: '',
     abbreviation: '',
     category: state.data.diseaseCategories[0] || '',
+    subcategory: '',
     tags: [],
     points: [],
     sections: [],
@@ -836,7 +837,7 @@ function diseasesListHTML() {
   if (cat) diseases = diseases.filter(d => d.category === cat)
   if (q) {
     diseases = diseases.filter(d => {
-      const hay = jpNorm([d.id, d.name, d.englishName, d.abbreviation, ...(d.tags||[])].join(' '))
+      const hay = jpNorm([d.id, d.name, d.englishName, d.abbreviation, d.subcategory, ...(d.tags||[])].join(' '))
       return hay.includes(q)
     })
   }
@@ -864,7 +865,7 @@ function diseasesListHTML() {
                 ${d.englishName ? `<span class="text-xs text-gray-500">${esc(d.englishName)}</span>` : ''}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">
-                ${esc(d.category || '')} · セクション ${(d.sections||[]).length}件
+                ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · セクション ${(d.sections||[]).length}件
               </div>
             </div>
             <button data-act="toggle-pending-disease" data-id="${esc(d.id)}" class="${d.pending ? 'text-orange-600' : 'text-gray-300 hover:text-orange-500'} text-sm px-2" title="${d.pending ? '確認済みに戻す' : '未確認にする'}">${ICON.alert}</button>
@@ -903,7 +904,9 @@ function diseaseFormHTML(d) {
             <select data-bind="disease.category" class="input">
               ${state.data.diseaseCategories.map(c => `<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')}
             </select></div>
-          <div><label class="label">タグ <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+          <div><label class="label">サブカテゴリ <span class="text-gray-400 font-normal">（任意）</span></label>
+            <input data-bind="disease.subcategory" type="text" value="${esc(d.subcategory || '')}" class="input" placeholder="例: ウイルス性" /></div>
+          <div class="sm:col-span-2"><label class="label">タグ <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
             <input data-bind="disease.tags" type="text" value="${esc((d.tags||[]).join(' | '))}" class="input" placeholder="例: 肺炎 | CAP" /></div>
           <div class="sm:col-span-2"><label class="label">ポイント <span class="text-gray-400 font-normal">（箇条書きで | で区切る）</span></label>
             <input data-bind="disease.points" type="text" value="${esc((d.points||[]).join(' | '))}" class="input" placeholder="例: 発熱5日以上 | 結膜充血 | 苺舌" /></div>
