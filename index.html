@@ -39,7 +39,8 @@ if ('serviceWorker' in navigator) {
 let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
-  '抗真菌薬','抗アレルギー薬','解熱鎮痛薬','その他',
+  '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
+  '制吐薬','整腸薬・止痢薬','点眼薬','点鼻薬','その他',
 ]
 
 // ============================================================
@@ -434,6 +435,99 @@ let DRUGS = [
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:80,maxDosePerDay:3200,frequency:'分4',notes:'水痘・帯状疱疹に対する小児用量も同量'}], notes:'錠は水痘に保険適用なし。帯状疱疹に対する小児用量も同様。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'valaciclovir-v5', genericName:'バラシクロビル塩酸塩', abbreviation:'VACV', brandNames:['バルトレックス'], category:'抗ウイルス薬', subcategory:'抗ヘルペス薬', route:'内服', formulations:['顆粒 50%','錠 500mg'], adultDose:'帯状疱疹: 3,000mg/日 分3　単純疱疹: 1,000mg/日 分2',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:75,maxDosePerDay:3000,frequency:'分3',notes:'水痘5日間、帯状疱疹7日間投与'}], notes:'乳児に対する安全性未確立。帯状疱疹に対する小児用量も同量。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 制吐薬 (小児の薬の選び方・使い方 第5版)
+  { id:'metoclopramide-v5', genericName:'メトクロプラミド', abbreviation:'メトクロプラミド', brandNames:['プリンペラン'], category:'制吐薬', route:'内服', formulations:['シロップ 0.1%','細粒 2%','錠 5mg','錠 10mg'], adultDose:'10〜30mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:0.7,maxDosePerDay:30,frequency:'分2〜3'}], notes:'錐体外路症状、意識障害、けいれんに注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'domperidone-v5', genericName:'ドンペリドン', abbreviation:'ドンペリドン', brandNames:['ナウゼリン'], category:'制吐薬', route:'内服・坐剤', formulations:[{text:'DS 1%',notes:'適応: 周期性嘔吐症・乳幼児下痢症・上気道感染症・抗悪性腫瘍薬投与時 (細粒・錠・OD錠は乳幼児下痢症の適応なし)'},'細粒 1%','錠 5mg','錠 10mg','OD錠 5mg','OD錠 10mg',{text:'坐剤 10mg',ageMaxMonths:36,notes:'3歳未満'},{text:'坐剤 30mg',ageMinMonths:36,notes:'3歳以上'},{text:'坐剤 60mg',notes:'小児には適応なく使用しない'}], adultDose:'30mg/日 (6歳以上1.0mg/kg/日まで)',
+    pediatricDoses:[
+      {ageLabel:'内服 全年齢',purpose:'治療',dosePerKgMin:1.0,dosePerKgMax:2.0,maxDosePerDay:30,frequency:'分3'},
+      {ageLabel:'坐剤 3歳未満',ageMaxMonths:36,purpose:'治療',fixedDose:'1回10mg を 1日2〜3回',frequency:'分2〜3'},
+      {ageLabel:'坐剤 3歳以上',ageMinMonths:36,purpose:'治療',fixedDose:'1回30mg を 1日2〜3回',frequency:'分2〜3'},
+    ], notes:'錐体外路症状、意識障害、けいれんに注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 整腸薬・止痢薬 (小児の薬の選び方・使い方 第5版)
+  { id:'resistant-lactic-v5', genericName:'耐性乳酸菌', abbreviation:'耐性乳酸菌', brandNames:['エンテロノン-R','耐性乳酸菌散','ラックビーR','レベニン','ビオフェルミンR','ラクスパン'], category:'整腸薬・止痢薬', route:'内服', formulations:['散 10%','錠'], adultDose:'3g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:3,frequency:'分3',unit:'g'}], notes:'抗菌薬による下痢に。牛乳アレルギーに禁忌 (乳糖含有のため)。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bifidobacterium-v5', genericName:'ビフィズス菌', abbreviation:'ビフィズス菌', brandNames:['ラックビー微粒N','ビフィスゲン散','ビオスミン配合散','レベニンS配合散','ビオフェルミン錠剤'], category:'整腸薬・止痢薬', route:'内服', formulations:['散','錠剤'], adultDose:'3〜6g/日 (3〜6錠/日)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,frequency:'分3',unit:'g'}], notes:'下線品はラクトミン配合。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'butyric-acid-v5', genericName:'酪酸菌', abbreviation:'酪酸菌', brandNames:['ビオスリー配合散','ミヤBM細粒','ビオスリー配合錠','ミヤBM錠'], category:'整腸薬・止痢薬', route:'内服', formulations:['散','細粒','錠'], adultDose:'1.5〜3g/日 (3〜6錠/日)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'lactomin-v5', genericName:'ラクトミン', abbreviation:'ラクトミン', brandNames:['アタバニン散','ビオフェルミン配合散','ラクトミン散'], category:'整腸薬・止痢薬', route:'内服', formulations:['散'], adultDose:'3〜9g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:9,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'natural-aluminum-silicate-v5', genericName:'天然ケイ酸アルミニウム', abbreviation:'天然ケイ酸Al', brandNames:['アドソルビン原末'], category:'整腸薬・止痢薬', route:'内服', formulations:['原末'], adultDose:'3〜10g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:10,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tannin-albumin-v5', genericName:'タンニン酸アルブミン', abbreviation:'タンニン酸Alb', brandNames:['タンナルビン','タンナルビン (ホエイ)','タンニン酸アルブミン (ニッコー)'], category:'整腸薬・止痢薬', route:'内服', formulations:['末'], adultDose:'3〜4g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:4,frequency:'分3',unit:'g'}], notes:'牛乳アレルギーに禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 抗アレルギー点眼薬 (小児の薬の選び方・使い方 第5版)
+  { id:'amlexanox-eye-v5', genericName:'アンレキサノクス点眼', abbreviation:'アンレキサノクス', brandNames:['エリックス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.25%'], adultDose:'1回1〜2滴を1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ibudilast-eye-v5', genericName:'イブジラスト点眼', abbreviation:'イブジラスト', brandNames:['ケタス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.01%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cromoglicate-eye-v5', genericName:'クロモグリク酸点眼', abbreviation:'クロモグリク酸', brandNames:['インタール','アルギノン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 2%','点眼液 UD2%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tranilast-eye-v5', genericName:'トラニラスト点眼', abbreviation:'トラニラスト', brandNames:['リザベン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.5%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'pemirolast-eye-v5', genericName:'ペミロラスト点眼', abbreviation:'ペミロラスト', brandNames:['アレギサール','ペミラストン','ペミロラストK','ペミリドン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1滴, 1日2回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1滴を1日2回',frequency:'分2'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ketotifen-eye-v5', genericName:'ケトチフェン点眼', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.05%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'epinastine-eye-v5', genericName:'エピナスチン点眼', abbreviation:'エピナスチン', brandNames:['アレジオン','アレジオンLX'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:[{text:'点眼液 0.05%',notes:'1回1滴 1日4回'},{text:'LX点眼液 0.1%',ageMinMonths:144,notes:'1回1滴 1日2回 (12歳未満安全性未確立)'}], adultDose:'1回1滴, 1日4回 (LX: 1日2回)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'点眼液0.05% 1回1滴 1日4回 / LX0.1% 1日2回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'olopatadine-eye-v5', genericName:'オロパタジン点眼', abbreviation:'オロパタジン', brandNames:['パタノール'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'levocabastine-eye-v5', genericName:'レボカバスチン点眼', abbreviation:'レボカバスチン', brandNames:['リボスチン'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.025%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 消炎薬の点眼薬
+  { id:'azulene-eye-v5', genericName:'アズレン点眼', abbreviation:'アズレン', brandNames:['AZ点眼液','アズレン点眼液 (わかもと)','アゾデシン点眼液'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 0.02%'], adultDose:'1回1〜2滴, 1日3〜5回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜5回',frequency:'分3〜5'}], notes:'急性結膜炎・アレルギー性結膜炎などに。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'glycyrrhizin-eye-v5', genericName:'グリチルリチン酸点眼', abbreviation:'グリチルリチン酸', brandNames:['ノイボルミチン'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 1%'], adultDose:'1回2〜3滴, 1日5〜6回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回2〜3滴を1日5〜6回',frequency:'分5〜6'}], notes:'アレルギー性結膜炎に。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'pranoprofen-eye-v5', genericName:'プラノプロフェン点眼', abbreviation:'プラノプロフェン', brandNames:['ニフラン'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'結膜炎などに。乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // ステロイド点眼薬 (小児の薬の選び方・使い方 第5版)
+  { id:'dexamethasone-eye-v5', genericName:'デキサメタゾン点眼', abbreviation:'デキサメタゾン', brandNames:['DMゾロン','サンテゾーン','オルガドロン','テイカゾン','D・E・X'], category:'点眼薬', subcategory:'ステロイド', route:'点眼・点耳・点鼻', formulations:['点眼液 0.02%','点眼液 0.05%','点眼液 0.1%','眼軟膏 0.05%','眼軟膏 0.1%'], adultDose:'1回1〜2滴, 1日3〜4回 (眼軟膏: 1日1〜3回塗布)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜4回 (眼軟膏は1日1〜3回塗布)',frequency:'分3〜4',notes:'2歳未満には慎重投与'}], notes:'すべて小児に対する安全性未確立。特に2歳未満には慎重に投与。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'hydrocortisone-eye-v5', genericName:'ヒドロコルチゾン点眼', abbreviation:'ヒドロコルチゾン', brandNames:['HCゾロン (日点)'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.5%'], adultDose:'1回1〜2滴, 1日数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日数回',frequency:'数回'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluorometholone-eye-v5', genericName:'フルオロメトロン点眼', abbreviation:'フルオロメトロン', brandNames:['フルメトロン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.02%','点眼液 0.1%'], adultDose:'1回1〜2滴, 1日2〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日2〜4回',frequency:'分2〜4'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'prednisolone-eye-v5', genericName:'プレドニゾロン点眼', abbreviation:'プレドニゾロン', brandNames:['PSゾロン (日点)','プレドニン','酢酸プレドニゾロン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.11%','眼軟膏','眼軟膏 0.25%'], adultDose:'1回1〜2滴, 1日数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日数回',frequency:'数回'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-eye-v5', genericName:'ベタメタゾン点眼', abbreviation:'ベタメタゾン', brandNames:['リンデロン','サンベタゾン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼・点耳・点鼻', formulations:['点眼液 0.1%','点眼液 0.01%','眼耳鼻科用液 0.1%'], adultDose:'1回1〜2滴, 1日3〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜4回',frequency:'分3〜4'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-fradiomycin-eye-v5', genericName:'ベタメタゾン+フラジオマイシン点眼', abbreviation:'ベタメタゾン+FRM', brandNames:['リンデロンA液','ベルベゾロンF'], category:'点眼薬', subcategory:'ステロイド+抗菌薬合剤', route:'点眼・点鼻', formulations:['液','眼・耳科用軟膏'], adultDose:'1回1〜2滴, 1日1〜数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日1〜数回',frequency:'数回'}], notes:'抗菌薬との合剤。すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'methylprednisolone-fradiomycin-eye-v5', genericName:'メチルプレドニゾロン+フラジオマイシン', abbreviation:'mPSL+FRM', brandNames:['ネオ メドロールEE'], category:'点眼薬', subcategory:'ステロイド+抗菌薬合剤', route:'点眼・塗布', formulations:['EE軟膏'], adultDose:'1日1〜数回点眼・塗布',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1日1〜数回点眼・塗布',frequency:'数回'}], notes:'抗菌薬との合剤。すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 点鼻抗アレルギー薬 (小児の薬の選び方・使い方 第5版)
+  { id:'cromoglicate-nasal-v5', genericName:'クロモグリク酸点鼻', abbreviation:'クロモグリク酸', brandNames:['インタール','クロモグリク酸Na (トーワ)'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 2%'], adultDose:'1回各鼻腔に1噴霧, 1日6回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日6回',frequency:'分6'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ketotifen-nasal-v5', genericName:'ケトチフェン点鼻', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 0.05%'], adultDose:'1回各鼻腔に1噴霧, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'levocabastine-nasal-v5', genericName:'レボカバスチン点鼻', abbreviation:'レボカバスチン', brandNames:['リボスチン'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 0.025mg/噴霧 (112噴霧用)'], adultDose:'1回各鼻腔に2噴霧, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に2噴霧を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 点鼻ステロイド薬
+  { id:'fluticasone-furoate-nasal-v5', genericName:'フルチカゾン (フランカルボン酸エステル)', abbreviation:'FFE', brandNames:['アラミスト'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'点鼻液 27.5μg 56噴霧用',ageMinMonths:24,notes:'2歳未満禁忌'}], adultDose:'1回各鼻腔に2噴霧×1回',
+    pediatricDoses:[{ageLabel:'2歳以上',ageMinMonths:24,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日1回',frequency:'分1'}], notes:'2歳未満の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluticasone-propionate-nasal-v5', genericName:'フルチカゾン (プロピオン酸エステル)', abbreviation:'FP', brandNames:['フルナーゼ'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'小児用フルナーゼ点鼻液 25μg 56噴霧用',ageMinMonths:60,notes:'4歳以下安全性未確立'},{text:'フルチカゾン点鼻液 25μg「杏林」 56噴霧用',ageMinMonths:60,notes:'4歳以下安全性未確立'}], adultDose:'1噴霧×2回 (最大8噴霧)',
+    pediatricDoses:[{ageLabel:'5歳以上',ageMinMonths:60,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日2回 (最大8噴霧)',frequency:'分2'}], notes:'4歳以下の幼児に対する安全性未確立。成人用製剤 (フルナーゼ点鼻液50μg 28・56噴霧用、フルチカゾン点鼻液50μg「杏林」28・56噴霧用) は小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'beclomethasone-nasal-v5', genericName:'ベクロメタゾン点鼻', abbreviation:'BDP', brandNames:['リノコート','アルロイヤー','タウナス'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'リノコート パウダースプレー鼻用 25μg',ageMinMonths:72,notes:'5歳以下安全性未確立'},{text:'リノコート カプセル鼻用 50μg',ageMinMonths:72,notes:'5歳以下安全性未確立'},{text:'アルロイヤー点鼻液 50μg',ageMinMonths:72},{text:'タウナス アクアスプレー点鼻 50μg',ageMinMonths:72}], adultDose:'1日4回最大8回',
+    pediatricDoses:[
+      {ageLabel:'パウダー 6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (25μg) を1日2回',frequency:'分2'},
+      {ageLabel:'カプセル 6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (50μg) を1日2回',frequency:'分2'},
+      {ageLabel:'スプレー 6歳以上 (最大4回)',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (50μg) を1日2回 (最大4回)',frequency:'分2'},
+    ], notes:'5歳以下の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'mometasone-nasal-v5', genericName:'モメタゾン', abbreviation:'モメタゾン', brandNames:['ナゾネックス'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'点鼻液 50μg 56噴霧用',ageMinMonths:36,notes:'3歳未満安全性未確立'},{text:'点鼻液 50μg 112噴霧用',ageMinMonths:36}], adultDose:'1回各鼻腔に2噴霧 1日1回',
+    pediatricDoses:[
+      {ageLabel:'12歳未満',ageMinMonths:36,ageMaxMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日1回',frequency:'分1'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に2噴霧を1日1回',frequency:'分1'},
+    ], notes:'3歳未満の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
 ]
 
 // ============================================================
