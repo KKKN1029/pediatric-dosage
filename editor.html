@@ -100,11 +100,11 @@ async function patchGist(data){
 // ── Load from index.html (same-origin fetch) ───────────────────────────────
 async function loadFromIndexHtml(){
   const html=await fetch('./index.html').then(r=>{if(!r.ok)throw new Error('fetch failed');return r.text()})
-  const m=html.match(/let CATEGORIES[\s\S]+?(?=
-const LS\s*=)/)
-  if(!m)throw new Error('データセクション抽出失敗')
-  const fn=new Function(m[0]+'
-return {CATEGORIES,DISEASE_CATEGORIES,IV_FLUID_TABLES,DISEASES,DRUGS}')
+  const s=html.indexOf('let CATEGORIES')
+  const e=html.indexOf('const LS =',s)
+  if(s<0||e<0)throw new Error('データセクション抽出失敗')
+  const dataJs=html.slice(s,e)
+  const fn=new Function(dataJs+'return {CATEGORIES,DISEASE_CATEGORIES,IV_FLUID_TABLES,DISEASES,DRUGS}')
   const d=fn()
   return {version:1,updatedAt:new Date().toISOString(),drugCategories:d.CATEGORIES,diseaseCategories:d.DISEASE_CATEGORIES,drugs:d.DRUGS,diseases:d.DISEASES,ivFluidTables:d.IV_FLUID_TABLES}
 }
@@ -236,8 +236,7 @@ function syncCurrentTab(){
         const sv=document.getElementById('iv_solvent');if(sv)d.ivDilution.solvent=sv.value
         const mc=document.getElementById('iv_maxConc');if(mc)d.ivDilution.maxConcMgPerMl=parseFloat(mc.value)||0
         const it=document.getElementById('iv_infTime');if(it)d.ivDilution.infusionTime=it.value
-        const ic=document.getElementById('iv_incomp');if(ic)d.ivDilution.incompatible=ic.value.split('
-').map(s=>s.trim()).filter(Boolean)
+        const ic=document.getElementById('iv_incomp');if(ic)d.ivDilution.incompatible=ic.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)
       }
     }else if(S.editTab==='form'){
       document.querySelectorAll('[data-form-i]').forEach(el=>{
@@ -248,10 +247,8 @@ function syncCurrentTab(){
     ;['id','name','englishName','abbreviation','notes'].forEach(f=>{const el=document.getElementById('dis_'+f);if(el)d[f]=el.value})
     const cat=document.getElementById('dis_category');if(cat)d.category=cat.value
     const tags=document.getElementById('dis_tags');if(tags)d.tags=tags.value.split(',').map(s=>s.trim()).filter(Boolean)
-    const pts=document.getElementById('dis_points');if(pts)d.points=pts.value.split('
-').map(s=>s.trim()).filter(Boolean)
-    const refs=document.getElementById('dis_references');if(refs)d.references=refs.value.split('
-').map(s=>s.trim()).filter(Boolean)
+    const pts=document.getElementById('dis_points');if(pts)d.points=pts.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)
+    const refs=document.getElementById('dis_references');if(refs)d.references=refs.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)
     const sel=document.getElementById('dis_relatedDrugIds');if(sel)d.relatedDrugIds=Array.from(sel.selectedOptions).map(o=>o.value)
     document.querySelectorAll('[data-sec-i]').forEach(row=>{
       const i=parseInt(row.dataset.secI);if(!d.sections?.[i])return
@@ -260,8 +257,7 @@ function syncCurrentTab(){
     })
   }else if(S.editType==='iv'){
     const catEl=document.getElementById('ivsec_cat');if(catEl)d.category=catEl.value
-    const notesEl=document.getElementById('ivsec_notes');if(notesEl)d.notes=notesEl.value.split('
-').map(s=>s.trim()).filter(Boolean)
+    const notesEl=document.getElementById('ivsec_notes');if(notesEl)d.notes=notesEl.value.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean)
     document.querySelectorAll('[data-fluid-i]').forEach(row=>{
       const i=parseInt(row.dataset.fluidI);if(!d.fluids?.[i])return
       row.querySelectorAll('[data-f]').forEach(el=>{
@@ -524,8 +520,7 @@ function buildDrugIV(d){
         <div><label class="lbl">最大濃度 (mg/mL)</label><input type="number" step="0.1" id="iv_maxConc" class="inp" value="${esc(iv.maxConcMgPerMl??'')}"></div>
         <div><label class="lbl">投与時間</label><input id="iv_infTime" class="inp" value="${esc(iv.infusionTime||'')}"></div>
       </div>
-      <div><label class="lbl">配合禁忌（1行1件）</label><textarea id="iv_incomp" class="inp">${esc((iv.incompatible||[]).join('
-'))}</textarea></div>
+      <div><label class="lbl">配合禁忌（1行1件）</label><textarea id="iv_incomp" class="inp">${esc((iv.incompatible||[]).join(String.fromCharCode(10)))}</textarea></div>
     </div>`:''}
   </div>`
 }
@@ -562,8 +557,7 @@ function buildSlideDisease(){
       </div>
       <div><label class="lbl">ID（英数字）</label><input id="dis_id" class="inp font-mono text-sm" value="${esc(d.id||'')}"></div>
       <div><label class="lbl">タグ（カンマ区切り）</label><input id="dis_tags" class="inp" value="${esc((d.tags||[]).join(', '))}"></div>
-      <div><label class="lbl">ポイント（1行1件）</label><textarea id="dis_points" class="inp">${esc((d.points||[]).join('
-'))}</textarea></div>
+      <div><label class="lbl">ポイント（1行1件）</label><textarea id="dis_points" class="inp">${esc((d.points||[]).join(String.fromCharCode(10)))}</textarea></div>
       <div>
         <div class="flex items-center justify-between mb-1.5"><label class="lbl">セクション</label><button onclick="addSection()" class="btn btn-s text-xs py-1 px-2">＋ 追加</button></div>
         <div class="space-y-2">${secRows}</div>
@@ -571,8 +565,7 @@ function buildSlideDisease(){
       <div><label class="lbl">関連薬剤（Ctrl/Cmd+クリックで複数選択）</label>
         <select id="dis_relatedDrugIds" multiple class="inp" style="min-height:80px">${drugOpts}</select>
       </div>
-      <div><label class="lbl">参考文献（1行1件）</label><textarea id="dis_references" class="inp">${esc((d.references||[]).join('
-'))}</textarea></div>
+      <div><label class="lbl">参考文献（1行1件）</label><textarea id="dis_references" class="inp">${esc((d.references||[]).join(String.fromCharCode(10)))}</textarea></div>
       <div><label class="lbl">備考</label><textarea id="dis_notes" class="inp">${esc(d.notes||'')}</textarea></div>
     </div>
   </div></div>`
@@ -599,8 +592,7 @@ function buildSlideIV(){
     </div>
     <div class="flex-1 px-4 py-4 space-y-3 pb-8">
       <div><label class="lbl">セクション名</label><input id="ivsec_cat" class="inp" value="${esc(d.category||'')}"></div>
-      <div><label class="lbl">注釈（1行1件 例: ※1 グルコン酸...）</label><textarea id="ivsec_notes" class="inp">${esc((d.notes||[]).join('
-'))}</textarea></div>
+      <div><label class="lbl">注釈（1行1件 例: ※1 グルコン酸...）</label><textarea id="ivsec_notes" class="inp">${esc((d.notes||[]).join(String.fromCharCode(10)))}</textarea></div>
       <div>
         <div class="flex items-center justify-between mb-2"><label class="lbl">輸液製剤一覧（${(d.fluids||[]).length}件）</label><button onclick="addFluid()" class="btn btn-s text-xs py-1 px-2">＋ 製剤追加</button></div>
         <div class="space-y-2">${fluidRows}</div>
