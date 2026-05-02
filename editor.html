@@ -8,49 +8,38 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif; background:#f1f5f9; }
-.inp { width:100%; padding:.5rem .75rem; font-size:.875rem; border:1px solid #cbd5e1; border-radius:.5rem; background:#fff; box-sizing:border-box; transition:border-color .15s,box-shadow .15s; }
-.inp:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
-.inp::placeholder { color:#9ca3af; }
-select.inp { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .5rem center; padding-right:2rem; }
-textarea.inp { resize:vertical; min-height:64px; line-height:1.6; }
-.btn { display:inline-flex; align-items:center; gap:.3rem; padding:.5rem .875rem; font-size:.875rem; font-weight:600; border-radius:.5rem; cursor:pointer; border:none; transition:background .15s, opacity .15s; line-height:1.2; }
-.btn:disabled { opacity:.5; cursor:not-allowed; }
-.btn-p { background:#3b82f6; color:#fff; }
-.btn-p:hover:not(:disabled) { background:#2563eb; }
-.btn-s { background:#f8fafc; color:#374151; border:1px solid #e2e8f0; }
-.btn-s:hover:not(:disabled) { background:#e2e8f0; }
-.btn-d { background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; }
-.btn-d:hover:not(:disabled) { background:#fecaca; }
-.btn-g { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
-.btn-g:hover:not(:disabled) { background:#d1fae5; }
-.lbl { display:block; font-size:.72rem; font-weight:700; color:#475569; margin-bottom:.25rem; letter-spacing:.02em; text-transform:uppercase; }
-.card { background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; }
-.slide { position:fixed; inset:0; background:#f1f5f9; overflow-y:auto; z-index:40; transform:translateX(100%); transition:transform .22s cubic-bezier(.4,0,.2,1); }
-.slide.open { transform:translateX(0); }
-.toggle-track { display:inline-flex; width:2.75rem; height:1.5rem; background:#cbd5e1; border-radius:999px; cursor:pointer; transition:background .15s; align-items:center; padding:0 .15rem; }
-.toggle-track.on { background:#3b82f6; }
-.toggle-knob { width:1.2rem; height:1.2rem; background:#fff; border-radius:50%; transition:transform .15s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-.toggle-track.on .toggle-knob { transform:translateX(1.25rem); }
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;background:#f1f5f9;}
+.inp{width:100%;padding:.5rem .75rem;font-size:.875rem;border:1px solid #cbd5e1;border-radius:.5rem;background:#fff;box-sizing:border-box;transition:border-color .15s,box-shadow .15s;}
+.inp:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15);}
+.inp::placeholder{color:#9ca3af;}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .5rem center;padding-right:2rem;}
+textarea.inp{resize:vertical;min-height:72px;line-height:1.6;}
+.btn{display:inline-flex;align-items:center;gap:.3rem;padding:.5rem .875rem;font-size:.875rem;font-weight:600;border-radius:.5rem;cursor:pointer;border:none;transition:background .15s,opacity .15s;line-height:1.2;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-p{background:#3b82f6;color:#fff;}.btn-p:hover:not(:disabled){background:#2563eb;}
+.btn-s{background:#f8fafc;color:#374151;border:1px solid #e2e8f0;}.btn-s:hover:not(:disabled){background:#e2e8f0;}
+.btn-d{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}.btn-d:hover:not(:disabled){background:#fecaca;}
+.btn-g{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;}.btn-g:hover:not(:disabled){background:#d1fae5;}
+.lbl{display:block;font-size:.7rem;font-weight:700;color:#475569;margin-bottom:.25rem;letter-spacing:.04em;text-transform:uppercase;}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;}
+.slide{position:fixed;inset:0;background:#f1f5f9;overflow-y:auto;z-index:40;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);}
+.slide.open{transform:translateX(0);}
+.togg{display:inline-flex;width:2.75rem;height:1.5rem;background:#cbd5e1;border-radius:999px;cursor:pointer;transition:background .15s;align-items:center;padding:0 .15rem;flex-shrink:0;}
+.togg.on{background:#3b82f6;}
+.togg-k{width:1.2rem;height:1.2rem;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.togg.on .togg-k{transform:translateX(1.25rem);}
 </style>
 </head>
 <body>
 <div id="app"></div>
-
 <script>
 'use strict'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const GIST_FILE = 'pediatric-dosage-data.json'
-const K = {
-  token:    'editor_gh_token',
-  gistId:   'editor_gist_id',
-  appCache: 'master_gist_cache',
-  appCacheAt: 'master_gist_cache_at',
-  appGistId: 'master_gist_id',
-}
+const K = { token:'editor_gh_token', gistId:'editor_gist_id', appCache:'master_gist_cache', appCacheAt:'master_gist_cache_at', appGistId:'master_gist_id' }
 
-// ── localStorage ───────────────────────────────────────────────────────────
+// ── LocalStorage ───────────────────────────────────────────────────────────
 const ls = {
   get: k => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null } catch { return null } },
   set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)) } catch {} },
@@ -58,275 +47,343 @@ const ls = {
 
 // ── State ──────────────────────────────────────────────────────────────────
 const S = {
-  token:    ls.get(K.token)||'',
-  gistId:   ls.get(K.gistId)||'',
-  data:     null,           // {version, drugCategories, drugs, diseases, ivFluidTables, ...}
-  loading:  false,
+  token: ls.get(K.token)||'',
+  gistId: ls.get(K.gistId)||'',
+  data: null,         // {version, drugCategories, diseaseCategories, drugs, diseases, ivFluidTables}
+  loading: false,
   loadError: null,
-  view:     'list',         // 'list' | 'edit' | 'settings'
-  search:   '',
-  catFilter:'すべて',
-  editDrug: null,           // deep clone being edited
-  editIsNew:false,
-  editTab:  'basic',        // 'basic' | 'doses' | 'iv' | 'form'
-  dirty:    false,
-  saving:   false,
-  toast:    null,
+  dataSource: null,   // 'index.html' | 'gist' | 'cache'
+  mainTab: 'drugs',   // 'drugs' | 'diseases' | 'iv'
+  drugSearch: '', drugCat: 'すべて',
+  diseaseSearch: '', diseaseCat: 'すべて',
+  editType: null,     // 'drug' | 'disease' | 'iv' | 'settings'
+  editItem: null,
+  editIsNew: false,
+  editTab: 'basic',
+  editIVIdx: null,    // index in ivFluidTables being edited
+  dirty: false,
+  saving: false,
+  toast: null,
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
-const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-const clone = o => JSON.parse(JSON.stringify(o))
-function jpNorm(s) {
-  if(!s) return ''
-  let v=String(s); try{v=v.normalize('NFKC')}catch{}
-  v=v.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60))
-  return v.toLowerCase().trim()
-}
-function ss(patch) { Object.assign(S,patch); render() }
-function toast(msg, kind='success') {
-  S.toast={msg,kind,t:Date.now()}; render()
-  setTimeout(()=>{ if(S.toast&&Date.now()-S.toast.t>=2400){S.toast=null;render()} },2500)
-}
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const clone = o=>JSON.parse(JSON.stringify(o))
+function jpNorm(s){if(!s)return '';let v=String(s);try{v=v.normalize('NFKC')}catch{};v=v.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));return v.toLowerCase().trim()}
+function ss(p){Object.assign(S,p);render()}
+function toast(msg,kind='success'){S.toast={msg,kind,t:Date.now()};render();setTimeout(()=>{if(S.toast&&Date.now()-S.toast.t>=2400){S.toast=null;render()}},2500)}
 
-// ── GitHub Gist API ────────────────────────────────────────────────────────
-async function ghFetch(url, opts={}) {
+// ── Gist API ───────────────────────────────────────────────────────────────
+async function ghFetch(url,opts={}){
   const h={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(opts.headers||{})}
-  if(S.token) h['Authorization']=`Bearer ${S.token}`
-  if(opts.body&&typeof opts.body==='object'){h['Content-Type']='application/json'; opts={...opts,body:JSON.stringify(opts.body)}}
+  if(S.token)h['Authorization']=`Bearer ${S.token}`
+  if(opts.body&&typeof opts.body==='object'){h['Content-Type']='application/json';opts={...opts,body:JSON.stringify(opts.body)}}
   const res=await fetch(url,{...opts,headers:h})
   if(!res.ok){let m=`GitHub API ${res.status}`;try{const j=await res.json();m+=': '+(j.message||JSON.stringify(j))}catch{};throw new Error(m)}
   return res.json()
 }
-async function fetchGist() {
-  if(!S.gistId) throw new Error('Gist ID が未設定')
+async function fetchGist(){
+  if(!S.gistId)throw new Error('Gist ID 未設定')
   const g=await ghFetch(`https://api.github.com/gists/${S.gistId}`)
-  const file=g.files[GIST_FILE]
-  if(!file) throw new Error(`${GIST_FILE} がGistにありません`)
-  const content=file.content||(file.truncated?await(await fetch(file.raw_url)).text():'')
-  return JSON.parse(content)
+  const f=g.files[GIST_FILE];if(!f)throw new Error(`${GIST_FILE} が Gist にありません`)
+  const c=f.content||(f.truncated?await(await fetch(f.raw_url)).text():'')
+  return JSON.parse(c)
 }
-async function patchGist(data) {
-  if(!S.gistId) throw new Error('Gist ID が未設定')
-  const content=JSON.stringify({...data, updatedAt:new Date().toISOString()},null,2)
-  await ghFetch(`https://api.github.com/gists/${S.gistId}`,{method:'PATCH',body:{files:{[GIST_FILE]:{content}}}})
-  ls.set(K.appCache, {...data, updatedAt:new Date().toISOString()})
-  ls.set(K.appCacheAt, String(Date.now()))
-  ls.set(K.appGistId, S.gistId)
+async function patchGist(data){
+  if(!S.gistId)throw new Error('Gist ID 未設定')
+  const body={...data,updatedAt:new Date().toISOString()}
+  await ghFetch(`https://api.github.com/gists/${S.gistId}`,{method:'PATCH',body:{files:{[GIST_FILE]:{content:JSON.stringify(body,null,2)}}}})
+  ls.set(K.appCache,body);ls.set(K.appCacheAt,String(Date.now()));ls.set(K.appGistId,S.gistId)
 }
 
-// ── Data helpers ───────────────────────────────────────────────────────────
-const cats = () => S.data?.drugCategories||[]
-function filteredDrugs() {
-  const q=jpNorm(S.search)
-  return (S.data?.drugs||[]).filter(d=>{
-    if(S.catFilter!=='すべて'&&d.category!==S.catFilter) return false
-    if(!q) return true
-    return [d.genericName,d.abbreviation,...(d.brandNames||[])].some(s=>jpNorm(s).includes(q))
-  })
-}
-const drugKey = d => d.id||d.genericName||''
-const emptyDose = () => ({ageLabel:'全年齢',purpose:'治療',dosePerKgMin:null,dosePerKgMax:null,maxDosePerDay:null,frequency:'分3',unit:'mg',notes:'',duration:''})
-function doseType(dose) {
-  if(dose.fixedDose!=null) return 'fixed'
-  if(dose.dosePerKgMin!=null||dose.dosePerKgMax!=null) return 'range'
-  return 'single'
+// ── Load from index.html ───────────────────────────────────────────────────
+async function loadFromIndexHtml(){
+  const html=await fetch('./index.html').then(r=>{if(!r.ok)throw new Error('fetch failed');return r.text()})
+  // Extract data section: from `let CATEGORIES` up to (but not including) `const LS =`
+  const m=html.match(/let CATEGORIES[\s\S]+?(?=\nconst LS\s*=)/)
+  if(!m)throw new Error('データセクションが見つかりません')
+  const fn=new Function(m[0]+'\nreturn {CATEGORIES,DISEASE_CATEGORIES,IV_FLUID_TABLES,DISEASES,DRUGS}')
+  const d=fn()
+  return {
+    version:1,
+    updatedAt:new Date().toISOString(),
+    drugCategories:d.CATEGORIES,
+    diseaseCategories:d.DISEASE_CATEGORIES,
+    drugs:d.DRUGS,
+    diseases:d.DISEASES,
+    ivFluidTables:d.IV_FLUID_TABLES,
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
-async function init() {
-  ss({loading:true, loadError:null})
-  try {
-    if(S.token&&S.gistId) {
+async function init(){
+  ss({loading:true,loadError:null,dataSource:null})
+  // 1) Try index.html (works on localhost or GitHub Pages)
+  try{
+    const data=await loadFromIndexHtml()
+    ss({data,loading:false,dataSource:'index.html'})
+    toast('index.html から読み込みました','info')
+    return
+  }catch(e){console.info('index.html fetch failed:',e.message)}
+  // 2) Try Gist
+  if(S.token&&S.gistId){
+    try{
       const data=await fetchGist()
-      ss({data, loading:false})
+      ss({data,loading:false,dataSource:'gist'})
       return
-    }
-    const cached=ls.get(K.appCache)
-    if(cached?.drugs) { ss({data:cached, loading:false}); toast('キャッシュから読み込みました','info'); return }
-    ss({loading:false, view:'settings', loadError:'GitHubトークンとGist IDを設定してください'})
-  } catch(e) {
-    const cached=ls.get(K.appCache)
-    if(cached?.drugs) { ss({data:cached, loading:false}); toast('Gist接続失敗。キャッシュ使用: '+e.message,'warn') }
-    else ss({loading:false, loadError:e.message})
+    }catch(e){console.info('Gist fetch failed:',e.message)}
   }
+  // 3) Cache
+  const cached=ls.get(K.appCache)
+  if(cached?.drugs){ss({data:cached,loading:false,dataSource:'cache'});toast('キャッシュから読み込み','warn');return}
+  ss({loading:false,loadError:'データを読み込めませんでした。\n設定でGitHub Token / Gist IDを確認してください。'})
 }
 
-// ── Actions ────────────────────────────────────────────────────────────────
-function startEdit(key) {
-  const d=(S.data?.drugs||[]).find(d=>drugKey(d)===key)
-  if(!d) return
-  ss({editDrug:clone(d), editIsNew:false, editTab:'basic', view:'edit'})
-}
-function startNewDrug() {
-  ss({
-    editDrug:{id:'',genericName:'',abbreviation:'',brandNames:[],category:cats()[0]||'',
-      route:'内服',formulations:[],adultDose:'',pediatricDoses:[],notes:'',sideEffects:'',references:[]},
-    editIsNew:true, editTab:'basic', view:'edit'
+// ── Data helpers ───────────────────────────────────────────────────────────
+const drugKey=d=>d.id||d.genericName||''
+const diseaseKey=d=>d.id||d.name||''
+function filteredDrugs(){
+  const q=jpNorm(S.drugSearch)
+  return (S.data?.drugs||[]).filter(d=>{
+    if(S.drugCat!=='すべて'&&d.category!==S.drugCat)return false
+    if(!q)return true
+    return [d.genericName,d.abbreviation,...(d.brandNames||[])].some(s=>jpNorm(s).includes(q))
   })
 }
-function commitEdit() {
-  if(!S.editDrug) return
-  // Sync any unsaved DOM values first
-  syncCurrentTabToState()
-  const d=S.editDrug
-  if(!d.genericName?.trim()) { toast('薬剤名を入力してください','error'); return }
+function filteredDiseases(){
+  const q=jpNorm(S.diseaseSearch)
+  return (S.data?.diseases||[]).filter(d=>{
+    if(S.diseaseCat!=='すべて'&&d.category!==S.diseaseCat)return false
+    if(!q)return true
+    return [d.name,d.englishName,d.abbreviation,...(d.tags||[])].some(s=>jpNorm(s).includes(q))
+  })
+}
+const emptyDose=()=>({ageLabel:'全年齢',purpose:'治療',dosePerKgMin:null,dosePerKgMax:null,maxDosePerDay:null,frequency:'分3',unit:'mg',notes:'',duration:''})
+const emptyDisease=()=>({id:'',name:'',englishName:'',abbreviation:'',category:(S.data?.diseaseCategories||[])[0]||'',tags:[],points:[],sections:[{title:'診断',content:''},{title:'治療',content:''}],relatedDrugIds:[],references:[],notes:''})
+const emptyIVSection=()=>({category:'新規セクション',notes:[],fluids:[{name:'',Na:'-',K:'-',Cl:'-',Ca:'-',Mg:'-',buffer:'-',glucose:'-'}]})
+function doseType(dose){if(dose.fixedDose!=null)return'fixed';if(dose.dosePerKgMin!=null||dose.dosePerKgMax!=null)return'range';return'single'}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+function startEditDrug(key){
+  const d=(S.data?.drugs||[]).find(d=>drugKey(d)===key)
+  if(!d)return
+  ss({editType:'drug',editItem:clone(d),editIsNew:false,editTab:'basic'})
+}
+function startNewDrug(){
+  ss({editType:'drug',editItem:{id:'',genericName:'',abbreviation:'',brandNames:[],category:(S.data?.drugCategories||[])[0]||'',route:'内服',formulations:[],adultDose:'',pediatricDoses:[],notes:'',sideEffects:'',references:[]},editIsNew:true,editTab:'basic'})
+}
+function commitDrug(){
+  syncCurrentTab()
+  const d=S.editItem
+  if(!d.genericName?.trim()){toast('薬剤名を入力してください','error');return}
   const drugs=[...(S.data?.drugs||[])]
-  if(S.editIsNew) {
-    drugs.push(d)
-  } else {
-    const key=drugKey(d)
-    const i=drugs.findIndex(x=>drugKey(x)===key)
-    if(i>=0) drugs[i]=d; else drugs.push(d)
-  }
-  ss({data:{...S.data,drugs}, view:'list', editDrug:null, dirty:true})
+  if(S.editIsNew){drugs.push(d)}else{const i=drugs.findIndex(x=>drugKey(x)===drugKey(d));if(i>=0)drugs[i]=d;else drugs.push(d)}
+  ss({data:{...S.data,drugs},editType:null,editItem:null,dirty:true})
   toast(S.editIsNew?'薬剤を追加しました':'変更を適用しました')
 }
-function deleteDrug(key) {
-  if(!confirm('この薬剤を削除しますか？')) return
+function deleteDrug(key){
+  if(!confirm('この薬剤を削除しますか？'))return
   const drugs=(S.data?.drugs||[]).filter(d=>drugKey(d)!==key)
-  ss({data:{...S.data,drugs}, dirty:true})
-  toast('削除しました')
-}
-async function saveAll() {
-  if(!S.token||!S.gistId){toast('設定でToken/Gist IDを確認してください','error');return}
-  ss({saving:true})
-  try { await patchGist(S.data); ss({saving:false, dirty:false}); toast('Gistに保存しました ✓') }
-  catch(e) { ss({saving:false}); toast('保存失敗: '+e.message,'error') }
-}
-async function reloadGist() {
-  if(!S.token||!S.gistId){toast('Token/Gist ID未設定','error');return}
-  ss({loading:true})
-  try { const data=await fetchGist(); ss({data, loading:false, dirty:false}); toast('Gistから再読込しました') }
-  catch(e) { ss({loading:false}); toast('再読込失敗: '+e.message,'error') }
-}
-function applySettings() {
-  const token=document.getElementById('cfg_token')?.value?.trim()||''
-  const gistId=document.getElementById('cfg_gistId')?.value?.trim()||''
-  ls.set(K.token,token); ls.set(K.gistId,gistId)
-  Object.assign(S,{token,gistId})
-  toast('設定を保存しました')
-  init()
+  ss({data:{...S.data,drugs},dirty:true});toast('削除しました')
 }
 
-// ── State sync from DOM ────────────────────────────────────────────────────
-// Called before committing or switching tabs — reads current tab's form fields into S.editDrug
-function syncCurrentTabToState() {
-  if(!S.editDrug) return
-  const d=S.editDrug
-  if(S.editTab==='basic') {
-    ;['genericName','abbreviation','adultDose','notes','sideEffects'].forEach(f=>{
-      const el=document.getElementById('f_'+f); if(el) d[f]=el.value
-    })
-    const bn=document.getElementById('f_brandNames')
-    if(bn) d.brandNames=bn.value.split(',').map(s=>s.trim()).filter(Boolean)
-    const cat=document.getElementById('f_category'); if(cat) d.category=cat.value
-    const rt=document.getElementById('f_route'); if(rt) d.route=rt.value
-  } else if(S.editTab==='doses') {
-    document.querySelectorAll('[data-dose-i]').forEach(row=>{
-      const i=parseInt(row.dataset.doseI)
-      const dose=d.pediatricDoses?.[i]; if(!dose) return
-      row.querySelectorAll('[data-f]').forEach(el=>{
-        const f=el.dataset.f
-        const numF=['dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay']
-        dose[f]=numF.includes(f)?(el.value===''?null:parseFloat(el.value)):el.value
-      })
-    })
-  } else if(S.editTab==='iv') {
-    if(d.ivDilution) {
-      const sv=document.getElementById('iv_solvent'); if(sv) d.ivDilution.solvent=sv.value
-      const mc=document.getElementById('iv_maxConc'); if(mc) d.ivDilution.maxConcMgPerMl=parseFloat(mc.value)||0
-      const it=document.getElementById('iv_infTime'); if(it) d.ivDilution.infusionTime=it.value
-      const ic=document.getElementById('iv_incomp')
-      if(ic) d.ivDilution.incompatible=ic.value.split('\n').map(s=>s.trim()).filter(Boolean)
+function startEditDisease(key){
+  const d=(S.data?.diseases||[]).find(d=>diseaseKey(d)===key)
+  if(!d)return
+  ss({editType:'disease',editItem:clone(d),editIsNew:false})
+}
+function startNewDisease(){ss({editType:'disease',editItem:emptyDisease(),editIsNew:true})}
+function commitDisease(){
+  syncCurrentTab()
+  const d=S.editItem
+  if(!d.name?.trim()){toast('疾患名を入力してください','error');return}
+  const diseases=[...(S.data?.diseases||[])]
+  if(S.editIsNew){diseases.push(d)}else{const i=diseases.findIndex(x=>diseaseKey(x)===diseaseKey(d));if(i>=0)diseases[i]=d;else diseases.push(d)}
+  ss({data:{...S.data,diseases},editType:null,editItem:null,dirty:true})
+  toast(S.editIsNew?'疾患を追加しました':'変更を適用しました')
+}
+function deleteDisease(key){
+  if(!confirm('この疾患を削除しますか？'))return
+  const diseases=(S.data?.diseases||[]).filter(d=>diseaseKey(d)!==key)
+  ss({data:{...S.data,diseases},dirty:true});toast('削除しました')
+}
+
+function startEditIV(idx){ss({editType:'iv',editIVIdx:idx,editItem:clone(S.data.ivFluidTables[idx]),editIsNew:false})}
+function startNewIV(){ss({editType:'iv',editIVIdx:null,editItem:emptyIVSection(),editIsNew:true})}
+function commitIV(){
+  syncCurrentTab()
+  const d=S.editItem
+  const tables=clone(S.data?.ivFluidTables||[])
+  if(S.editIsNew){tables.push(d)}else if(S.editIVIdx!=null){tables[S.editIVIdx]=d}
+  ss({data:{...S.data,ivFluidTables:tables},editType:null,editItem:null,editIVIdx:null,dirty:true})
+  toast('輸液製剤を更新しました')
+}
+function deleteIV(idx){
+  if(!confirm('このセクションを削除しますか？'))return
+  const tables=(S.data?.ivFluidTables||[]).filter((_,i)=>i!==idx)
+  ss({data:{...S.data,ivFluidTables:tables},dirty:true});toast('削除しました')
+}
+
+async function saveAll(){
+  if(!S.token||!S.gistId){toast('設定でToken/Gist IDを確認してください','error');return}
+  ss({saving:true})
+  try{await patchGist(S.data);ss({saving:false,dirty:false});toast('Gistに保存しました ✓')}
+  catch(e){ss({saving:false});toast('保存失敗: '+e.message,'error')}
+}
+async function reloadData(){
+  ss({loading:true})
+  try{
+    const data=await loadFromIndexHtml()
+    ss({data,loading:false,dirty:false,dataSource:'index.html'})
+    toast('index.html から再読込しました')
+  }catch(e){
+    if(S.token&&S.gistId){
+      try{const data=await fetchGist();ss({data,loading:false,dirty:false,dataSource:'gist'});toast('Gist から再読込しました');return}catch{}
     }
-  } else if(S.editTab==='form') {
-    document.querySelectorAll('[data-form-i]').forEach(el=>{
-      const i=parseInt(el.dataset.formI)
-      if(d.formulations?.[i]!=null) d.formulations[i]=el.value
+    ss({loading:false});toast('再読込失敗: '+e.message,'error')
+  }
+}
+function applySettings(){
+  const t=document.getElementById('cfg_token')?.value?.trim()||''
+  const g=document.getElementById('cfg_gistId')?.value?.trim()||''
+  ls.set(K.token,t);ls.set(K.gistId,g)
+  Object.assign(S,{token:t,gistId:g})
+  toast('設定を保存しました');init()
+}
+
+// ── Sync DOM → state before commit / tab switch ────────────────────────────
+function syncCurrentTab(){
+  const d=S.editItem;if(!d)return
+  if(S.editType==='drug'){
+    if(S.editTab==='basic'){
+      ;['genericName','abbreviation','adultDose','notes','sideEffects'].forEach(f=>{const el=document.getElementById('f_'+f);if(el)d[f]=el.value})
+      const bn=document.getElementById('f_brandNames');if(bn)d.brandNames=bn.value.split(',').map(s=>s.trim()).filter(Boolean)
+      const cat=document.getElementById('f_category');if(cat)d.category=cat.value
+      const rt=document.getElementById('f_route');if(rt)d.route=rt.value
+    }else if(S.editTab==='doses'){
+      document.querySelectorAll('[data-dose-i]').forEach(row=>{
+        const i=parseInt(row.dataset.doseI);const dose=d.pediatricDoses?.[i];if(!dose)return
+        row.querySelectorAll('[data-f]').forEach(el=>{
+          const f=el.dataset.f;const num=['dosePerKg','dosePerKgMin','dosePerKgMax','maxDosePerDay']
+          dose[f]=num.includes(f)?(el.value===''?null:parseFloat(el.value)):el.value
+        })
+      })
+    }else if(S.editTab==='iv'){
+      if(d.ivDilution){
+        const sv=document.getElementById('iv_solvent');if(sv)d.ivDilution.solvent=sv.value
+        const mc=document.getElementById('iv_maxConc');if(mc)d.ivDilution.maxConcMgPerMl=parseFloat(mc.value)||0
+        const it=document.getElementById('iv_infTime');if(it)d.ivDilution.infusionTime=it.value
+        const ic=document.getElementById('iv_incomp');if(ic)d.ivDilution.incompatible=ic.value.split('\n').map(s=>s.trim()).filter(Boolean)
+      }
+    }else if(S.editTab==='form'){
+      document.querySelectorAll('[data-form-i]').forEach(el=>{
+        const i=parseInt(el.dataset.formI);if(d.formulations?.[i]!=null)d.formulations[i]=el.value
+      })
+    }
+  }else if(S.editType==='disease'){
+    ;['id','name','englishName','abbreviation','notes'].forEach(f=>{const el=document.getElementById('dis_'+f);if(el)d[f]=el.value})
+    const cat=document.getElementById('dis_category');if(cat)d.category=cat.value
+    const tags=document.getElementById('dis_tags');if(tags)d.tags=tags.value.split(',').map(s=>s.trim()).filter(Boolean)
+    const pts=document.getElementById('dis_points');if(pts)d.points=pts.value.split('\n').map(s=>s.trim()).filter(Boolean)
+    const refs=document.getElementById('dis_references');if(refs)d.references=refs.value.split('\n').map(s=>s.trim()).filter(Boolean)
+    const sel=document.getElementById('dis_relatedDrugIds');if(sel)d.relatedDrugIds=Array.from(sel.selectedOptions).map(o=>o.value)
+    document.querySelectorAll('[data-sec-i]').forEach(row=>{
+      const i=parseInt(row.dataset.secI);if(!d.sections?.[i])return
+      const t=row.querySelector('[data-f="title"]');const c=row.querySelector('[data-f="content"]')
+      if(t)d.sections[i].title=t.value;if(c)d.sections[i].content=c.value
+    })
+  }else if(S.editType==='iv'){
+    const catEl=document.getElementById('iv_cat');if(catEl)d.category=catEl.value
+    const notesEl=document.getElementById('iv_notes');if(notesEl)d.notes=notesEl.value.split('\n').map(s=>s.trim()).filter(Boolean)
+    document.querySelectorAll('[data-fluid-i]').forEach(row=>{
+      const i=parseInt(row.dataset.fluidI);if(!d.fluids?.[i])return
+      row.querySelectorAll('[data-f]').forEach(el=>{
+        const f=el.dataset.f;const v=el.value.trim()
+        d.fluids[i][f]=(v==='-'||v==='')?'-':(isNaN(parseFloat(v))?v:parseFloat(v))
+      })
     })
   }
 }
-function switchTab(tab) {
-  syncCurrentTabToState()
-  ss({editTab:tab})
-}
+function switchTab(tab){syncCurrentTab();ss({editTab:tab})}
 
-// ── Dose edit actions ──────────────────────────────────────────────────────
-function addDose() {
-  syncCurrentTabToState()
-  if(!S.editDrug) return
-  if(!S.editDrug.pediatricDoses) S.editDrug.pediatricDoses=[]
-  S.editDrug.pediatricDoses.push(emptyDose())
-  ss({editDrug:S.editDrug})
+// ── Dose / disease / IV fluid actions ─────────────────────────────────────
+function addDose(){syncCurrentTab();if(!S.editItem)return;if(!S.editItem.pediatricDoses)S.editItem.pediatricDoses=[];S.editItem.pediatricDoses.push(emptyDose());ss({editItem:S.editItem})}
+function removeDose(i){syncCurrentTab();S.editItem.pediatricDoses.splice(i,1);ss({editItem:S.editItem})}
+function changeDoseType(i,type){
+  syncCurrentTab()
+  const dose=S.editItem.pediatricDoses[i];if(!dose)return
+  delete dose.dosePerKg;delete dose.dosePerKgMin;delete dose.dosePerKgMax;delete dose.fixedDose
+  if(type==='single')dose.dosePerKg=null;else if(type==='range'){dose.dosePerKgMin=null;dose.dosePerKgMax=null}else dose.fixedDose=''
+  ss({editItem:S.editItem})
 }
-function removeDose(i) {
-  syncCurrentTabToState()
-  if(!S.editDrug?.pediatricDoses) return
-  S.editDrug.pediatricDoses.splice(i,1)
-  ss({editDrug:S.editDrug})
-}
-function changeDoseType(i, type) {
-  syncCurrentTabToState()
-  if(!S.editDrug?.pediatricDoses?.[i]) return
-  const dose=S.editDrug.pediatricDoses[i]
-  delete dose.dosePerKg; delete dose.dosePerKgMin; delete dose.dosePerKgMax; delete dose.fixedDose
-  if(type==='single') dose.dosePerKg=null
-  else if(type==='range') { dose.dosePerKgMin=null; dose.dosePerKgMax=null }
-  else dose.fixedDose=''
-  ss({editDrug:S.editDrug})
-}
-function toggleIV(enabled) {
-  syncCurrentTabToState()
-  if(!S.editDrug) return
-  if(enabled) S.editDrug.ivDilution={solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}
-  else delete S.editDrug.ivDilution
-  ss({editDrug:S.editDrug})
-}
-function addFormulation() {
-  syncCurrentTabToState()
-  if(!S.editDrug) return
-  if(!S.editDrug.formulations) S.editDrug.formulations=[]
-  S.editDrug.formulations.push('')
-  ss({editDrug:S.editDrug})
-}
-function removeFormulation(i) {
-  syncCurrentTabToState()
-  if(!S.editDrug?.formulations) return
-  S.editDrug.formulations.splice(i,1)
-  ss({editDrug:S.editDrug})
-}
+function toggleIV(on){syncCurrentTab();if(on)S.editItem.ivDilution={solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]};else delete S.editItem.ivDilution;ss({editItem:S.editItem})}
+function addFormulation(){syncCurrentTab();if(!S.editItem.formulations)S.editItem.formulations=[];S.editItem.formulations.push('');ss({editItem:S.editItem})}
+function removeFormulation(i){syncCurrentTab();S.editItem.formulations.splice(i,1);ss({editItem:S.editItem})}
+function addSection(){syncCurrentTab();if(!S.editItem.sections)S.editItem.sections=[];S.editItem.sections.push({title:'',content:''});ss({editItem:S.editItem})}
+function removeSection(i){syncCurrentTab();S.editItem.sections.splice(i,1);ss({editItem:S.editItem})}
+function addFluid(){syncCurrentTab();if(!S.editItem.fluids)S.editItem.fluids=[];S.editItem.fluids.push({name:'',Na:'-',K:'-',Cl:'-',Ca:'-',Mg:'-',buffer:'-',glucose:'-'});ss({editItem:S.editItem})}
+function removeFluid(i){syncCurrentTab();S.editItem.fluids.splice(i,1);ss({editItem:S.editItem})}
 
 // ── Render ─────────────────────────────────────────────────────────────────
-function render() {
-  const app=document.getElementById('app'); if(!app) return
+function render(){
+  const app=document.getElementById('app');if(!app)return
   app.innerHTML=buildApp()
-  attachSearchHandler()
+  // re-attach search handlers
+  ;[['srchDrug','drugSearch'],['srchDisease','diseaseSearch']].forEach(([id,key])=>{
+    const el=document.getElementById(id);if(!el)return
+    let composing=false
+    el.addEventListener('compositionstart',()=>{composing=true})
+    el.addEventListener('compositionend',()=>{composing=false;S[key]=el.value;render()})
+    el.addEventListener('input',()=>{if(!composing){S[key]=el.value;render()}})
+  })
 }
-
-function buildToast() {
-  if(!S.toast) return ''
+function buildToast(){
+  if(!S.toast)return''
   const bg=S.toast.kind==='success'?'bg-emerald-600':S.toast.kind==='error'?'bg-red-600':'bg-slate-700'
-  return `<div class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 ${bg} text-white rounded-xl px-4 py-3 text-sm font-medium shadow-xl pointer-events-none">${esc(S.toast.msg)}</div>`
+  return`<div class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 ${bg} text-white rounded-xl px-4 py-3 text-sm font-semibold shadow-xl pointer-events-none">${esc(S.toast.msg)}</div>`
+}
+function buildApp(){
+  if(S.loading)return`<div class="min-h-screen flex items-center justify-center text-slate-500"><div class="text-center"><div class="text-4xl mb-3">⏳</div><div class="text-sm">読み込み中...</div></div></div>${buildToast()}`
+  if(!S.data&&S.loadError)return`<div class="min-h-screen flex items-center justify-center px-6"><div class="text-center max-w-sm"><div class="text-4xl mb-3">❌</div><pre class="text-red-700 font-medium mb-4 text-sm whitespace-pre-wrap text-left">${esc(S.loadError)}</pre><button onclick="ss({editType:'settings'})" class="btn btn-p">⚙ 設定を開く</button></div></div>${buildToast()}`
+
+  return buildMain()+(S.editType?buildSlide():'')+buildToast()
 }
 
-function buildApp() {
-  if(S.loading) return `<div class="min-h-screen flex items-center justify-center text-slate-500"><div class="text-center"><div class="text-4xl mb-3">⏳</div><div class="text-sm">読み込み中...</div></div></div>${buildToast()}`
-  if(!S.data&&S.loadError&&S.view!=='settings') return `<div class="min-h-screen flex items-center justify-center px-6"><div class="text-center max-w-sm"><div class="text-4xl mb-3">❌</div><div class="text-red-700 font-semibold mb-4 text-sm">${esc(S.loadError)}</div><button onclick="ss({view:'settings'})" class="btn btn-p">⚙ 設定を開く</button></div></div>${buildToast()}`
+// ── Main (list) view ───────────────────────────────────────────────────────
+function buildMain(){
+  const tabs=[['drugs','💊 薬剤'],['diseases','🩺 疾患'],['iv','💧 輸液製剤']]
+  const tabBar=tabs.map(([t,l])=>`<button onclick="ss({mainTab:'${t}'})" class="flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${S.mainTab===t?'border-blue-600 text-blue-600':'border-transparent text-slate-500 hover:text-slate-700'}">${l}</button>`).join('')
 
-  const list=buildList()
-  const edit=S.view==='edit'?buildEditPanel():''
-  const settings=S.view==='settings'?buildSettings():''
-  return list+edit+settings+buildToast()
+  const srcLabel={'index.html':'📄 index.html','gist':'☁️ Gist','cache':'💾 キャッシュ'}[S.dataSource]||''
+  const saveBtn=S.dirty
+    ?`<button onclick="saveAll()" class="btn btn-p text-xs py-1.5" ${S.saving?'disabled':''}>
+        ${S.saving?'保存中...':'💾 Gistに保存'}</button>`
+    :`<button onclick="reloadData()" class="btn btn-s text-xs py-1.5">↺ 再読込</button>`
+
+  let content=''
+  if(S.mainTab==='drugs')content=buildDrugList()
+  else if(S.mainTab==='diseases')content=buildDiseaseList()
+  else content=buildIVList()
+
+  return`<div class="min-h-screen flex flex-col max-w-2xl mx-auto">
+    <div class="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+      <div class="flex-1 min-w-0">
+        <h1 class="text-base font-bold text-slate-800">薬用量 編集ツール</h1>
+        <div class="text-xs text-slate-400">${srcLabel}${S.dirty?' <span class="text-amber-500 font-semibold ml-1">● 未保存</span>':''}</div>
+      </div>
+      ${saveBtn}
+      <button onclick="ss({editType:'settings'})" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 text-xl leading-none">⚙</button>
+    </div>
+    <div class="flex border-b border-slate-200 bg-white shadow-sm">${tabBar}</div>
+    <div class="flex-1 pb-8">${content}</div>
+  </div>`
 }
 
-// ── List view ──────────────────────────────────────────────────────────────
-function buildList() {
-  if(S.view==='settings') return ''
+// ── Drug list ──────────────────────────────────────────────────────────────
+function buildDrugList(){
   const drugs=filteredDrugs()
-  const allCats=['すべて',...cats()]
-  const catTabs=allCats.map(c=>`<button onclick="ss({catFilter:'${esc(c)}'})" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${S.catFilter===c?'bg-blue-600 text-white shadow-sm':'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${esc(c)}</button>`).join('')
-
+  const allCats=['すべて',...(S.data?.drugCategories||[])]
+  const catTabs=allCats.map(c=>`<button onclick="ss({drugCat:'${esc(c)}'})" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${S.drugCat===c?'bg-blue-600 text-white shadow-sm':'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${esc(c)}</button>`).join('')
   const rows=drugs.map(d=>`
     <div class="card px-4 py-3 flex items-center gap-3">
       <div class="flex-1 min-w-0">
@@ -339,260 +396,326 @@ function buildList() {
         </div>
       </div>
       <div class="flex gap-1.5 shrink-0">
-        <button onclick="startEdit('${esc(drugKey(d))}')" class="btn btn-s text-xs py-1.5 px-2.5">✏ 編集</button>
+        <button onclick="startEditDrug('${esc(drugKey(d))}')" class="btn btn-s text-xs py-1.5 px-2.5">✏ 編集</button>
         <button onclick="deleteDrug('${esc(drugKey(d))}')" class="btn btn-d text-xs py-1.5 px-2">🗑</button>
       </div>
     </div>`).join('')
-
-  const headerRight=S.dirty
-    ?`<button onclick="saveAll()" class="btn btn-p text-xs py-1.5" ${S.saving?'disabled':''}>
-        ${S.saving?'保存中...':'💾 Gistに保存'}</button>`
-    :`<button onclick="reloadGist()" class="btn btn-s text-xs py-1.5">↺ 再読込</button>`
-
-  return `
-    <div class="min-h-screen flex flex-col max-w-2xl mx-auto">
-      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <div class="flex-1 min-w-0">
-          <h1 class="text-base font-bold text-slate-800">薬用量 編集ツール</h1>
-          ${S.data?`<div class="text-xs text-slate-400">${(S.data.drugs||[]).length}薬剤${S.dirty?' <span class="text-amber-500 font-semibold">● 未保存</span>':''}</div>`:''}
-        </div>
-        ${headerRight}
-        <button onclick="ss({view:'settings'})" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 text-xl leading-none">⚙</button>
+  return`
+    <div class="px-4 py-2.5 bg-white border-b border-slate-100 flex gap-2 mt-0 shadow-sm">
+      <div class="flex-1 relative">
+        <input type="search" id="srchDrug" value="${esc(S.drugSearch)}" placeholder="薬剤名・略語・ブランド名..." class="inp pl-8 text-sm" autocomplete="off">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</span>
       </div>
-
-      <div class="px-4 py-2.5 bg-white border-b border-slate-100 flex gap-2 shadow-sm">
-        <div class="flex-1 relative">
-          <input type="search" value="${esc(S.search)}" placeholder="薬剤名・略語・ブランド名..." id="searchInp"
-            class="inp pl-8 text-sm" autocomplete="off">
-          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</span>
-        </div>
-        <button onclick="startNewDrug()" class="btn btn-p text-sm shrink-0">＋ 追加</button>
-      </div>
-
-      <div class="px-4 py-2 flex gap-2 overflow-x-auto bg-white border-b border-slate-100" style="scrollbar-width:none">
-        ${catTabs}
-      </div>
-
-      <div class="flex-1 px-4 py-3 space-y-2 pb-8">
-        ${drugs.length?rows:`<div class="text-center text-slate-400 text-sm py-16">該当する薬剤はありません</div>`}
-      </div>
-    </div>`
+      <button onclick="startNewDrug()" class="btn btn-p text-sm shrink-0">＋ 追加</button>
+    </div>
+    <div class="px-4 py-2 flex gap-2 overflow-x-auto bg-white border-b border-slate-100" style="scrollbar-width:none">${catTabs}</div>
+    <div class="px-4 py-3 space-y-2">${drugs.length?rows:'<div class="text-center text-slate-400 text-sm py-16">該当する薬剤はありません</div>'}</div>`
 }
 
-// ── Edit panel ─────────────────────────────────────────────────────────────
-function buildEditPanel() {
-  const d=S.editDrug; if(!d) return ''
+// ── Disease list ───────────────────────────────────────────────────────────
+function buildDiseaseList(){
+  const diseases=filteredDiseases()
+  const allCats=['すべて',...(S.data?.diseaseCategories||[])]
+  const catTabs=allCats.map(c=>`<button onclick="ss({diseaseCat:'${esc(c)}'})" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${S.diseaseCat===c?'bg-teal-600 text-white shadow-sm':'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">${esc(c)}</button>`).join('')
+  const rows=diseases.map(d=>`
+    <div class="card px-4 py-3 flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-slate-800 truncate">${esc(d.name||'')}</div>
+        <div class="text-xs text-slate-400 truncate mt-0.5">${esc([d.englishName,d.abbreviation].filter(Boolean).join(' / '))}</div>
+        <div class="flex items-center gap-1 mt-1 flex-wrap">
+          <span class="text-xs px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold">${esc(d.category||'')}</span>
+          ${(d.tags||[]).map(t=>`<span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">${esc(t)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="flex gap-1.5 shrink-0">
+        <button onclick="startEditDisease('${esc(diseaseKey(d))}')" class="btn btn-s text-xs py-1.5 px-2.5">✏ 編集</button>
+        <button onclick="deleteDisease('${esc(diseaseKey(d))}')" class="btn btn-d text-xs py-1.5 px-2">🗑</button>
+      </div>
+    </div>`).join('')
+  return`
+    <div class="px-4 py-2.5 bg-white border-b border-slate-100 flex gap-2 shadow-sm">
+      <div class="flex-1 relative">
+        <input type="search" id="srchDisease" value="${esc(S.diseaseSearch)}" placeholder="疾患名・英語名・タグ..." class="inp pl-8 text-sm" autocomplete="off">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</span>
+      </div>
+      <button onclick="startNewDisease()" class="btn btn-p text-sm shrink-0">＋ 追加</button>
+    </div>
+    <div class="px-4 py-2 flex gap-2 overflow-x-auto bg-white border-b border-slate-100" style="scrollbar-width:none">${catTabs}</div>
+    <div class="px-4 py-3 space-y-2">${diseases.length?rows:'<div class="text-center text-slate-400 text-sm py-16">疾患データがありません<br><span class="text-xs">「＋ 追加」から登録してください</span></div>'}</div>`
+}
+
+// ── IV fluid list ──────────────────────────────────────────────────────────
+function buildIVList(){
+  const tables=S.data?.ivFluidTables||[]
+  const rows=tables.map((t,i)=>`
+    <div class="card px-4 py-3 flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-slate-800">${esc(t.category||'')}</div>
+        <div class="text-xs text-slate-400 mt-0.5">${(t.fluids||[]).length}製剤</div>
+        <div class="text-xs text-slate-300 mt-1 truncate">${(t.fluids||[]).map(f=>esc(f.name)).join(' / ')}</div>
+      </div>
+      <div class="flex gap-1.5 shrink-0">
+        <button onclick="startEditIV(${i})" class="btn btn-s text-xs py-1.5 px-2.5">✏ 編集</button>
+        <button onclick="deleteIV(${i})" class="btn btn-d text-xs py-1.5 px-2">🗑</button>
+      </div>
+    </div>`).join('')
+  return`
+    <div class="px-4 py-2.5 bg-white border-b border-slate-100 flex justify-end shadow-sm">
+      <button onclick="startNewIV()" class="btn btn-p text-sm">＋ セクション追加</button>
+    </div>
+    <div class="px-4 py-3 space-y-2">${tables.length?rows:'<div class="text-center text-slate-400 text-sm py-16">輸液製剤データがありません</div>'}</div>`
+}
+
+// ── Slide-in panel dispatcher ──────────────────────────────────────────────
+function buildSlide(){
+  if(S.editType==='settings')return buildSlideSettings()
+  if(S.editType==='drug')return buildSlideDrug()
+  if(S.editType==='disease')return buildSlideDisease()
+  if(S.editType==='iv')return buildSlideIV()
+  return''
+}
+
+// ── Slide: Drug ────────────────────────────────────────────────────────────
+function buildSlideDrug(){
+  const d=S.editItem;if(!d)return''
   const tabs=[['basic','基本情報'],['doses','小児用量'],['iv','点滴希釈'],['form','製剤']]
   const tabBar=tabs.map(([t,l])=>`<button onclick="switchTab('${t}')" class="flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${S.editTab===t?'border-blue-600 text-blue-600':'border-transparent text-slate-500 hover:text-slate-700'}">${l}</button>`).join('')
-
   let content=''
-  if(S.editTab==='basic')  content=buildTabBasic(d)
-  else if(S.editTab==='doses') content=buildTabDoses(d)
-  else if(S.editTab==='iv')   content=buildTabIV(d)
-  else if(S.editTab==='form') content=buildTabForm(d)
-
-  return `
-    <div class="slide open" id="editPanel">
-      <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
-        <div class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
-          <div class="px-4 py-3 flex items-center gap-3">
-            <button onclick="ss({view:'list',editDrug:null})" class="text-slate-500 hover:text-slate-800 text-sm font-medium">← 一覧</button>
-            <div class="flex-1 min-w-0">
-              <div class="font-bold text-slate-800 text-sm truncate">${esc(d.genericName||'新規薬剤')}</div>
-              <div class="text-xs text-slate-400">${esc(d.category||'カテゴリ未設定')}</div>
-            </div>
-            <button onclick="commitEdit()" class="btn btn-g text-sm">✓ 適用</button>
-          </div>
-          <div class="flex border-t border-slate-100">${tabBar}</div>
+  if(S.editTab==='basic')content=buildDrugBasic(d)
+  else if(S.editTab==='doses')content=buildDrugDoses(d)
+  else if(S.editTab==='iv')content=buildDrugIV(d)
+  else content=buildDrugForm(d)
+  return`<div class="slide open">
+    <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
+      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
+        <div class="px-4 py-3 flex items-center gap-3">
+          <button onclick="ss({editType:null,editItem:null})" class="text-slate-500 text-sm font-medium hover:text-slate-800">← 一覧</button>
+          <div class="flex-1 min-w-0"><div class="font-bold text-sm text-slate-800 truncate">${esc(d.genericName||'新規薬剤')}</div><div class="text-xs text-slate-400">${esc(d.category||'')}</div></div>
+          <button onclick="commitDrug()" class="btn btn-g text-sm">✓ 適用</button>
         </div>
-        <div class="flex-1 px-4 py-4 space-y-3 pb-8">${content}</div>
+        <div class="flex border-t border-slate-100">${tabBar}</div>
       </div>
-    </div>`
+      <div class="flex-1 px-4 py-4 space-y-3 pb-8">${content}</div>
+    </div>
+  </div>`
 }
-
-// Tab: 基本情報
-function buildTabBasic(d) {
-  const catOpts=cats().map(c=>`<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')
-  const routeOpts=['内服','注射/点滴','内服・注射'].map(r=>`<option value="${esc(r)}" ${d.route===r?'selected':''}>${esc(r)}</option>`).join('')
-  return `
-    <div class="space-y-3">
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="lbl">一般名 *</label><input id="f_genericName" class="inp" value="${esc(d.genericName||'')}" placeholder="例: アモキシシリン水和物"></div>
-        <div><label class="lbl">略語</label><input id="f_abbreviation" class="inp" value="${esc(d.abbreviation||'')}" placeholder="例: AMPC"></div>
-      </div>
-      <div><label class="lbl">ブランド名（カンマ区切り）</label><input id="f_brandNames" class="inp" value="${esc((d.brandNames||[]).join(', '))}" placeholder="例: サワシリン, パセトシン"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="lbl">カテゴリ</label><select id="f_category" class="inp">${catOpts}</select></div>
-        <div><label class="lbl">投与経路</label><select id="f_route" class="inp">${routeOpts}</select></div>
-      </div>
-      <div><label class="lbl">成人用量（参考）</label><textarea id="f_adultDose" class="inp">${esc(d.adultDose||'')}</textarea></div>
-      <div><label class="lbl">注意事項・コメント</label><textarea id="f_notes" class="inp">${esc(d.notes||'')}</textarea></div>
-      <div><label class="lbl">副作用</label><input id="f_sideEffects" class="inp" value="${esc(d.sideEffects||'')}"></div>
-    </div>`
+function buildDrugBasic(d){
+  const catOpts=(S.data?.drugCategories||[]).map(c=>`<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')
+  const rtOpts=['内服','注射/点滴','内服・注射'].map(r=>`<option value="${esc(r)}" ${d.route===r?'selected':''}>${esc(r)}</option>`).join('')
+  return`<div class="space-y-3">
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="lbl">一般名 *</label><input id="f_genericName" class="inp" value="${esc(d.genericName||'')}" placeholder="例: アモキシシリン水和物"></div>
+      <div><label class="lbl">略語</label><input id="f_abbreviation" class="inp" value="${esc(d.abbreviation||'')}" placeholder="AMPC"></div>
+    </div>
+    <div><label class="lbl">ブランド名（カンマ区切り）</label><input id="f_brandNames" class="inp" value="${esc((d.brandNames||[]).join(', '))}" placeholder="サワシリン, パセトシン"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="lbl">カテゴリ</label><select id="f_category" class="inp">${catOpts}</select></div>
+      <div><label class="lbl">投与経路</label><select id="f_route" class="inp">${rtOpts}</select></div>
+    </div>
+    <div><label class="lbl">成人用量（参考）</label><textarea id="f_adultDose" class="inp">${esc(d.adultDose||'')}</textarea></div>
+    <div><label class="lbl">注意事項</label><textarea id="f_notes" class="inp">${esc(d.notes||'')}</textarea></div>
+    <div><label class="lbl">副作用</label><input id="f_sideEffects" class="inp" value="${esc(d.sideEffects||'')}"></div>
+  </div>`
 }
-
-// Tab: 小児用量
-function buildTabDoses(d) {
+function buildDrugDoses(d){
   const doses=d.pediatricDoses||[]
-  const doseRows=doses.map((dose,i)=>{
+  const rows=doses.map((dose,i)=>{
     const type=doseType(dose)
-    const typeOpts=['single','range','fixed'].map(t=>`<option value="${t}" ${type===t?'selected':''}>${{single:'単値 (mg/kg/日)',range:'範囲 (min〜max mg/kg/日)',fixed:'固定テキスト'}[t]}</option>`).join('')
-    const doseFields=type==='single'
+    const typeOpts=['single','range','fixed'].map(t=>`<option value="${t}" ${type===t?'selected':''}>${{single:'単値 mg/kg/日',range:'範囲 min〜max',fixed:'固定テキスト'}[t]}</option>`).join('')
+    const doseF=type==='single'
       ?`<div><label class="lbl">mg/kg/日</label><input type="number" step="0.1" class="inp" data-f="dosePerKg" value="${esc(dose.dosePerKg??'')}"></div>`
       :type==='range'
-      ?`<div class="grid grid-cols-2 gap-2">
-          <div><label class="lbl">最小 mg/kg/日</label><input type="number" step="0.1" class="inp" data-f="dosePerKgMin" value="${esc(dose.dosePerKgMin??'')}"></div>
-          <div><label class="lbl">最大 mg/kg/日</label><input type="number" step="0.1" class="inp" data-f="dosePerKgMax" value="${esc(dose.dosePerKgMax??'')}"></div>
-        </div>`
+      ?`<div class="grid grid-cols-2 gap-2"><div><label class="lbl">最小 mg/kg/日</label><input type="number" step="0.1" class="inp" data-f="dosePerKgMin" value="${esc(dose.dosePerKgMin??'')}"></div><div><label class="lbl">最大 mg/kg/日</label><input type="number" step="0.1" class="inp" data-f="dosePerKgMax" value="${esc(dose.dosePerKgMax??'')}"></div></div>`
       :`<div><label class="lbl">固定テキスト</label><input class="inp" data-f="fixedDose" value="${esc(dose.fixedDose||'')}"></div>`
-
-    return `
-      <div class="card p-3 space-y-2.5" data-dose-i="${i}">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-0.5">
-          <span class="text-xs font-bold text-blue-700">用量 ${i+1}</span>
-          <button onclick="removeDose(${i})" class="btn btn-d text-xs py-1 px-2">✕ 削除</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div><label class="lbl">対象</label><input class="inp text-xs" data-f="ageLabel" value="${esc(dose.ageLabel||'')}"></div>
-          <div><label class="lbl">目的</label><input class="inp text-xs" data-f="purpose" value="${esc(dose.purpose||'')}"></div>
-        </div>
-        <div><label class="lbl">用量タイプ</label><select class="inp text-xs" onchange="changeDoseType(${i},this.value)">${typeOpts}</select></div>
-        ${doseFields}
-        <div class="grid grid-cols-3 gap-2">
-          <div><label class="lbl">最大量/日(mg)</label><input type="number" class="inp text-xs" data-f="maxDosePerDay" value="${esc(dose.maxDosePerDay??'')}"></div>
-          <div><label class="lbl">頻度</label><input class="inp text-xs" data-f="frequency" value="${esc(dose.frequency||'')}" placeholder="分3"></div>
-          <div><label class="lbl">期間</label><input class="inp text-xs" data-f="duration" value="${esc(dose.duration||'')}" placeholder="5日間"></div>
-        </div>
-        <div><label class="lbl">備考</label><input class="inp text-xs" data-f="notes" value="${esc(dose.notes||'')}"></div>
-      </div>`
-  }).join('')
-
-  return `
-    <div class="space-y-2.5">
-      ${doses.length?doseRows:`<div class="text-center text-slate-400 text-sm py-8">用量が未設定です</div>`}
-      <button onclick="addDose()" class="w-full btn btn-s justify-center py-2.5 text-sm">＋ 用量を追加</button>
+    return`<div class="card p-3 space-y-2" data-dose-i="${i}">
+      <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+        <span class="text-xs font-bold text-blue-700">用量 ${i+1}</span>
+        <button onclick="removeDose(${i})" class="btn btn-d text-xs py-0.5 px-2">✕ 削除</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl">対象</label><input class="inp text-xs" data-f="ageLabel" value="${esc(dose.ageLabel||'')}"></div>
+        <div><label class="lbl">目的</label><input class="inp text-xs" data-f="purpose" value="${esc(dose.purpose||'')}"></div>
+      </div>
+      <div><label class="lbl">用量タイプ</label><select class="inp text-xs" onchange="changeDoseType(${i},this.value)">${typeOpts}</select></div>
+      ${doseF}
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="lbl">最大量/日(mg)</label><input type="number" class="inp text-xs" data-f="maxDosePerDay" value="${esc(dose.maxDosePerDay??'')}"></div>
+        <div><label class="lbl">頻度</label><input class="inp text-xs" data-f="frequency" value="${esc(dose.frequency||'')}" placeholder="分3"></div>
+        <div><label class="lbl">期間</label><input class="inp text-xs" data-f="duration" value="${esc(dose.duration||'')}" placeholder="5日間"></div>
+      </div>
+      <div><label class="lbl">備考</label><input class="inp text-xs" data-f="notes" value="${esc(dose.notes||'')}"></div>
     </div>`
+  }).join('')
+  return`<div class="space-y-2.5">${rows.length?rows:'<div class="text-center text-slate-400 text-sm py-8">用量未設定</div>'}<button onclick="addDose()" class="w-full btn btn-s justify-center py-2.5">＋ 用量を追加</button></div>`
+}
+function buildDrugIV(d){
+  const iv=d.ivDilution,has=!!iv
+  const svOpts=['NS','5%DW','NS/5%DW'].map(s=>`<option value="${s}" ${iv?.solvent===s?'selected':''}>${{'NS':'生食 (NS)','5%DW':'5%ブドウ糖液','NS/5%DW':'生食 または 5%ブドウ糖液'}[s]}</option>`).join('')
+  return`<div class="space-y-4">
+    <div class="card p-4 flex items-center gap-3">
+      <div class="togg ${has?'on':''}" onclick="toggleIV(${!has})"><div class="togg-k"></div></div>
+      <div><div class="text-sm font-semibold text-slate-700">点滴希釈情報</div><div class="text-xs text-slate-400">ONにすると用量カードに希釈・投与情報を表示</div></div>
+    </div>
+    ${has?`<div class="card p-4 space-y-3">
+      <div><label class="lbl">溶媒</label><select id="iv_solvent" class="inp">${svOpts}</select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="lbl">最大濃度 (mg/mL)</label><input type="number" step="0.1" id="iv_maxConc" class="inp" value="${esc(iv.maxConcMgPerMl??'')}"></div>
+        <div><label class="lbl">投与時間</label><input id="iv_infTime" class="inp" value="${esc(iv.infusionTime||'')}" placeholder="30〜60分"></div>
+      </div>
+      <div><label class="lbl">配合禁忌（1行1件）</label><textarea id="iv_incomp" class="inp">${esc((iv.incompatible||[]).join('\n'))}</textarea></div>
+      <div class="bg-amber-50 rounded-lg p-3 text-xs text-amber-800"><b>計算式:</b> max(10, ceil(1回量 ÷ 最大濃度 ÷ 10) × 10) mL</div>
+    </div>`:''}
+  </div>`
+}
+function buildDrugForm(d){
+  const rows=(d.formulations||[]).map((f,i)=>{const v=typeof f==='string'?f:(f.text||f.name||'');return`<div class="flex gap-2 items-center"><input class="inp text-sm flex-1" data-form-i="${i}" value="${esc(v)}" placeholder="例: DS 10%、錠 250mg"><button onclick="removeFormulation(${i})" class="btn btn-d text-xs py-2 px-2.5 shrink-0">✕</button></div>`}).join('')
+  return`<div class="space-y-2"><div class="text-xs text-slate-500">各製剤を1行1件で記入</div>${rows}<button onclick="addFormulation()" class="w-full btn btn-s text-sm py-2.5 justify-center">＋ 製剤を追加</button></div>`
 }
 
-// Tab: 点滴希釈
-function buildTabIV(d) {
-  const iv=d.ivDilution
-  const hasIV=!!iv
-  const solventOpts=['NS','5%DW','NS/5%DW'].map(s=>`<option value="${s}" ${iv?.solvent===s?'selected':''}>${{'NS':'生食 (NS)','5%DW':'5%ブドウ糖液','NS/5%DW':'生食 または 5%ブドウ糖液'}[s]}</option>`).join('')
-
-  return `
-    <div class="space-y-4">
-      <div class="card p-4 flex items-center gap-3">
-        <div class="toggle-track ${hasIV?'on':''}" onclick="toggleIV(${!hasIV})">
-          <div class="toggle-knob"></div>
+// ── Slide: Disease ─────────────────────────────────────────────────────────
+function buildSlideDisease(){
+  const d=S.editItem;if(!d)return''
+  const catOpts=(S.data?.diseaseCategories||[]).map(c=>`<option value="${esc(c)}" ${d.category===c?'selected':''}>${esc(c)}</option>`).join('')
+  const drugOpts=(S.data?.drugs||[]).map(dr=>`<option value="${esc(drugKey(dr))}" ${(d.relatedDrugIds||[]).includes(drugKey(dr))?'selected':''}>${esc(dr.genericName||drugKey(dr))}</option>`).join('')
+  const secRows=(d.sections||[]).map((sec,i)=>`
+    <div class="card p-3 space-y-2" data-sec-i="${i}">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-teal-700">セクション ${i+1}</span>
+        <button onclick="removeSection(${i})" class="btn btn-d text-xs py-0.5 px-2">✕</button>
+      </div>
+      <div><label class="lbl">タイトル</label><input class="inp text-sm" data-f="title" value="${esc(sec.title||'')}"></div>
+      <div><label class="lbl">内容</label><textarea class="inp text-sm" data-f="content">${esc(sec.content||'')}</textarea></div>
+    </div>`).join('')
+  return`<div class="slide open">
+    <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
+      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3">
+        <button onclick="ss({editType:null,editItem:null})" class="text-slate-500 text-sm font-medium hover:text-slate-800">← 一覧</button>
+        <div class="flex-1 font-bold text-sm text-slate-800 truncate">${esc(d.name||'新規疾患')}</div>
+        <button onclick="commitDisease()" class="btn btn-g text-sm">✓ 適用</button>
+      </div>
+      <div class="flex-1 px-4 py-4 space-y-3 pb-8">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">疾患名 *</label><input id="dis_name" class="inp" value="${esc(d.name||'')}" placeholder="市中肺炎"></div>
+          <div><label class="lbl">英語名</label><input id="dis_englishName" class="inp" value="${esc(d.englishName||'')}"></div>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">略語</label><input id="dis_abbreviation" class="inp" value="${esc(d.abbreviation||'')}" placeholder="CAP"></div>
+          <div><label class="lbl">カテゴリ</label><select id="dis_category" class="inp">${catOpts}</select></div>
+        </div>
+        <div><label class="lbl">ID（ユニーク・英数字）</label><input id="dis_id" class="inp font-mono" value="${esc(d.id||'')}" placeholder="cap"></div>
+        <div><label class="lbl">タグ（カンマ区切り）</label><input id="dis_tags" class="inp" value="${esc((d.tags||[]).join(', '))}" placeholder="肺炎, CAP, 感染症"></div>
+        <div><label class="lbl">ポイント（1行1件）</label><textarea id="dis_points" class="inp">${esc((d.points||[]).join('\n'))}</textarea></div>
         <div>
-          <div class="text-sm font-semibold text-slate-700">点滴希釈情報</div>
-          <div class="text-xs text-slate-400">ONにすると用量カードに溶解・投与情報を表示</div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="lbl">セクション（診断・治療など）</label>
+            <button onclick="addSection()" class="btn btn-s text-xs py-1 px-2">＋ 追加</button>
+          </div>
+          <div class="space-y-2">${secRows}</div>
+        </div>
+        <div><label class="lbl">関連薬剤（複数選択可）</label>
+          <select id="dis_relatedDrugIds" multiple class="inp" style="min-height:80px">${drugOpts}</select>
+          <p class="text-xs text-slate-400 mt-0.5">Ctrl/Cmd + クリックで複数選択</p>
+        </div>
+        <div><label class="lbl">参考文献（1行1件）</label><textarea id="dis_references" class="inp">${esc((d.references||[]).join('\n'))}</textarea></div>
+        <div><label class="lbl">備考</label><textarea id="dis_notes" class="inp">${esc(d.notes||'')}</textarea></div>
+      </div>
+    </div>
+  </div>`
+}
+
+// ── Slide: IV fluid section ────────────────────────────────────────────────
+function buildSlideIV(){
+  const d=S.editItem;if(!d)return''
+  const elecFields=['Na','K','Cl','Ca','Mg']
+  const fluidRows=(d.fluids||[]).map((f,i)=>`
+    <div class="card p-3 space-y-2.5" data-fluid-i="${i}">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-blue-700">製剤 ${i+1}</span>
+        <button onclick="removeFluid(${i})" class="btn btn-d text-xs py-0.5 px-2">✕ 削除</button>
+      </div>
+      <div><label class="lbl">製剤名</label><input class="inp text-sm" data-f="name" value="${esc(f.name||'')}"></div>
+      <div class="grid grid-cols-3 gap-2">
+        ${elecFields.map(e=>`<div><label class="lbl">${e} (mEq/L)</label><input class="inp text-xs text-center" data-f="${e}" value="${esc(f[e]??'-')}" placeholder="-"></div>`).join('')}
+        <div><label class="lbl">Buffer</label><input class="inp text-xs" data-f="buffer" value="${esc(f.buffer||'-')}" placeholder="乳酸 28"></div>
+        <div><label class="lbl">Glucose (%)</label><input class="inp text-xs text-center" data-f="glucose" value="${esc(f.glucose??'-')}" placeholder="-"></div>
+      </div>
+    </div>`).join('')
+  return`<div class="slide open">
+    <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
+      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3">
+        <button onclick="ss({editType:null,editItem:null,editIVIdx:null})" class="text-slate-500 text-sm font-medium hover:text-slate-800">← 一覧</button>
+        <div class="flex-1 font-bold text-sm text-slate-800 truncate">${esc(d.category||'新規セクション')}</div>
+        <button onclick="commitIV()" class="btn btn-g text-sm">✓ 適用</button>
+      </div>
+      <div class="flex-1 px-4 py-4 space-y-3 pb-8">
+        <div><label class="lbl">セクション名（例: 細胞外液補充液）</label><input id="iv_cat" class="inp" value="${esc(d.category||'')}"></div>
+        <div><label class="lbl">注釈（1行1件）</label><textarea id="iv_notes" class="inp">${esc((d.notes||[]).join('\n'))}</textarea></div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="lbl">輸液製剤一覧</label>
+            <button onclick="addFluid()" class="btn btn-s text-xs py-1 px-2">＋ 製剤追加</button>
+          </div>
+          <div class="space-y-2">${fluidRows}</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg p-3 text-xs text-blue-800">
+          <b>※</b> 値が「-」または空欄の場合は「-」として保存されます。数値のみ入力した場合は数値として扱われます。
         </div>
       </div>
-
-      ${hasIV?`
-        <div class="card p-4 space-y-3">
-          <div class="text-xs font-bold text-amber-700 mb-1">💉 IV希釈設定</div>
-          <div><label class="lbl">溶媒</label><select id="iv_solvent" class="inp">${solventOpts}</select></div>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="lbl">最大濃度 (mg/mL)</label><input type="number" step="0.1" id="iv_maxConc" class="inp" value="${esc(iv.maxConcMgPerMl??'')}"></div>
-            <div><label class="lbl">投与時間</label><input id="iv_infTime" class="inp" value="${esc(iv.infusionTime||'')}" placeholder="30〜60分"></div>
-          </div>
-          <div>
-            <label class="lbl">配合禁忌（1行1件）</label>
-            <textarea id="iv_incomp" class="inp">${esc((iv.incompatible||[]).join('\n'))}</textarea>
-          </div>
-          <div class="bg-amber-50 rounded-lg p-3 text-xs text-amber-800">
-            <div class="font-semibold mb-1">計算方法:</div>
-            <div>必要溶媒量 = max(10, ceil(1回量 ÷ 最大濃度 ÷ 10) × 10) mL</div>
-          </div>
-        </div>
-      `:''}
-    </div>`
+    </div>
+  </div>`
 }
 
-// Tab: 製剤
-function buildTabForm(d) {
-  const forms=d.formulations||[]
-  const rows=forms.map((f,i)=>{
-    const val=typeof f==='string'?f:(f.text||f.name||JSON.stringify(f))
-    return `<div class="flex gap-2 items-center">
-      <input class="inp text-sm flex-1" data-form-i="${i}" value="${esc(val)}" placeholder="例: DS 10%、錠 250mg">
-      <button onclick="removeFormulation(${i})" class="btn btn-d text-xs py-2 px-2.5 shrink-0">✕</button>
-    </div>`
-  }).join('')
-
-  return `
-    <div class="space-y-2">
-      <div class="text-xs text-slate-500 mb-1">各製剤を1行1件で記入します</div>
-      ${rows}
-      <button onclick="addFormulation()" class="w-full btn btn-s text-sm py-2.5 justify-center">＋ 製剤を追加</button>
-    </div>`
-}
-
-// ── Settings view ──────────────────────────────────────────────────────────
-function buildSettings() {
+// ── Slide: Settings ────────────────────────────────────────────────────────
+function buildSlideSettings(){
   const savedAtRaw=ls.get(K.appCacheAt)
   const savedAt=savedAtRaw?new Date(parseInt(savedAtRaw)).toLocaleString('ja-JP'):'-'
-  return `
-    <div class="slide open">
-      <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
-        <div class="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
-          ${S.data?`<button onclick="ss({view:'list'})" class="text-slate-500 hover:text-slate-800 text-sm font-medium">← 一覧</button>`:''}
-          <h1 class="text-base font-bold text-slate-800 flex-1">設定</h1>
+  const srcLabel={'index.html':'📄 index.html (最新)','gist':'☁️ GitHub Gist','cache':'💾 ローカルキャッシュ'}[S.dataSource]||'未読込'
+  return`<div class="slide open">
+    <div class="max-w-2xl mx-auto flex flex-col min-h-screen">
+      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3">
+        ${S.data?`<button onclick="ss({editType:null})" class="text-slate-500 text-sm font-medium hover:text-slate-800">← 戻る</button>`:''}
+        <h1 class="text-base font-bold text-slate-800 flex-1">設定</h1>
+      </div>
+      <div class="px-4 py-4 space-y-4">
+        <div class="card p-4 space-y-2 text-sm">
+          <div class="font-bold text-slate-700">現在のデータソース</div>
+          <div class="text-slate-600">${srcLabel}</div>
+          <div class="text-xs text-slate-400">Gist最終更新: ${savedAt}</div>
+          <button onclick="reloadData();ss({editType:null})" class="btn btn-s text-xs py-1.5 mt-1">↺ データを再読込</button>
         </div>
-        <div class="px-4 py-4 space-y-4">
-          <div class="card p-4 space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm">GitHub Gist 接続</h2>
-            <div>
-              <label class="lbl">GitHub Token（gistスコープ）</label>
-              <input type="password" id="cfg_token" class="inp font-mono text-xs" value="${esc(S.token)}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-              <p class="text-xs text-slate-400 mt-1">
-                <a href="https://github.com/settings/tokens/new?scopes=gist&description=pediatric-dosage" target="_blank" class="text-blue-600 underline">GitHub でトークン発行（gistスコープ）</a>
-              </p>
-            </div>
-            <div>
-              <label class="lbl">Gist ID</label>
-              <input id="cfg_gistId" class="inp font-mono text-xs" value="${esc(S.gistId)}" placeholder="b2eabc0fe04fe8efa66e810ed6da55e9">
-            </div>
-            <button onclick="applySettings()" class="btn btn-p w-full justify-center">保存して再接続</button>
-          </div>
 
-          ${S.gistId?`
-            <div class="card p-4 space-y-2 text-sm">
-              <div class="font-bold text-slate-700">接続中の Gist</div>
-              <div class="text-xs text-slate-500 font-mono break-all">${esc(S.gistId)}</div>
-              <a href="https://gist.github.com/${esc(S.gistId)}" target="_blank" class="text-xs text-blue-600 underline">Gistをブラウザで開く</a>
-              <div class="text-xs text-slate-400">最終更新: ${savedAt}</div>
-              <div class="flex gap-2 pt-1">
-                <button onclick="reloadGist()" class="btn btn-s text-xs py-1.5">↺ Gistから再読込</button>
-              </div>
-            </div>`:''}
-
-          <div class="card p-4 text-xs text-slate-500 space-y-1">
-            <div class="font-semibold text-slate-600">使い方</div>
-            <ol class="list-decimal pl-4 space-y-1 leading-relaxed">
-              <li>export.html でindex.htmlのデータをGistにアップロード</li>
-              <li>ここでToken・Gist IDを設定して接続</li>
-              <li>薬剤を編集 → 「✓ 適用」→「💾 Gistに保存」</li>
-              <li>アプリ(index.html)を再読込するとGistのデータが反映</li>
-            </ol>
+        <div class="card p-4 space-y-3">
+          <h2 class="font-bold text-slate-700 text-sm">GitHub Gist 保存設定</h2>
+          <p class="text-xs text-slate-500">編集データをGistに保存してアプリに反映します。</p>
+          <div><label class="lbl">GitHub Token（gistスコープ）</label>
+            <input type="password" id="cfg_token" class="inp font-mono text-xs" value="${esc(S.token)}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            <p class="text-xs text-slate-400 mt-1"><a href="https://github.com/settings/tokens/new?scopes=gist&description=pediatric-dosage" target="_blank" class="text-blue-600 underline">トークン発行（gistスコープ）</a></p>
           </div>
+          <div><label class="lbl">Gist ID</label>
+            <input id="cfg_gistId" class="inp font-mono text-xs" value="${esc(S.gistId)}" placeholder="b2eabc0fe04fe8efa66e810ed6da55e9">
+          </div>
+          <button onclick="applySettings()" class="btn btn-p w-full justify-center">保存して再接続</button>
+        </div>
+
+        ${S.gistId?`<div class="card p-4 space-y-1 text-xs text-slate-500">
+          <div class="font-semibold text-slate-600">接続中 Gist</div>
+          <div class="font-mono break-all">${esc(S.gistId)}</div>
+          <a href="https://gist.github.com/${esc(S.gistId)}" target="_blank" class="text-blue-600 underline block">ブラウザで開く ↗</a>
+        </div>`:''}
+
+        <div class="card p-4 text-xs text-slate-500 space-y-2">
+          <div class="font-semibold text-slate-600">📋 データの流れ</div>
+          <ol class="list-decimal pl-4 space-y-1 leading-relaxed">
+            <li><b>index.html</b> に薬剤・輸液データが直接記述</li>
+            <li>このツールは index.html を自動読込（同じサーバーの場合）</li>
+            <li>編集後「💾 Gistに保存」でGistを更新</li>
+            <li>アプリ(index.html)を再読込するとGistのデータが反映</li>
+            <li>index.htmlに大きな変更をしたら <b>export.html</b> でGistを再同期</li>
+          </ol>
         </div>
       </div>
-    </div>`
-}
-
-// ── Attach search handler (called by render) ──────────────────────────────
-function attachSearchHandler() {
-  const el=document.getElementById('searchInp')
-  if(!el) return
-  let composing=false
-  el.addEventListener('compositionstart',()=>{ composing=true })
-  el.addEventListener('compositionend',()=>{ composing=false; S.search=el.value; render() })
-  el.addEventListener('input',()=>{ if(!composing){S.search=el.value; render()} })
+    </div>
+  </div>`
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
