@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小児薬用量 — データエクスポート / Gist 同期</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+<div class="max-w-2xl mx-auto space-y-6">
+  <h1 class="text-xl font-bold text-gray-800">データエクスポート / Gist 同期</h1>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+    <h2 class="font-semibold text-gray-700">① GitHub Token を入力</h2>
+    <input id="token" type="password" placeholder="ghp_xxxx (gist スコープ必要)"
+      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono">
+    <p class="text-xs text-gray-500">
+      <a href="https://github.com/settings/tokens/new?scopes=gist&description=pediatric-dosage" target="_blank"
+         class="text-blue-600 underline">GitHub で Token 発行</a>（gist スコープにチェック）
+    </p>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+    <h2 class="font-semibold text-gray-700">② Gist ID（既存があれば自動入力）</h2>
+    <input id="gistId" type="text" placeholder="既存の Gist ID または空欄"
+      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono">
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+    <h2 class="font-semibold text-gray-700">③ エクスポート内容</h2>
+    <div id="summary" class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3"></div>
+  </div>
+
+  <button id="uploadBtn"
+    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 text-sm transition-colors">
+    Gist にアップロードして同期する
+  </button>
+
+  <div id="result" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800"></div>
+  <div id="error"  class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800"></div>
+</div>
+
+<script>
+'use strict'
+let CATEGORIES = [
+  '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
+  'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
+  '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
+  '制吐薬','整腸薬・止痢薬','便秘治療薬','点眼薬','点鼻薬','その他',
+]
+
+// ============================================================
+// 疾患マスターデータ
+// ============================================================
+
+let DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','その他']
+
+// 各 fluid: {name, Na, K, Cl, Ca, Mg, buffer, glucose, note}
+//   buffer: 緩衝剤を文字列でまとめて表示（例: "乳酸 28", "酢酸 25", "乳酸 8 + 酢酸 20"）
+//   類似製剤は1行にまとめて代表値で表示
+let IV_FLUID_TABLES = [
+  {
+    category: '細胞外液補充液',
+    notes: [
+      '※1 グルコン酸 3mEq/L、クエン酸 6mEq/L、添加物に塩酸を含有',
+      '※2 重炭酸 28mEq/L、クエン酸 4mEq/L',
+    ],
+    fluids: [
+      {name:'生理食塩液',                                         Na:154, K:'-', Cl:154,   Ca:'-', Mg:'-', buffer:'-',          glucose:'-'},
+      {name:'リンゲル液',                                         Na:147, K:4,   Cl:155.5, Ca:4.5, Mg:'-', buffer:'-',          glucose:'-'},
+      {name:'乳酸リンゲル液 (ソルラクト/ラクテックD/ソルラクトS)', Na:131, K:4,   Cl:110,   Ca:3,   Mg:'-', buffer:'乳酸 28',    glucose:'0〜5'},
+      {name:'酢酸リンゲル液 (ソルアセトF/ヴィーンD)',             Na:131, K:4,   Cl:109,   Ca:3,   Mg:'-', buffer:'酢酸 28',    glucose:'0〜5'},
+      {name:'フィジオ140 (酢酸リンゲル) ※1',                      Na:140, K:4,   Cl:115,   Ca:3,   Mg:2,   buffer:'酢酸 25',    glucose:1},
+      {name:'ビカネイト (重炭酸リンゲル) ※2',                     Na:130, K:4,   Cl:109,   Ca:3,   Mg:2,   buffer:'重炭酸 28',  glucose:'-'},
+    ]
+  },
+  {
+    category: '糖液剤',
+    notes: [],
+    fluids: [
+      {name:'5%ブドウ糖液',  Na:'-', K:'-', Cl:'-', Ca:'-', Mg:'-', buffer:'-', glucose:5},
+      {name:'10%ブドウ糖液', Na:'-', K:'-', Cl:'-', Ca:'-', Mg:'-', buffer:'-', glucose:10},
+    ]
+  },
+  {
+    category: '1号液［開始液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T1号 / ソルデム1 / リプラス1号', Na:90, K:'-', Cl:70, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:2.6},
+      {name:'KN1号',                                  Na:77, K:'-', Cl:77, Ca:'-', Mg:'-', buffer:'-',       glucose:2.5},
+    ]
+  },
+  {
+    category: '2号液［脱水補給液］',
+    notes: [
+      '※1 添加物として L-乳酸 8mEq/L を含む（乳酸濃度 28mEq/L）',
+      '※2 P 10mmol/L',
+      '※3 P 6.5mmol/L',
+    ],
+    fluids: [
+      {name:'ソリタ-T2号 ※1', Na:84,   K:20, Cl:66, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:3.2},
+      {name:'ソルデム2 ※2',   Na:77.5, K:30, Cl:59, Ca:'-', Mg:'-', buffer:'乳酸 48.5', glucose:1.45},
+      {name:'KN2号 ※3',       Na:60,   K:25, Cl:49, Ca:'-', Mg:2,   buffer:'乳酸 25', glucose:2.35},
+    ]
+  },
+  {
+    category: '3号液［維持液］',
+    notes: [
+      '※1 P 8mmol/L',
+      '※2 P 10mmol/L、グルコン酸 5mEq/L',
+      '※3 P 10mmol/L、クエン酸 14mEq/L、Zn 5μmol/L',
+    ],
+    fluids: [
+      {name:'ソリタ-T3号',           Na:35, K:20, Cl:35, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:4.3},
+      {name:'ソリタ-T3号G (高糖)',   Na:35, K:20, Cl:35, Ca:'-', Mg:'-', buffer:'乳酸 20', glucose:7.5},
+      {name:'KN3号',                  Na:50, K:20, Cl:50, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:2.7},
+      {name:'KNMG3号 (高糖)',         Na:50, K:20, Cl:50, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:10},
+      {name:'リプラス3号',            Na:40, K:20, Cl:40, Ca:'-', Mg:'-', buffer:'酢酸 20', glucose:5},
+      {name:'ヴィーン3G',             Na:45, K:17, Cl:37, Ca:'-', Mg:5,   buffer:'酢酸 20', glucose:5},
+      {name:'フィジオゾール3号',      Na:35, K:20, Cl:38, Ca:'-', Mg:3,   buffer:'酢酸 20', glucose:10},
+      {name:'EL-3号 ※1',              Na:40, K:35, Cl:40, Ca:'-', Mg:'-', buffer:'酢酸 40', glucose:5},
+      {name:'フィジオ35 ※2',          Na:35, K:20, Cl:28, Ca:5,   Mg:3,   buffer:'酢酸 20', glucose:10},
+      {name:'トリフリード ※3',        Na:35, K:20, Cl:35, Ca:5,   Mg:5,   buffer:'酢酸 20', glucose:10.5},
+    ]
+  },
+  {
+    category: '4号液［術後回復液］',
+    notes: [],
+    fluids: [
+      {name:'ソリタ-T4号 / ソルデム6 / KN4号', Na:30, K:'-', Cl:20, Ca:'-', Mg:'-', buffer:'乳酸 10', glucose:4},
+    ]
+  },
+]
+
+let DISEASES = [
+  // 疾患データは先生が追加・確認することで表示されます
+  // 例: 下記の構造で追加してください
+  // {
+  //   id: 'cap',
+  //   name: '市中肺炎',
+  //   englishName: 'Community-acquired pneumonia',
+  //   abbreviation: 'CAP',
+  //   category: '呼吸器',
+  //   tags: ['肺炎', 'CAP'],
+  //   points: ['ポイント1', 'ポイント2'],
+  //   sections: [
+  //     { title: '診断', content: '内容' },
+  //     { title: '治療', content: '内容' },
+  //   ],
+  //   relatedDrugIds: ['azithromycin'],
+  //   references: ['参考文献'],
+  //   notes: ''
+  // },
+]
+
+let DRUGS = [
+  // 抗ウイルス薬
+  { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
+    pediatricDoses:[
+      {ageLabel:'新生児〜1歳未満',ageMinMonths:0,ageMaxMonths:12,purpose:'治療',dosePerKg:6,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
+      {ageLabel:'1歳以上（治療）',ageMinMonths:12,purpose:'治療',dosePerKg:4,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
+      {ageLabel:'12歳以上（予防）',ageMinMonths:144,purpose:'予防',dosePerKg:2,maxDosePerDay:75,frequency:'分1',duration:'7〜10日間'},
+    ], notes:'インフルエンザ罹患時には異常行動による事故に対する予防的対応を講じることを患者の家族に説明する。腎機能障害のある患者では投与法変更を要する。', sideEffects:'悪心、嘔吐', references:['新 小児薬用量 改訂第9版']},
+  { id:'zanamivir', genericName:'ザナミビル水和物', abbreviation:'ザナミビル', brandNames:['リレンザ'], category:'抗ウイルス薬', route:'吸入', formulations:['ドライパウダー 5mg/ブリスター'], adultDose:'治療: 20mg/日（分2・5日間）　予防: 10mg/日（分1・10日間）',
+    pediatricDoses:[
+      {ageLabel:'7歳6ヶ月以上（治療）',ageMinMonths:90,purpose:'治療',fixedDose:'10mg（2吸入）を1日2回',frequency:'分2',duration:'5日間'},
+      {ageLabel:'7歳6ヶ月以上（予防）',ageMinMonths:90,purpose:'予防',fixedDose:'10mg（2吸入）を1日1回',frequency:'分1',duration:'10日間'},
+    ], notes:'乳製品アレルギーの既往に注意。', references:['新 小児薬用量 改訂第9版']},
+  // βラクタム系
+  { id:'amoxicillin', genericName:'アモキシシリン水和物', abbreviation:'AMPC', brandNames:['サワシリン','パセトシン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'250〜500mg 1日3〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,maxDosePerDay:1500,frequency:'分3',notes:'重症例では最大90mg/kg/日'}], notes:'ペニシリンアレルギーに注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'amoxicillin-clavulanate', genericName:'アモキシシリン・クラブラン酸', abbreviation:'AMPC/CVA', brandNames:['オーグメンチン','クラバモックス'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['オーグメンチン配合錠 250RS (AMPC 250mg)',{text:'クラバモックス小児用配合DS 600mg/g (1.01g/包)',notes:'1包1.01g中 AMPC 600mg・CVA 42.9mg'}], adultDose:'AMPC として 750〜1000mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:45,maxDosePerDay:1500,frequency:'分3',unit:'mg',activeLabel:'AMPC',notes:'AMPC量として計算'}], notes:'βラクタマーゼ産生菌にも有効。', references:['新 小児薬用量 改訂第9版']},
+  { id:'ogusawa-v5', genericName:'オグサワ処方 (オーグメンチン+サワシリン)', abbreviation:'オグサワ', brandNames:['オーグメンチン+サワシリン'], category:'βラクタム系', subcategory:'ペニシリン系', route:'内服', formulations:['オーグメンチン配合錠 250RS (AMPC 250mg)','サワシリン Cap 250mg (AMPC 250mg)'], adultDose:'AMPC として 1500〜3750mg/日 分3 (CVA は 375mg/日 に固定)',
+    pediatricDoses:[
+      {ageLabel:'30〜40kg未満',weightMinKg:30,weightMaxKg:40,purpose:'治療',fixedDose:'オーグメンチンRS250 3錠 + サワシリン 6Cap',frequency:'分3',unit:'mg',activeLabel:'AMPC',components:[{label:'AMPC',mgPerDay:2250},{label:'CVA',mgPerDay:375}],notes:'AMPC 75mg/kg/日, CVA 12.5mg/kg/日 (30kg時)。CVA を 375mg/日 に抑えつつ AMPC を増量する処方。'},
+      {ageLabel:'40〜50kg未満',weightMinKg:40,weightMaxKg:50,purpose:'治療',fixedDose:'オーグメンチンRS250 3錠 + サワシリン 9Cap',frequency:'分3',unit:'mg',activeLabel:'AMPC',components:[{label:'AMPC',mgPerDay:3000},{label:'CVA',mgPerDay:375}]},
+      {ageLabel:'50kg以上',weightMinKg:50,purpose:'治療',fixedDose:'オーグメンチンRS250 3錠 + サワシリン 12Cap',frequency:'分3',unit:'mg',activeLabel:'AMPC',components:[{label:'AMPC',mgPerDay:3750},{label:'CVA',mgPerDay:375}]},
+    ], notes:'AMPC で改善しない急性中耳炎・急性副鼻腔炎、アモキシシリン耐性 S.pneumoniae/H.influenzae による肺炎などへの外来治療。CVA を 375mg/日 までに抑えるため オーグメンチンRS250 を 3錠/日 に固定し、不足する AMPC をサワシリン (AMPC 単剤) で補う。', references:['新 小児薬用量 改訂第9版']},
+  // セフェム系
+  { id:'cefdinir', genericName:'セフジニル', abbreviation:'CFDN', brandNames:['セフゾン'], category:'セフェム系', route:'内服', formulations:['カプセル 100mg','細粒 10%'], adultDose:'300mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,maxDosePerDay:600,frequency:'分3',duration:'5〜7日間'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefaclor', genericName:'セファクロル', abbreviation:'CCL', brandNames:['ケフラール'], category:'セフェム系', route:'内服', formulations:['カプセル 250mg','細粒 10%'], adultDose:'750mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:40,maxDosePerDay:1000,frequency:'分3'}], references:['新 小児薬用量 改訂第9版']},
+  // マクロライド系
+  { id:'azithromycin', genericName:'アジスロマイシン水和物', abbreviation:'AZM', brandNames:['ジスロマック'], category:'マクロライド系', route:'内服', formulations:['錠 250mg','細粒 10%'], adultDose:'500mg 1日1回 3日間',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:10,maxDosePerDay:500,frequency:'分1',duration:'3日間',notes:'食前または食間'}], notes:'マイコプラズマ・クラミジアに有効。', references:['新 小児薬用量 改訂第9版']},
+  { id:'clarithromycin', genericName:'クラリスロマイシン', abbreviation:'CAM', brandNames:['クラリス','クラリシッド'], category:'マクロライド系', route:'内服', formulations:['錠 200mg','DS 10%'], adultDose:'400〜800mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:10,dosePerKgMax:15,maxDosePerDay:800,frequency:'分2'}], references:['新 小児薬用量 改訂第9版']},
+  // 抗アレルギー薬
+  { id:'ketotifen', genericName:'ケトチフェンフマル酸塩', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'抗アレルギー薬', route:'内服', formulations:['シロップ 0.2mg/mL','DS 1mg/g','錠 1mg'], adultDose:'2mg/日',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKg:0.06,frequency:'分2',notes:'標準: 6ヶ月〜2歳 0.8mg/日, 3〜6歳 1.2mg/日, 7歳以上 2mg/日'}], notes:'乳幼児でけいれん・興奮等の報告あり。', sideEffects:'眠気', references:['新 小児薬用量 改訂第9版']},
+  { id:'cetirizine', genericName:'セチリジン塩酸塩', abbreviation:'セチリジン', brandNames:['ジルテック'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg・10mg','DS 1.25mg/g'], adultDose:'1日1回10mg（就寝前）[最大20mg/日]',
+    pediatricDoses:[
+      {ageLabel:'2〜6歳',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+      {ageLabel:'7〜14歳',ageMinMonths:84,ageMaxMonths:168,purpose:'治療',fixedDose:'10mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+    ], notes:'重度の腎障害に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'levocetirizine', genericName:'レボセチリジン塩酸塩', abbreviation:'レボセチリジン', brandNames:['ザイザル'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg','シロップ 0.5mg/mL'], adultDose:'1日1回5mg（就寝前）',
+    pediatricDoses:[
+      {ageLabel:'6ヶ月〜11ヶ月',ageMinMonths:6,ageMaxMonths:12,purpose:'治療',fixedDose:'1.25mg/日',frequency:'分1'},
+      {ageLabel:'1〜6歳',ageMinMonths:12,ageMaxMonths:72,purpose:'治療',fixedDose:'2.5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+      {ageLabel:'7〜14歳',ageMinMonths:84,ageMaxMonths:168,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝食後・就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'loratadine', genericName:'ロラタジン', abbreviation:'ロラタジン', brandNames:['クラリチン'], category:'抗アレルギー薬', route:'内服', formulations:[{text:'錠 10mg',ageMinMonths:84,notes:'7歳以上'},{text:'レディタブ錠 10mg',ageMinMonths:84,notes:'7歳以上'},{text:'DS 10mg/g',ageMinMonths:36,notes:'3歳以上'}], adultDose:'10mg/日 分1',
+    pediatricDoses:[
+      {ageLabel:'3〜6歳',ageMinMonths:36,ageMaxMonths:72,purpose:'治療',fixedDose:'5mg/日',frequency:'分1',notes:'食後'},
+      {ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'10mg/日',frequency:'分1',notes:'食後'},
+    ], notes:'肝障害・腎障害の患者に注意。エリスロマイシンとの相互作用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'olopatadine', genericName:'オロパタジン塩酸塩', abbreviation:'オロパタジン', brandNames:['アレロック'], category:'抗アレルギー薬', route:'内服', formulations:['錠 2.5mg・5mg','OD錠 2.5mg・5mg','顆粒 5mg/g'], adultDose:'10mg/日 分2',
+    pediatricDoses:[
+      {ageLabel:'2〜6歳',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'5mg/日',frequency:'分2',notes:'朝・就寝前'},
+      {ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'10mg/日',frequency:'分2',notes:'朝・就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'montelukast', genericName:'モンテルカストナトリウム', abbreviation:'モンテルカスト', brandNames:['シングレア','キプレス'], category:'抗アレルギー薬', route:'内服', formulations:['錠 5mg・10mg','チュアブル錠 5mg','顆粒 4mg/包'], adultDose:'5〜10mg/日',
+    pediatricDoses:[
+      {ageLabel:'1〜5歳',ageMinMonths:12,ageMaxMonths:72,purpose:'治療',fixedDose:'4mg/日（顆粒）',frequency:'分1',notes:'就寝前'},
+      {ageLabel:'6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'5mg/日（チュアブル）',frequency:'分1',notes:'就寝前'},
+    ], references:['新 小児薬用量 改訂第9版']},
+  { id:'pranlukast', genericName:'プランルカスト水和物', abbreviation:'プランルカスト', brandNames:['オノン'], category:'抗アレルギー薬', route:'内服', formulations:['カプセル 112.5mg','DS 10mg/g'], adultDose:'450mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:7,maxDosePerDay:450,frequency:'分2',notes:'朝・夕食後。体重別: 12〜17kg→100mg/日, 18〜24kg→140mg/日, 25〜34kg→200mg/日, 35〜44kg→280mg/日'}], references:['新 小児薬用量 改訂第9版']},
+  // 解熱鎮痛薬
+  { id:'acetaminophen', genericName:'アセトアミノフェン', abbreviation:'AAP', brandNames:['カロナール','アンヒバ坐剤'], category:'解熱鎮痛薬', route:'内服・坐剤', formulations:['錠 200/300/500mg','細粒 20%/50%','坐剤 100/200/400mg'], adultDose:'300〜1000mg/回 1日4回まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:10,dosePerKgMax:15,maxDosePerDay:1500,frequency:'4〜6時間ごと',notes:'1日4回まで。1回500mg上限（体重50kg未満）'}], notes:'肝障害に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'ibuprofen', genericName:'イブプロフェン', abbreviation:'IBU', brandNames:['ブルフェン'], category:'解熱鎮痛薬', route:'内服', formulations:['錠 100/200mg','細粒 10%/20%'], adultDose:'600〜1200mg/日 分3',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKgMin:5,dosePerKgMax:10,maxDosePerDay:400,frequency:'6〜8時間ごと',notes:'1日3回まで'}], notes:'水痘・インフルエンザへの投与は避ける（ライ症候群）。', references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第2世代) ──────────────────────────────
+  { id:'cefmetazole', genericName:'セフメタゾールナトリウム', abbreviation:'CMZ', brandNames:['セフメタゾン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g・2g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日まで可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'cefminox', genericName:'セフミノクスナトリウム水和物', abbreviation:'CMNX', brandNames:['メイセリン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'2,000mg/日 分2 [最大6,000mg/日 分3〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第3世代) ──────────────────────────────
+  { id:'cefotaxime', genericName:'セフォタキシムナトリウム', abbreviation:'CTX', brandNames:['クラフォラン','セフォタックス'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:50,dosePerKgMax:100,frequency:'分3〜4',notes:'化膿性髄膜炎では最大300mg/kg/日まで可'},
+    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftizoxime', genericName:'セフチゾキシムナトリウム', abbreviation:'CZX', brandNames:['エボセリン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'注射', formulations:['注射用 125mg・250mg'], adultDose:'成人量なし（小児用）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:70,frequency:'分3〜4'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftriaxone', genericName:'セフトリアキソンナトリウム水和物', abbreviation:'CTRX', brandNames:['ロセフィン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分1〜2 [最大4,000mg/日 分2]',
+    pediatricDoses:[
+      {ageLabel:'新生児（日齢0〜3）',ageMinMonths:0,ageMaxMonths:0.1,purpose:'治療',fixedDose:'1回20mg/kg 1日1回',frequency:'分1',notes:'低出生体重児・新生児。日齢4以降は1日2回（増量）'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,frequency:'分1〜2',notes:'最大120mg/kg/日。重症感染症には1回40mg/kgまで増量し1日2回。高ビリルビン血症のある低出生体重児・新生児には禁忌'},
+    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:['カルシウム含有輸液（リンゲル液・乳酸リンゲル液・ハルトマン液）同一ルートへのCa製剤投与（特に新生児）']}, notes:'高ビリルビン血症のある低出生体重児・新生児には禁忌。', references:['新 小児薬用量 改訂第9版']},
+  { id:'cefmenoxime', genericName:'セフメノキシム塩酸塩', abbreviation:'CMX', brandNames:['ベストコール'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'重症例では160mg/kg/日、化膿性髄膜炎では200mg/kg/日まで増量可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'ceftazidime', genericName:'セフタジジム水和物', abbreviation:'CAZ', brandNames:['モダシン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'1回20mg/kg。日齢0〜3は1日2〜3回、日齢4以降は1日3〜4回'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日'},
+    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜30分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 第4世代) ──────────────────────────────
+  { id:'cefpirome', genericName:'セフピロム硫酸塩', abbreviation:'CPR', brandNames:['セフピロム硫酸塩CMX'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'重症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで増量可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜30分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'cefozopran', genericName:'セフォゾプラン塩酸塩', abbreviation:'CZOP', brandNames:['ファーストシン'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:80,frequency:'分1〜2',notes:'最大160mg/kg/日。日齢0は1日1〜2回、日齢1〜7は1日2〜3回、日齢8以降は1日3〜4回'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'難治重症感染症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで（最大4,000mg/日）'},
+    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (注射 オキサセフェム・配合) ────────────────
+  { id:'latamoxef', genericName:'ラタモキセフナトリウム', abbreviation:'LMOX', brandNames:['シオマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'最大150mg/kg/日'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'flomoxef', genericName:'フロモキセフナトリウム', abbreviation:'FMOX', brandNames:['フルマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[
+      {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'最大150mg/kg/日。低出生体重児では腎が発達段階のため慎重投与'},
+      {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日'},
+    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+  { id:'cefoperazone-sulbactam', genericName:'セフォペラゾン・スルバクタム', abbreviation:'CPZ/SBT', brandNames:['スルペラゾン'], category:'セフェム系', subcategory:'β-ラクタマーゼ阻害薬配合(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'混合物として1,000〜2,000mg/日 分2 [最大4,000mg/日 分2]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'混合物として。最大160mg/kg/日'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (経口 第1世代) ─────────────────────────────
+  { id:'cefalexin', genericName:'セファレキシン', abbreviation:'CEX', brandNames:['ケフレックス','L-ケフレックス'], category:'セフェム系', subcategory:'第1世代(経口)', route:'内服', formulations:['カプセル 250mg','DS 100mg・200mg/g','徐放顆粒 500mg/g'], adultDose:'1,000mg/日 [最大2,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:50,frequency:'分2（朝夕食後）',notes:'最大100mg/kg/日。カプセル・DSは6時間毎'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefuroxime-axetil', genericName:'セフロキサジン水和物', abbreviation:'CXD', brandNames:['オラスポア'], category:'セフェム系', subcategory:'第1世代(経口)', route:'内服', formulations:['小児用DS 100mg/g'], adultDose:'（成人適応なし）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:30,frequency:'分3'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── セフェム系 (経口 β-ラクタマーゼ耐性) ─────────────────
+  { id:'cefixime', genericName:'セフィキシム水和物', abbreviation:'CFIX', brandNames:['セフスパン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['カプセル 50mg・100mg','細粒 50mg/g'], adultDose:'100〜200mg/日 [最大400mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:3,dosePerKgMax:6,frequency:'分2',notes:'最大12mg/kg/日。体重30kg以上は100〜200mg/日（最大400mg/日）'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefteram-pivoxil', genericName:'セフテラムピボキシル', abbreviation:'CFTM-PI', brandNames:['トミロン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 50mg・100mg','小児用細粒 200mg/g'], adultDose:'150〜300mg/日 [最大300〜600mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:9,dosePerKgMax:18,frequency:'分3',notes:'適応症により用量が異なるため添付文書参照。血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefpodoxime-proxetil', genericName:'セフポドキシムプロキセチル', abbreviation:'CPDX-PR', brandNames:['バナン'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['DS 50mg/g','錠 100mg'], adultDose:'200mg/日 分2 [最大400mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:6,dosePerKgMax:9,frequency:'分2〜3',notes:'最大13.5mg/kg/日'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefditoren-pivoxil', genericName:'セフジトレンピボキシル', abbreviation:'CDTR-PI', brandNames:['メイアクトMS'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 100mg','小児用細粒 100mg/g'], adultDose:'300mg/日 [最大600mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,frequency:'分3',notes:'最大18mg/kg/日（600mg/日まで）。3歳未満は6mg/kgとし1日3回投与の場合、下痢・軟便の発現頻度が高い。血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+  { id:'cefcapene-pivoxil', genericName:'セフカペンピボキシル塩酸塩水和物', abbreviation:'CFPN-PI', brandNames:['フロモックス'], category:'セフェム系', subcategory:'第3世代(経口)', route:'内服', formulations:['錠 75mg・100mg','小児用細粒 100mg/g'], adultDose:'300mg/日 [最大450mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:9,frequency:'分3',notes:'血清中カルニチンを低下させる可能性あり'}], references:['新 小児薬用量 改訂第9版']},
+
+  // ── モノバクタム系 ────────────────────────────────────────
+  { id:'aztreonam', genericName:'アズトレオナム', abbreviation:'AZT', brandNames:['アザクタム'], category:'その他の抗菌薬', subcategory:'モノバクタム系', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日。低出生体重児・新生児には1回20mg/kgを生後3日まで1日2回、4日以降は1日2〜3回'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+
+  // ── カルバペネム系 ────────────────────────────────────────
+  { id:'imipenem-cilastatin', genericName:'イミペネム水和物・シラスタチンナトリウム', abbreviation:'IPM/CS', brandNames:['チエナム'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.5g/V','筋注用 0.5g/V','キット(生食100mL付)'], adultDose:'イミペネムとして 500〜1,000mg/日 分2〜3 [最大2,000mg/日]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:80,maxDosePerDay:2000,frequency:'分3〜4',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意。けいれん・意識障害等の中枢神経症状に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:5,infusionTime:'30〜60分',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'panipenem-betamipron', genericName:'パニペネム・ベタミプロン', abbreviation:'PAPM/BP', brandNames:['カルベニン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V'], adultDose:'パニペネムとして1,000mg/日 分2 30分以上かけて [最大2,000mg/日 分2]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:2000,frequency:'分3',notes:'30分以上かけて点滴（最大100mg/kg/日）。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:5,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'meropenem', genericName:'メロペネム水和物', abbreviation:'MEPM', brandNames:['メロペン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.5g/キット(生食100mL付)'], adultDose:'500〜1,000mg/日 分2〜3 [最大3,000mg/日 分3]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。化膿性髄膜炎では最大120mg/kg/日（6,000mg/日まで）。発熱性好中球減少症では120mg/kg/日（3,000mg/日まで）。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'doripenem', genericName:'ドリペネム水和物', abbreviation:'DRPM', brandNames:['フィニバックス'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.25g/キット(生食100mL付)'], adultDose:'ドリペネムとして500〜1,500mg/日 分2〜3 [最大3,000mg/日 分3]',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+  { id:'tebipenem-pivoxil', genericName:'テビペネムピボキシル', abbreviation:'TBPM-PI', brandNames:['オラペネム'], category:'その他の抗菌薬', subcategory:'カルバペネム系(経口)', route:'内服', formulations:['小児用細粒 100mg/g'], adultDose:'（成人適応なし）',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:8,frequency:'分2',duration:'7日間以内',notes:'食後投与。最大12mg/kg/日。バルプロ酸投与中の患者に注意。血清中カルニチンを低下させ低血糖をきたすことがある'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。経口カルバペネム。', references:['新 小児薬用量 改訂第9版']},
+  // ── ST合剤 ────────────────────────────────────────────────
+  { id:'smx-tmp-v5', genericName:'スルファメトキサゾール・トリメトプリム', abbreviation:'SMX/TMP', brandNames:['バクタ','バクトラミン','バクタミン'], category:'その他の抗菌薬', subcategory:'ST合剤', route:'内服・点静', formulations:['配合顆粒 1g (SMX 400mg+TMP 80mg)','配合錠 1錠 (SMX 400mg+TMP 80mg)','バクタミン配合錠 1錠 (SMX 100mg+TMP 20mg)','注射液 1A (SMX 400mg+TMP 80mg)'], adultDose:'一般感染症: TMP として 8〜12mg/kg/日 分2',
+    pediatricDoses:[
+      {ageLabel:'通常感染症',purpose:'治療',dosePerKgMin:8,dosePerKgMax:12,maxDosePerDay:320,frequency:'分2',unit:'mg',activeLabel:'TMP'},
+      {ageLabel:'重症 (S. maltophilia 等)',purpose:'治療',dosePerKg:20,maxDosePerDay:320,frequency:'分3',unit:'mg',activeLabel:'TMP'},
+      {ageLabel:'UTI 予防',purpose:'予防',dosePerKg:2,maxDosePerDay:160,frequency:'分1',unit:'mg',activeLabel:'TMP'},
+      {ageLabel:'PCP 治療',purpose:'PCP治療',dosePerKgMin:15,dosePerKgMax:20,maxDosePerDay:320,frequency:'分3〜4',duration:'21日間',unit:'mg',activeLabel:'TMP'},
+      {ageLabel:'PCP/トキソプラズマ予防',purpose:'予防',dosePerKgMin:4,dosePerKgMax:8,maxDosePerDay:320,frequency:'分2 (毎日または週3回)',unit:'mg',activeLabel:'TMP'},
+      {ageLabel:'百日咳曝露予防',purpose:'予防',dosePerKg:8,maxDosePerDay:320,frequency:'分2',duration:'14日間',unit:'mg',activeLabel:'TMP'},
+    ], ivDilution:{solvent:'5%DW',maxConcMgPerMl:1,infusionTime:'60〜90分',incompatible:['NS（沈殿形成のリスク）']}, notes:'低出生体重児・新生児に禁忌（高ビリルビン血症）。葉酸代謝阻害により造血器疾患患者には注意。腎機能に応じた投与量調整が必要。スペクトラム: GNR多数・GPC一部 (MRSA含む)・PCP・トキソプラズマ・ノカルジア。', sideEffects:'皮疹 (Stevens-Johnson症候群)、骨髄抑制、高カリウム血症', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 抗ヒスタミン薬 (小児の薬の選び方・使い方 第5版)
+  { id:'alimemazine-v5', genericName:'アリメマジン', abbreviation:'アリメマジン', brandNames:['アリメジン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.05%'], adultDose:'7.5〜10mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.2,maxDosePerDay:10,frequency:'分3〜4'}], notes:'適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'clemastine-v5', genericName:'クレマスチンフマル酸塩', abbreviation:'クレマスチン', brandNames:['タベジール'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.01%','ドライシロップ 0.1%','散 0.1%・1%','錠 1mg'], adultDose:'2mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,maxDosePerDay:2,frequency:'分2'}], notes:'乳児・幼児には慎重投与（けいれん・興奮など）。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'chlorpheniramine-v5', genericName:'クロルフェニラミンマレイン酸塩 (dl体)', abbreviation:'クロルフェニラミン', brandNames:['クロダミン','アレルギン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.05%','散 1%'], adultDose:'4〜24mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.2,maxDosePerDay:24,frequency:'分2〜4'}], notes:'低出生体重児・新生児には禁忌。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'d-chlorpheniramine-v5', genericName:'d-クロルフェニラミンマレイン酸塩', abbreviation:'d-クロルフェニラミン', brandNames:['ポララミン','アニミング','ネオマレルミン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.04%','ドライシロップ 0.2%','散 1%','錠 2mg','TR錠 6mg'], adultDose:'2〜8mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.15,maxDosePerDay:8,frequency:'分1〜4'}], notes:'低出生体重児・新生児には禁忌。dl体の倍力価。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cyproheptadine-v5', genericName:'シプロヘプタジン塩酸塩', abbreviation:'シプロヘプタジン', brandNames:['ペリアクチン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.04%','散 1%','錠 4mg'], adultDose:'4〜12mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.25,maxDosePerDay:12,frequency:'分1〜3'}], notes:'低出生体重児・新生児には禁忌。気管支喘息の急性発作時には禁忌。乳児・幼児には慎重投与（けいれん・幻覚など）。適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'hydroxyzine-pamoate-v5', genericName:'ヒドロキシジンパモ酸塩', abbreviation:'ヒドロキシジン', brandNames:['アタラックス-P'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.5%','ドライシロップ 2.5%','散 10%','錠 25mg','カプセル 25mg・50mg'], adultDose:'85〜128mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:1.5,maxDosePerDay:128,frequency:'分2〜3'}], notes:'けいれん既往児には慎重投与。適応: じんましんのみ。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'mequitazine-v5', genericName:'メキタジン', abbreviation:'メキタジン', brandNames:['ゼスラン','ニポラジン'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['小児用シロップ 0.03%','小児用細粒 0.6%','DS 0.6%'], adultDose:'アレルギー: 6mg/日　喘息: 12mg/日',
+    pediatricDoses:[{ageLabel:'アレルギー性鼻炎・じんましん・皮膚炎',purpose:'治療',dosePerKg:0.12,maxDosePerDay:6,frequency:'分2'},{ageLabel:'気管支喘息',purpose:'治療',dosePerKg:0.24,maxDosePerDay:12,frequency:'分2'}], notes:'乳児に対する安全性未確立。錠剤は小児に対する安全性未確立。適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'azelastine-v5', genericName:'アゼラスチン塩酸塩', abbreviation:'アゼラスチン', brandNames:['アゼプチン'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['錠 0.5mg・1mg'], adultDose:'2mg/日 (気管支喘息は4mg/日) 分2',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし (添付文書に小児の用量規定なし)'}], notes:'乳幼児に対する安全性未確立。適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'oxatomide-v5', genericName:'オキサトミド', abbreviation:'オキサトミド', brandNames:['オキサトーワ'], category:'抗アレルギー薬', subcategory:'第2世代抗ヒスタミン薬', route:'内服', formulations:['小児用DS 2%','小児用シロップ 0.2%','錠 30mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:1,frequency:'分2',notes:'最大 1.5mg/kg/日'}], notes:'幼児（特に2歳以下）には過量投与を避ける（錐体外路症状のおそれ）。DSは気管支喘息・じんましん適応。錠は気管支喘息・アレルギー性鼻炎・じんましん適応。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'epinastine-v5', genericName:'エピナスチン塩酸塩', abbreviation:'エピナスチン', brandNames:['アレジオン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:[{text:'DS 10mg/g',ageMinMonths:36,notes:'3歳以上'},{text:'錠 10mg・20mg',notes:'小児安全性未確立'},{text:'内用液 2mg/mL',notes:'小児安全性未確立'}], adultDose:'気管支喘息: 20mg/日　アレルギー性鼻炎: 10〜20mg/日　じんましん・湿疹・皮膚炎: 20mg/日',
+    pediatricDoses:[{ageLabel:'アレルギー性鼻炎 (3歳以上)',ageMinMonths:36,purpose:'治療',dosePerKgMin:0.25,dosePerKgMax:0.5,maxDosePerDay:20,frequency:'分1',notes:'DSで投与: 3〜7歳未満 0.5〜1g/日, 7歳以上 1〜2g/日'},{ageLabel:'じんましん・湿疹・皮膚炎 (3歳以上)',ageMinMonths:36,purpose:'治療',dosePerKg:0.5,maxDosePerDay:20,frequency:'分1',notes:'DSで投与: 3〜7歳未満 1g/日, 7歳以上 2g/日'}], notes:'DSは乳児に対する安全性未確立。錠・液は小児に対する安全性未確立。錠の適応: 気管支喘息、アレルギー性鼻炎、じんましん・湿疹・皮膚炎。肝障害（またはその既往歴）のある患者には慎重投与。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ebastine-v5', genericName:'エバスチン', abbreviation:'エバスチン', brandNames:['エバステル'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg・10mg','OD錠 5mg・10mg'], adultDose:'5〜10mg/日 分1',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし'}], notes:'乳幼児に対する安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fexofenadine-v5', genericName:'フェキソフェナジン塩酸塩', abbreviation:'フェキソフェナジン', brandNames:['アレグラ'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:[{text:'ドライシロップ 5%',ageMinMonths:6},{text:'錠 30mg・60mg',ageMinMonths:84,notes:'7歳以上'},{text:'OD錠 60mg',ageMinMonths:84,notes:'7歳以上'}], adultDose:'120mg/日',
+    pediatricDoses:[{ageLabel:'6ヶ月〜2歳未満',ageMinMonths:6,ageMaxMonths:24,purpose:'治療',fixedDose:'30mg/日',frequency:'分2'},{ageLabel:'2〜12歳未満',ageMinMonths:24,ageMaxMonths:144,purpose:'治療',fixedDose:'60mg/日',frequency:'分2'},{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'120mg/日',frequency:'分2'}], notes:'DSは6ヶ月未満の乳幼児に対する安全性未確立。後発品DSおよび錠は7歳未満の乳幼児に対する安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。エリスロマイシンとの相互作用に注意。用法: 分2 食後。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fexofenadine-pseudoephedrine-v5', genericName:'フェキソフェナジン塩酸塩・塩酸プソイドエフェドリン', abbreviation:'FEX/PSE', brandNames:['ディレグラ'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:[{text:'配合錠 (FEX 30mg・PSE 60mg)',ageMinMonths:144,notes:'12歳以上'}], adultDose:'アレルギー性鼻炎: 4錠/日 分2 朝・夕空腹時',
+    pediatricDoses:[{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'4錠/日',frequency:'分2',notes:'朝・夕空腹時'}], notes:'適応: アレルギー性鼻炎。鼻閉症状が中等症以上の期間のみ最小限の期間にとどめる。腎障害のある患者には慎重投与。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bepotastine-v5', genericName:'ベポタスチンベシル酸塩', abbreviation:'ベポタスチン', brandNames:['タリオン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg・10mg','OD錠 5mg・10mg'], adultDose:'20mg/日',
+    pediatricDoses:[{ageLabel:'7歳以上',ageMinMonths:84,purpose:'治療',fixedDose:'20mg/日',frequency:'分2'}], notes:'新生児・乳幼児の安全性未確立。後発品は小児適応なし。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'desloratadine-v5', genericName:'デスロラタジン', abbreviation:'デスロラタジン', brandNames:['デザレックス'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 5mg'], adultDose:'5mg/日',
+    pediatricDoses:[{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'5mg/日',frequency:'分1'}], notes:'12歳未満の小児の安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bilastine-v5', genericName:'ビラスチン', abbreviation:'ビラスチン', brandNames:['ビラノア'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 20mg'], adultDose:'20mg/日 分1 (空腹時)',
+    pediatricDoses:[{ageLabel:'小児用量の設定なし',purpose:'治療',fixedDose:'小児用量設定なし (適応は成人のみ)'}], notes:'15歳未満の小児への安全性未確立。空腹時投与。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'rupatadine-v5', genericName:'ルパタジンフマル酸塩', abbreviation:'ルパタジン', brandNames:['ルパフィン'], category:'抗アレルギー薬', subcategory:'第3世代抗ヒスタミン薬', route:'内服', formulations:['錠 10mg'], adultDose:'10〜20mg/日',
+    pediatricDoses:[{ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'10mg/日',frequency:'分1'}], notes:'12歳未満の小児の安全性未確立。適応: アレルギー性鼻炎、じんましん・湿疹・皮膚炎。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入β2刺激薬 (小児の薬の選び方・使い方 第5版)
+  { id:'isoproterenol-v5', genericName:'イソプレナリン', abbreviation:'イソプレナリン', brandNames:['アスプール'], category:'喘息薬', subcategory:'吸入β2刺激薬(第1世代)', route:'吸入', formulations:['液 0.5%'], adultDose:'1回3mg',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'添付文書参照',notes:'第1世代 (α<β, β1>β2)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'trimethoquinol-v5', genericName:'トリメトキノール塩酸塩', abbreviation:'トリメトキノール', brandNames:['イノリン'], category:'喘息薬', subcategory:'吸入β2刺激薬(第1世代)', route:'吸入', formulations:['吸入液 0.5%'], adultDose:'1回0.25〜0.5mL',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'小児用量設定なし'}], notes:'小児に対する安全性未確立。第1世代 (α≒0, β1<β2)。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'salbutamol-inhaled-v5', genericName:'サルブタモール硫酸塩 (吸入)', abbreviation:'サルブタモール (吸入)', brandNames:['ベネトリン','サルタノール'], category:'喘息薬', subcategory:'吸入β2刺激薬(第2世代)', route:'吸入', formulations:['ベネトリン吸入液 0.5%','サルタノールインヘラー 100μg'], adultDose:'1回0.1〜0.3mL or 1吸入',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回0.1〜0.3mL or 1吸入',notes:'第2世代 (α≒0, β1<β2)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'procaterol-inhaled-v5', genericName:'プロカテロール塩酸塩水和物 (吸入)', abbreviation:'プロカテロール (吸入)', brandNames:['メプチン'], category:'喘息薬', subcategory:'吸入β2刺激薬(第3世代)', route:'吸入', formulations:['メプチン吸入液 0.01%','ユニット 0.3mL・0.5mL','エアー 10μg(100回)','キッドエアー 5μg(100回)','スイングヘラー 10μg(100回)'], adultDose:'1回0.1〜0.3mL or 1吸入',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回0.1〜0.3mL or 1吸入',frequency:'1日4回まで',notes:'第3世代 (α≒0, β1≪β2)'}], notes:'ベロテックエロゾル100 (フェノテロール) は小児に使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 経口β2刺激薬
+  { id:'salbutamol-oral-v5', genericName:'サルブタモール硫酸塩 (経口)', abbreviation:'サルブタモール (経口)', brandNames:['ベネトリン'], category:'喘息薬', subcategory:'経口β2刺激薬(第2世代)', route:'内服', formulations:['シロップ 0.04%','錠 2mg'], adultDose:'24mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.3,maxDosePerDay:24,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'terbutaline-v5', genericName:'テルブタリン硫酸塩', abbreviation:'テルブタリン', brandNames:['ブリカニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第2世代)', route:'内服', formulations:['シロップ 0.5mg/mL','細粒 1%','錠 2mg'], adultDose:'12mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.225,maxDosePerDay:12,frequency:'分3'}], notes:'新生児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'clenbuterol-v5', genericName:'クレンブテロール塩酸塩', abbreviation:'クレンブテロール', brandNames:['スピロペント','トニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['顆粒 0.002%','錠 10μg'], adultDose:'40μg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.6μg/kg/日',frequency:'分2',notes:'最大 40μg/日。4歳以下に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tulobuterol-oral-v5', genericName:'ツロブテロール塩酸塩 (経口)', abbreviation:'ツロブテロール (経口)', brandNames:['ベラチン','ホクナリン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['ベラチンDS 0.1%','ホクナリンDS 0.1%','錠 1mg'], adultDose:'2mg/日 まで',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKg:0.04,maxDosePerDay:2,frequency:'分2'}], notes:'6ヶ月未満に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fenoterol-v5', genericName:'フェノテロール臭化水素酸塩', abbreviation:'フェノテロール', brandNames:['ベロテック'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 0.05%','DS 0.5% (オーハラ)'], adultDose:'7.5mg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.375,maxDosePerDay:7.5,frequency:'分3'}], notes:'吸入薬は小児に使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'procaterol-oral-v5', genericName:'プロカテロール塩酸塩水和物 (経口)', abbreviation:'プロカテロール (経口)', brandNames:['メプチン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 5μg/mL','DS 0.005%','顆粒 0.01%','錠 50μg','ミニ錠 25μg'], adultDose:'100μg/日 まで',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'2.5μg/kg/日',frequency:'分2〜3',notes:'最大 100μg/日。新生児に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // ステロイド薬 - 経口
+  { id:'prednisolone-oral-v5', genericName:'プレドニゾロン (経口)', abbreviation:'プレドニゾロン (経口)', brandNames:['プレドニン','プレドニゾロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['散 1%','錠 1mg・2.5mg・5mg'], adultDose:'60mg/日 まで',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:60,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,frequency:'分3'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dexamethasone-oral-v5', genericName:'デキサメタゾン (経口)', abbreviation:'デキサメタゾン (経口)', brandNames:['デカドロン','レナデックス','オルガドロン','デキサート'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・注射', formulations:['エリキシル 0.01%','錠 0.5mg・4mg','レナデックス錠 4mg','注射液 1.65mg・3.3mg・6.6mg (オルガドロン・デカドロン・デキサート)'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'クループ (単回)',purpose:'クループ',dosePerKg:0.15,frequency:'単回投与',notes:'最大0.6mg/kg/回。経口・非経口いずれも効果は同じ。錠剤は粉砕投与可。'},{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。クループには経口投与が第一選択（非経口と効果同等）。', references:['小児の薬の選び方・使い方 第5版','小児の薬の選び方・使い方 第5版 クループの章'], pending:true},
+  { id:'betamethasone-oral-v5', genericName:'ベタメタゾン (経口)', abbreviation:'ベタメタゾン (経口)', brandNames:['リンデロン','リネステロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・坐剤・注射', formulations:['リンデロンシロップ 0.01%','散 0.1%','リネステロン散 0.1%','坐剤 0.5mg・1.0mg','錠 0.5mg','注射液 2mg・4mg・20mg・100mg (リンデロン注)'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'クループ (単回)',purpose:'クループ',dosePerKg:0.15,frequency:'単回投与',notes:'最大0.6mg/kg/回。経口・非経口いずれも効果は同じ。'},{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。クループには経口投与が第一選択（非経口と効果同等）。', references:['小児の薬の選び方・使い方 第5版','小児の薬の選び方・使い方 第5版 クループの章'], pending:true},
+  // ステロイド薬 - 静注
+  { id:'hydrocortisone-iv-v5', genericName:'ヒドロコルチゾン (静注)', abbreviation:'ヒドロコルチゾン', brandNames:['ソル・コーテフ','サクシゾン'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 100mg・300mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 5mg/kg',frequency:'定期 5mg/kg 6〜8時間ごと'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 5〜7mg/kg',frequency:'定期 5〜7mg/kg 6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'prednisolone-iv-v5', genericName:'プレドニゾロン (静注)', abbreviation:'プレドニゾロン (静注)', brandNames:['水溶性プレドニン'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 10mg・20mg・50mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 0.5〜1mg/kg',frequency:'定期 0.5〜1mg/kg 6〜12時間ごと (最大2mg/kg/日)'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 1〜1.5mg/kg',frequency:'定期 0.5mg/kg 6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'methylprednisolone-iv-v5', genericName:'メチルプレドニゾロン (静注)', abbreviation:'メチルプレドニゾロン', brandNames:['ソル・メドロール','ソル・メルコート'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 40mg・125mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 0.5〜1mg/kg',frequency:'定期 0.5〜1mg/kg 6〜12時間ごと'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 1〜1.5mg/kg',frequency:'定期 1〜1.5mg/kg 4〜6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 抗アレルギー薬 - Th2サイトカイン阻害薬・吸入抗アレルギー薬
+  { id:'suplatast-v5', genericName:'スプラタストトシル酸塩', abbreviation:'スプラタスト', brandNames:['アイピーディ'], category:'抗アレルギー薬', subcategory:'Th2サイトカイン阻害薬', route:'内服', formulations:['ドライシロップ 5%','カプセル 50mg・100mg'], adultDose:'300mg/日 分3',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:6,frequency:'分2',notes:'DSとして: 3〜5歳未満 1.5g/日, 5〜11歳未満 3.0g/日 分2, 11歳以上 4.0g/日'}], notes:'カプセルは小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cromoglicate-v5', genericName:'クロモグリク酸ナトリウム', abbreviation:'DSCG', brandNames:['インタール','クロモリン','リノジェット'], category:'抗アレルギー薬', subcategory:'吸入抗アレルギー薬 (メディエーター遊離抑制薬)', route:'吸入', formulations:['エアロゾル 1mg','カプセル外用 20mg','吸入液 1%','ステリ・ネブクロモリン 1%'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'エアロゾル',purpose:'治療',fixedDose:'1回2噴霧',frequency:'1日4回吸入'},{ageLabel:'カプセル',purpose:'治療',fixedDose:'1回1個',frequency:'1日3〜4回 インヘラー使用'},{ageLabel:'吸入液',purpose:'治療',fixedDose:'1回1A',frequency:'1日3〜4回 ネブライザー使用'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入ステロイド
+  { id:'beclomethasone-inhaled-v5', genericName:'ベクロメタゾンプロピオン酸エステル', abbreviation:'ベクロメタゾン (吸入)', brandNames:['キュバール'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['エアゾール 50μg・100μg'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回50μg',frequency:'1日2回',notes:'小児最大 200μg/日'}], notes:'4歳以下に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluticasone-inhaled-v5', genericName:'フルチカゾンプロピオン酸エステル', abbreviation:'フルチカゾン (吸入)', brandNames:['フルタイド'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['ディスカス 50・100μg','ロタディスク 50・100μg','エアゾール 50μg(120吸入)','エアゾール 100μg(60吸入)'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回50μg',frequency:'1日2回',notes:'小児最大 200μg/日'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'budesonide-inhaled-v5', genericName:'ブデソニド (吸入)', abbreviation:'ブデソニド', brandNames:['パルミコート'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['吸入液 0.25mg・0.5mg','タービュヘイラー 100μg・200μg'], adultDose:'吸入液 最大2mg/日, タービュヘイラー 最大1600μg/日',
+    pediatricDoses:[{ageLabel:'吸入液 (6ヶ月以上)',ageMinMonths:6,purpose:'治療',fixedDose:'1回0.25mg 1日2回 or 1回0.5mg 1日1回',notes:'小児最大 1mg/日。6ヶ月未満の安全性未確立'},{ageLabel:'タービュヘイラー',purpose:'治療',fixedDose:'1回100〜200μg',frequency:'1日2回',notes:'小児最大 800μg/日。4歳以下の安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ciclesonide-v5', genericName:'シクレソニド', abbreviation:'シクレソニド', brandNames:['オルベスコ'], category:'喘息薬', subcategory:'吸入ステロイド薬', route:'吸入', formulations:['インヘラー 50μg(112吸入用)','100μg(56・112吸入用)','200μg(56吸入用)'], adultDose:'最大 800μg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回100〜200μg',frequency:'1日1回',notes:'小児最大 200μg/日。1回50μgまで減量可'}], notes:'4歳以下に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 喘息薬 - 吸入ステロイド+LABA / LABA / 経皮 / テオフィリン
+  { id:'fluticasone-salmeterol-v5', genericName:'フルチカゾン+サルメテロール', abbreviation:'アドエア', brandNames:['アドエア'], category:'喘息薬', subcategory:'吸入ステロイド薬+LABA', route:'吸入', formulations:['アドエア 100ディスカス 28・60吸入用','アドエア 50エアゾール 120吸入用'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'ディスカス',purpose:'治療',fixedDose:'1回1吸入',frequency:'1日2回',notes:'小児最大 2吸入'},{ageLabel:'エアゾール',purpose:'治療',fixedDose:'1回1〜2吸入',frequency:'1日2回',notes:'小児最大 4吸入'}], notes:'4歳以下に対する安全性未確立。フルチカゾン+ホルモテロール (フルティフォーム, レルベア), ブデソニド+ホルモテロール (シムビコート) は小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'salmeterol-v5', genericName:'サルメテロールキシナホ酸塩', abbreviation:'サルメテロール', brandNames:['セレベント'], category:'喘息薬', subcategory:'長時間作用性吸入β2刺激薬', route:'吸入', formulations:['ロタディスカス 25μg・50μg','ディスカス 50μg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回25〜50μg',frequency:'1日2回'}], notes:'4歳以下に対する安全性未確立。単独使用は不適切で、吸入ステロイド薬と併用することが基本。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tulobuterol-patch-v5', genericName:'ツロブテロール (経皮)', abbreviation:'ツロブテロールテープ', brandNames:['ホクナリンテープ','ツロブテロール ルテープ'], category:'喘息薬', subcategory:'経皮吸収型β2刺激薬', route:'経皮', formulations:['テープ 0.5mg・1mg・2mg'], adultDose:'2mg 1日1回',
+    pediatricDoses:[{ageLabel:'0.5〜3歳未満',ageMinMonths:6,ageMaxMonths:36,purpose:'治療',fixedDose:'0.5mg',frequency:'1日1回'},{ageLabel:'3〜9歳未満',ageMinMonths:36,ageMaxMonths:108,purpose:'治療',fixedDose:'1mg',frequency:'1日1回'},{ageLabel:'9歳以上',ageMinMonths:108,purpose:'治療',fixedDose:'2mg',frequency:'1日1回'}], notes:'6ヶ月未満に対する安全性未確立。最高血中濃度に達するのは12時間後なので発作時の使用は不適切。安易な投与を避ける。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'theophylline-v5', genericName:'テオフィリン徐放製剤', abbreviation:'テオフィリン', brandNames:['テオドール','テオロング','スローピッド'], category:'喘息薬', subcategory:'テオフィリン徐放製剤', route:'内服', formulations:['シロップ 2%','DS 20%','顆粒 20%・50%','錠 50・100・200mg','カプセル 50・100・200mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKgMin:6,dosePerKgMax:10,frequency:'分2',notes:'目安 6〜8〜10mg/kg/日'}], notes:'2才未満は重症持続型に限定。2歳以上は中等症持続型以上の追加治療薬として位置づけ、安易に使用しない。血中濃度を5〜15μg/mL (2歳以下では5〜10) に保つよう調整する。6ヶ月未満には原則使用しない。けいれん性疾患を有する児には原則使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 鎮咳薬
+  { id:'cloperastine-v5', genericName:'クロペラスチン', abbreviation:'クロペラスチン', brandNames:['フスタゾール'], category:'鎮咳薬', route:'内服', formulations:['散 10%','小児用錠 2.5mg','糖衣錠 10mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,maxDosePerDay:60,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dimemorfan-v5', genericName:'ジメモルファンリン酸塩', abbreviation:'ジメモルファン', brandNames:['アストミン'], category:'鎮咳薬', route:'内服', formulations:['シロップ 0.25%','DS 2.5%','散 10%','錠 10mg'], adultDose:'60mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,maxDosePerDay:60,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'noscapine-v5', genericName:'ノスカピン', abbreviation:'ノスカピン', brandNames:['「純生」ノスカピン'], category:'鎮咳薬', route:'内服', formulations:['末'], adultDose:'90mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:1.5,maxDosePerDay:90,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'dextromethorphan-v5', genericName:'デキストロメトルファン+クレゾールスルホン酸', abbreviation:'メジコン配合', brandNames:['メジコン配合シロップ'], category:'鎮咳薬', route:'内服', formulations:['配合シロップ'], adultDose:'18〜24mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.3〜0.4mg/kg/日',frequency:'分3〜4',notes:'最大 18〜24mL/日 (シロップとして)'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 鎮咳去痰薬
+  { id:'ouhi-extract-v5', genericName:'オウヒエキス', abbreviation:'オウヒ', brandNames:['サリパラ'], category:'鎮咳去痰薬', route:'内服', formulations:['液'], adultDose:'200〜400mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:4,dosePerKgMax:8,maxDosePerDay:400,frequency:'分3'}], notes:'中枢性鎮咳薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tipepidine-v5', genericName:'チペピジンヒベンズ酸塩', abbreviation:'チペピジン', brandNames:['アスベリン'], category:'鎮咳去痰薬', route:'内服', formulations:['シロップ 0.5%','調剤用 2%','DS 2%','散 10%','錠 10mg・20mg'], adultDose:'60〜120mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:120,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  // 去痰薬
+  { id:'ambroxol-v5', genericName:'アンブロキソール塩酸塩', abbreviation:'アンブロキソール', brandNames:['ムコソルバン','ムコサール','プルスマリンA'], category:'去痰薬', route:'内服', formulations:['小児用シロップ 0.3%','内用液 0.75%','DS 1.5%・3%','錠 15mg','Lカプセル 45mg'], adultDose:'45mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.9,maxDosePerDay:45,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'carbocisteine-v5', genericName:'L-カルボシステイン', abbreviation:'カルボシステイン', brandNames:['ムコダイン','C-チステン'], category:'去痰薬', route:'内服', formulations:['シロップ 5%','DS 50%','細粒 50%','錠 250mg・500mg'], adultDose:'1500mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:30,maxDosePerDay:1500,frequency:'分3'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'senega-syrup-v5', genericName:'セネガシロップ', abbreviation:'セネガ', brandNames:['セネガシロップ'], category:'去痰薬', route:'内服', formulations:['シロップ'], adultDose:'10〜35mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.2〜0.7mL/kg/日',frequency:'分3',notes:'最大 10〜35mL/日'}], notes:'ブロムヘキシン (ビソルボン) は内服・吸入ともに小児に対する安全性未確立。去痰薬の併用 (ムコダイン+ムコソルバン) は有効とのエビデンスはない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 抗インフルエンザウイルス薬 (小児の薬の選び方・使い方 第5版)
+  { id:'baloxavir-v5', genericName:'バロキサビル マルボキシル', abbreviation:'バロキサビル', brandNames:['ゾフルーザ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'内服', formulations:['顆粒 2%分包','錠 10mg','錠 20mg'], adultDose:'20mg錠2錠 または 顆粒4包 を単回経口投与',
+    pediatricDoses:[
+      {ageLabel:'12歳未満 体重10〜20kg未満',ageMaxMonths:144,weightMinKg:10,weightMaxKg:20,purpose:'治療',fixedDose:'10mg錠 1錠 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重20〜40kg未満',ageMaxMonths:144,weightMinKg:20,weightMaxKg:40,purpose:'治療',fixedDose:'20mg錠 1錠 または 顆粒2包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳未満 体重40kg以上',ageMaxMonths:144,weightMinKg:40,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'20mg錠 2錠 または 顆粒4包 (単回)',frequency:'単回'},
+    ], notes:'いずれも単回経口投与。日本小児科学会は2018-2019シーズンA香港型耐性率70%超・発熱再燃の報告から、12歳未満への積極的投与を推奨していない。インフルエンザウイルスのmRNA合成を阻害。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'laninamivir-v5', genericName:'ラニナミビル オクタン酸エステル水和物', abbreviation:'ラニナミビル', brandNames:['イナビル'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'吸入', formulations:['吸入粉末剤 20mg/キット','吸入懸濁用 160mgセット'], adultDose:'40mg (2キット) を単回吸入',
+    pediatricDoses:[
+      {ageLabel:'10歳未満',ageMaxMonths:120,purpose:'治療',fixedDose:'20mg (1キット) を単回吸入',frequency:'単回'},
+      {ageLabel:'10歳以上',ageMinMonths:120,purpose:'治療',fixedDose:'40mg (2キット) を単回吸入',frequency:'単回'},
+    ], notes:'懸濁用 160mgセットは生理食塩液2mLで懸濁し、ネブライザを用いて単回吸入投与。ノイラミニダーゼ阻害薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'peramivir-v5', genericName:'ペラミビル水和物', abbreviation:'ペラミビル', brandNames:['ラピアクタ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'静注', formulations:['点滴静注液バッグ 300mg','点滴静注液バイアル 150mg'], adultDose:'300〜600mg を単回点滴静注',
+    pediatricDoses:[{ageLabel:'小児',purpose:'治療',dosePerKg:10,maxDosePerDay:600,frequency:'分1',notes:'15分以上かけて単回点滴静注。症状に応じて連日反復投与できる'}], notes:'低出生体重児・新生児に対する安全性は確立していない。ノイラミニダーゼ阻害薬。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 水痘・帯状疱疹に対する抗ウイルス薬 (小児の薬の選び方・使い方 第5版)
+  { id:'aciclovir-v5', genericName:'アシクロビル', abbreviation:'ACV', brandNames:['ゾビラックス'], category:'抗ウイルス薬', subcategory:'抗ヘルペス薬', route:'内服', formulations:['シロップ 8%','DS 80%','顆粒 40%','錠 200mg','錠 400mg'], adultDose:'帯状疱疹: 4,000mg/日 分5　単純疱疹: 1,000mg/日 分5',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:80,maxDosePerDay:3200,frequency:'分4',notes:'水痘・帯状疱疹に対する小児用量も同量'}], notes:'錠は水痘に保険適用なし。帯状疱疹に対する小児用量も同様。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'valaciclovir-v5', genericName:'バラシクロビル塩酸塩', abbreviation:'VACV', brandNames:['バルトレックス'], category:'抗ウイルス薬', subcategory:'抗ヘルペス薬', route:'内服', formulations:['顆粒 50%','錠 500mg'], adultDose:'帯状疱疹: 3,000mg/日 分3　単純疱疹: 1,000mg/日 分2',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:75,maxDosePerDay:3000,frequency:'分3',notes:'水痘5日間、帯状疱疹7日間投与'}], notes:'乳児に対する安全性未確立。帯状疱疹に対する小児用量も同量。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 制吐薬 (小児の薬の選び方・使い方 第5版)
+  { id:'metoclopramide-v5', genericName:'メトクロプラミド', abbreviation:'メトクロプラミド', brandNames:['プリンペラン'], category:'制吐薬', route:'内服', formulations:['シロップ 0.1%','細粒 2%','錠 5mg','錠 10mg'], adultDose:'10〜30mg/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:0.7,maxDosePerDay:30,frequency:'分2〜3'}], notes:'錐体外路症状、意識障害、けいれんに注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'domperidone-v5', genericName:'ドンペリドン', abbreviation:'ドンペリドン', brandNames:['ナウゼリン'], category:'制吐薬', route:'内服・坐剤', formulations:[{text:'DS 1%',notes:'適応: 周期性嘔吐症・乳幼児下痢症・上気道感染症・抗悪性腫瘍薬投与時 (細粒・錠・OD錠は乳幼児下痢症の適応なし)'},'細粒 1%','錠 5mg','錠 10mg','OD錠 5mg','OD錠 10mg',{text:'坐剤 10mg',ageMaxMonths:36,notes:'3歳未満'},{text:'坐剤 30mg',ageMinMonths:36,notes:'3歳以上'},{text:'坐剤 60mg',notes:'小児には適応なく使用しない'}], adultDose:'30mg/日 (6歳以上1.0mg/kg/日まで)',
+    pediatricDoses:[
+      {ageLabel:'内服 全年齢',purpose:'治療',dosePerKgMin:1.0,dosePerKgMax:2.0,maxDosePerDay:30,frequency:'分3'},
+      {ageLabel:'坐剤 3歳未満',ageMaxMonths:36,purpose:'治療',fixedDose:'1回10mg を 1日2〜3回',frequency:'分2〜3'},
+      {ageLabel:'坐剤 3歳以上',ageMinMonths:36,purpose:'治療',fixedDose:'1回30mg を 1日2〜3回',frequency:'分2〜3'},
+    ], notes:'錐体外路症状、意識障害、けいれんに注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 整腸薬・止痢薬 (小児の薬の選び方・使い方 第5版)
+  { id:'resistant-lactic-v5', genericName:'耐性乳酸菌', abbreviation:'耐性乳酸菌', brandNames:['エンテロノン-R','耐性乳酸菌散','ラックビーR','レベニン','ビオフェルミンR','ラクスパン'], category:'整腸薬・止痢薬', route:'内服', formulations:['散 10%','錠'], adultDose:'3g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:3,frequency:'分3',unit:'g'}], notes:'抗菌薬による下痢に。牛乳アレルギーに禁忌 (乳糖含有のため)。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bifidobacterium-v5', genericName:'ビフィズス菌', abbreviation:'ビフィズス菌', brandNames:['ラックビー微粒N','ビフィスゲン散','ビオスミン配合散','レベニンS配合散','ビオフェルミン錠剤'], category:'整腸薬・止痢薬', route:'内服', formulations:['散','錠剤'], adultDose:'3〜6g/日 (3〜6錠/日)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,frequency:'分3',unit:'g'}], notes:'下線品はラクトミン配合。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'butyric-acid-v5', genericName:'酪酸菌', abbreviation:'酪酸菌', brandNames:['ビオスリー配合散','ミヤBM細粒','ビオスリー配合錠','ミヤBM錠'], category:'整腸薬・止痢薬', route:'内服', formulations:['散','細粒','錠'], adultDose:'1.5〜3g/日 (3〜6錠/日)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'lactomin-v5', genericName:'ラクトミン', abbreviation:'ラクトミン', brandNames:['アタバニン散','ビオフェルミン配合散','ラクトミン散'], category:'整腸薬・止痢薬', route:'内服', formulations:['散'], adultDose:'3〜9g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:9,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'natural-aluminum-silicate-v5', genericName:'天然ケイ酸アルミニウム', abbreviation:'天然ケイ酸Al', brandNames:['アドソルビン原末'], category:'整腸薬・止痢薬', route:'内服', formulations:['原末'], adultDose:'3〜10g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:10,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tannin-albumin-v5', genericName:'タンニン酸アルブミン', abbreviation:'タンニン酸Alb', brandNames:['タンナルビン','タンナルビン (ホエイ)','タンニン酸アルブミン (ニッコー)'], category:'整腸薬・止痢薬', route:'内服', formulations:['末'], adultDose:'3〜4g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:4,frequency:'分3',unit:'g'}], notes:'牛乳アレルギーに禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 便秘治療薬 (小児の薬の選び方・使い方 第5版)
+  { id:'maltu-extract-v5', genericName:'マルツエキス', abbreviation:'マルツエキス', brandNames:['マルツエキス'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['分包 9g'], adultDose:'−',
+    pediatricDoses:[{ageLabel:'乳児',ageMaxMonths:12,purpose:'治療',dosePerKg:1,frequency:'1〜3回/日',unit:'g',notes:'1回1g/kg'}], notes:'主に乳児に使用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'lactulose-v5', genericName:'ラクツロース', abbreviation:'ラクツロース', brandNames:['モニラック','ピアーレ','リフォロース'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['シロップ 65%','モニラック原末'], adultDose:'30〜60mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:2,maxDosePerDay:60,frequency:'分3',unit:'mL',notes:'シロップ65%として。ゼリー製剤は小児便秘に保険適用なし'}], notes:'乳児・幼児に使用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'magnesium-oxide-v5', genericName:'酸化マグネシウム', abbreviation:'酸化Mg', brandNames:['マグミット','重質酸化マグネシウム'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['細粒 83%','錠 200mg・250mg・330mg・500mg'], adultDose:'2g/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,maxDosePerDay:2,frequency:'分3',unit:'g'}], notes:'腎機能障害患者では高マグネシウム血症に注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'macrogol4000-v5', genericName:'マクロゴール4000配合内用薬', abbreviation:'マクロゴール', brandNames:['モビコール'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['配合内用薬 LD (1包=6.8529g)','配合内用薬 HD (1包=13.7058g)'], adultDose:'2〜6包/日',
+    pediatricDoses:[
+      {ageLabel:'2〜7歳未満',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'1包 1日1回から開始 → 1日1〜3回 (最大4包/日、1回最大2包)',notes:'増量は2日以上あけて1包ずつ'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1包 1日1回から開始 → 1日1〜3回 (最大4包/日、1回最大2包)',notes:'増量は2日以上あけて1包ずつ'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'2包 1日1回から開始 → 1日1〜3回 (最大6包/日、1回最大4包)',notes:'増量は2日以上あけて2包ずつ'},
+    ], notes:'2歳未満に対する安全性未確立。水に溶かして服用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'picosulfate-v5', genericName:'ピコスルファートナトリウム水和物', abbreviation:'ピコスルファート', brandNames:['ラキソベロン','スナイリン','シンラック'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['内用液 0.75% (1滴≒0.3mg)','ドライシロップ 1%','錠 2.5mg'], adultDose:'5〜7.5mg/日 (10〜15滴)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'3〜5mg/日 (5〜10滴)',frequency:'分1',notes:'増量可。ドライシロップDS換算: 0.3〜0.5g/日'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'sennoside-v5', genericName:'センノシド', abbreviation:'センノシド', brandNames:['プルゼニド','センノシド錠'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['錠 12mg'], adultDose:'12〜24mg/日 (最大48mg/日)',
+    pediatricDoses:[{ageLabel:'中学生以上 (12歳以上)',ageMinMonths:144,purpose:'治療',fixedDose:'12mg/日',frequency:'分1',notes:'最大48mg/日'}], notes:'小児に対する安全性未確立（中学生以上に限定使用）。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'bisacodyl-supp-v5', genericName:'ビサコジル (坐剤)', abbreviation:'ビサコジル', brandNames:['テレミンソフト','ピサコジル'], category:'便秘治療薬', subcategory:'刺激性下剤 (坐剤)', route:'坐剤', formulations:['坐剤 2mg','坐剤 10mg'], adultDose:'10〜20mg/回',
+    pediatricDoses:[
+      {ageLabel:'乳幼児',ageMaxMonths:72,purpose:'治療',fixedDose:'2mg/回',frequency:'1〜2回/日'},
+      {ageLabel:'小児 (6歳以上)',ageMinMonths:72,purpose:'治療',fixedDose:'5mg/回',frequency:'1〜2回/日'},
+    ], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'sodium-bicarbonate-supp-v5', genericName:'炭酸水素ナトリウム坐剤', abbreviation:'炭酸水素Na', brandNames:['新レシカルボン'], category:'便秘治療薬', subcategory:'刺激性下剤 (坐剤)', route:'坐剤', formulations:['坐剤 (1個=重炭酸ナトリウム500mg+無水リン酸二水素ナトリウム680mg)'], adultDose:'1〜2個/回',
+    pediatricDoses:[
+      {ageLabel:'乳幼児',ageMaxMonths:72,purpose:'治療',fixedDose:'1/4個/回',frequency:'必要時'},
+      {ageLabel:'小児 (6歳以上)',ageMinMonths:72,purpose:'治療',fixedDose:'1/2個/回',frequency:'必要時'},
+    ], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'glycerin-enema-v5', genericName:'グリセリン浣腸液', abbreviation:'グリセリン浣腸', brandNames:['グリセリン浣腸「オヲタ」','グリセリン浣腸液50%「東豊」'], category:'便秘治療薬', subcategory:'浸透圧性下剤 (浣腸)', route:'浣腸', formulations:['小児用 30mL・60mL・120mL・150mL','液 40mL・60mL・110mL・150mL・500mL'], adultDose:'60〜150mL/回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:150,frequency:'単回',unit:'mL',notes:'最大150mL/回。体温程度に温めて使用'}], notes:'腸管穿孔・腸閉塞・肛門・直腸疾患には禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 抗アレルギー点眼薬 (小児の薬の選び方・使い方 第5版)
+  { id:'amlexanox-eye-v5', genericName:'アンレキサノクス点眼', abbreviation:'アンレキサノクス', brandNames:['エリックス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.25%'], adultDose:'1回1〜2滴を1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ibudilast-eye-v5', genericName:'イブジラスト点眼', abbreviation:'イブジラスト', brandNames:['ケタス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.01%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'cromoglicate-eye-v5', genericName:'クロモグリク酸点眼', abbreviation:'クロモグリク酸', brandNames:['インタール','アルギノン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 2%','点眼液 UD2%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'tranilast-eye-v5', genericName:'トラニラスト点眼', abbreviation:'トラニラスト', brandNames:['リザベン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.5%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'pemirolast-eye-v5', genericName:'ペミロラスト点眼', abbreviation:'ペミロラスト', brandNames:['アレギサール','ペミラストン','ペミロラストK','ペミリドン'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1滴, 1日2回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1滴を1日2回',frequency:'分2'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ketotifen-eye-v5', genericName:'ケトチフェン点眼', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.05%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'epinastine-eye-v5', genericName:'エピナスチン点眼', abbreviation:'エピナスチン', brandNames:['アレジオン','アレジオンLX'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:[{text:'点眼液 0.05%',notes:'1回1滴 1日4回'},{text:'LX点眼液 0.1%',ageMinMonths:144,notes:'1回1滴 1日2回 (12歳未満安全性未確立)'}], adultDose:'1回1滴, 1日4回 (LX: 1日2回)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'点眼液0.05% 1回1滴 1日4回 / LX0.1% 1日2回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'olopatadine-eye-v5', genericName:'オロパタジン点眼', abbreviation:'オロパタジン', brandNames:['パタノール'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'levocabastine-eye-v5', genericName:'レボカバスチン点眼', abbreviation:'レボカバスチン', brandNames:['リボスチン'], category:'点眼薬', subcategory:'抗アレルギー薬・H1拮抗', route:'点眼', formulations:['点眼液 0.025%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 消炎薬の点眼薬
+  { id:'azulene-eye-v5', genericName:'アズレン点眼', abbreviation:'アズレン', brandNames:['AZ点眼液','アズレン点眼液 (わかもと)','アゾデシン点眼液'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 0.02%'], adultDose:'1回1〜2滴, 1日3〜5回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜5回',frequency:'分3〜5'}], notes:'急性結膜炎・アレルギー性結膜炎などに。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'glycyrrhizin-eye-v5', genericName:'グリチルリチン酸点眼', abbreviation:'グリチルリチン酸', brandNames:['ノイボルミチン'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 1%'], adultDose:'1回2〜3滴, 1日5〜6回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回2〜3滴を1日5〜6回',frequency:'分5〜6'}], notes:'アレルギー性結膜炎に。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'pranoprofen-eye-v5', genericName:'プラノプロフェン点眼', abbreviation:'プラノプロフェン', brandNames:['ニフラン'], category:'点眼薬', subcategory:'消炎', route:'点眼', formulations:['点眼液 0.1%'], adultDose:'1回1〜2滴, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日4回',frequency:'分4'}], notes:'結膜炎などに。乳児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // ステロイド点眼薬 (小児の薬の選び方・使い方 第5版)
+  { id:'dexamethasone-eye-v5', genericName:'デキサメタゾン点眼', abbreviation:'デキサメタゾン', brandNames:['DMゾロン','サンテゾーン','オルガドロン','テイカゾン','D・E・X'], category:'点眼薬', subcategory:'ステロイド', route:'点眼・点耳・点鼻', formulations:['点眼液 0.02%','点眼液 0.05%','点眼液 0.1%','眼軟膏 0.05%','眼軟膏 0.1%'], adultDose:'1回1〜2滴, 1日3〜4回 (眼軟膏: 1日1〜3回塗布)',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜4回 (眼軟膏は1日1〜3回塗布)',frequency:'分3〜4',notes:'2歳未満には慎重投与'}], notes:'すべて小児に対する安全性未確立。特に2歳未満には慎重に投与。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'hydrocortisone-eye-v5', genericName:'ヒドロコルチゾン点眼', abbreviation:'ヒドロコルチゾン', brandNames:['HCゾロン (日点)'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.5%'], adultDose:'1回1〜2滴, 1日数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日数回',frequency:'数回'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluorometholone-eye-v5', genericName:'フルオロメトロン点眼', abbreviation:'フルオロメトロン', brandNames:['フルメトロン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.02%','点眼液 0.1%'], adultDose:'1回1〜2滴, 1日2〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日2〜4回',frequency:'分2〜4'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'prednisolone-eye-v5', genericName:'プレドニゾロン点眼', abbreviation:'プレドニゾロン', brandNames:['PSゾロン (日点)','プレドニン','酢酸プレドニゾロン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼', formulations:['点眼液 0.11%','眼軟膏','眼軟膏 0.25%'], adultDose:'1回1〜2滴, 1日数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日数回',frequency:'数回'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-eye-v5', genericName:'ベタメタゾン点眼', abbreviation:'ベタメタゾン', brandNames:['リンデロン','サンベタゾン'], category:'点眼薬', subcategory:'ステロイド', route:'点眼・点耳・点鼻', formulations:['点眼液 0.1%','点眼液 0.01%','眼耳鼻科用液 0.1%'], adultDose:'1回1〜2滴, 1日3〜4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日3〜4回',frequency:'分3〜4'}], notes:'すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-fradiomycin-eye-v5', genericName:'ベタメタゾン+フラジオマイシン点眼', abbreviation:'ベタメタゾン+FRM', brandNames:['リンデロンA液','ベルベゾロンF'], category:'点眼薬', subcategory:'ステロイド+抗菌薬合剤', route:'点眼・点鼻', formulations:['液','眼・耳科用軟膏'], adultDose:'1回1〜2滴, 1日1〜数回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回1〜2滴を1日1〜数回',frequency:'数回'}], notes:'抗菌薬との合剤。すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'methylprednisolone-fradiomycin-eye-v5', genericName:'メチルプレドニゾロン+フラジオマイシン', abbreviation:'mPSL+FRM', brandNames:['ネオ メドロールEE'], category:'点眼薬', subcategory:'ステロイド+抗菌薬合剤', route:'点眼・塗布', formulations:['EE軟膏'], adultDose:'1日1〜数回点眼・塗布',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1日1〜数回点眼・塗布',frequency:'数回'}], notes:'抗菌薬との合剤。すべて小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 点鼻抗アレルギー薬 (小児の薬の選び方・使い方 第5版)
+  { id:'cromoglicate-nasal-v5', genericName:'クロモグリク酸点鼻', abbreviation:'クロモグリク酸', brandNames:['インタール','クロモグリク酸Na (トーワ)'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 2%'], adultDose:'1回各鼻腔に1噴霧, 1日6回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日6回',frequency:'分6'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'ketotifen-nasal-v5', genericName:'ケトチフェン点鼻', abbreviation:'ケトチフェン', brandNames:['ザジテン'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 0.05%'], adultDose:'1回各鼻腔に1噴霧, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'levocabastine-nasal-v5', genericName:'レボカバスチン点鼻', abbreviation:'レボカバスチン', brandNames:['リボスチン'], category:'点鼻薬', subcategory:'抗アレルギー薬', route:'点鼻', formulations:['点鼻液 0.025mg/噴霧 (112噴霧用)'], adultDose:'1回各鼻腔に2噴霧, 1日4回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'1回各鼻腔に2噴霧を1日4回',frequency:'分4'}], notes:'乳幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 点鼻ステロイド薬
+  { id:'fluticasone-furoate-nasal-v5', genericName:'フルチカゾン (フランカルボン酸エステル)', abbreviation:'FFE', brandNames:['アラミスト'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'点鼻液 27.5μg 56噴霧用',ageMinMonths:24,notes:'2歳未満禁忌'}], adultDose:'1回各鼻腔に2噴霧×1回',
+    pediatricDoses:[{ageLabel:'2歳以上',ageMinMonths:24,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日1回',frequency:'分1'}], notes:'2歳未満の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'fluticasone-propionate-nasal-v5', genericName:'フルチカゾン (プロピオン酸エステル)', abbreviation:'FP', brandNames:['フルナーゼ'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'小児用フルナーゼ点鼻液 25μg 56噴霧用',ageMinMonths:60,notes:'4歳以下安全性未確立'},{text:'フルチカゾン点鼻液 25μg「杏林」 56噴霧用',ageMinMonths:60,notes:'4歳以下安全性未確立'}], adultDose:'1噴霧×2回 (最大8噴霧)',
+    pediatricDoses:[{ageLabel:'5歳以上',ageMinMonths:60,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日2回 (最大8噴霧)',frequency:'分2'}], notes:'4歳以下の幼児に対する安全性未確立。成人用製剤 (フルナーゼ点鼻液50μg 28・56噴霧用、フルチカゾン点鼻液50μg「杏林」28・56噴霧用) は小児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'beclomethasone-nasal-v5', genericName:'ベクロメタゾン点鼻', abbreviation:'BDP', brandNames:['リノコート','アルロイヤー','タウナス'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'リノコート パウダースプレー鼻用 25μg',ageMinMonths:72,notes:'5歳以下安全性未確立'},{text:'リノコート カプセル鼻用 50μg',ageMinMonths:72,notes:'5歳以下安全性未確立'},{text:'アルロイヤー点鼻液 50μg',ageMinMonths:72},{text:'タウナス アクアスプレー点鼻 50μg',ageMinMonths:72}], adultDose:'1日4回最大8回',
+    pediatricDoses:[
+      {ageLabel:'パウダー 6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (25μg) を1日2回',frequency:'分2'},
+      {ageLabel:'カプセル 6歳以上',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (50μg) を1日2回',frequency:'分2'},
+      {ageLabel:'スプレー 6歳以上 (最大4回)',ageMinMonths:72,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧 (50μg) を1日2回 (最大4回)',frequency:'分2'},
+    ], notes:'5歳以下の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'mometasone-nasal-v5', genericName:'モメタゾン', abbreviation:'モメタゾン', brandNames:['ナゾネックス'], category:'点鼻薬', subcategory:'ステロイド', route:'点鼻', formulations:[{text:'点鼻液 50μg 56噴霧用',ageMinMonths:36,notes:'3歳未満安全性未確立'},{text:'点鼻液 50μg 112噴霧用',ageMinMonths:36}], adultDose:'1回各鼻腔に2噴霧 1日1回',
+    pediatricDoses:[
+      {ageLabel:'12歳未満',ageMinMonths:36,ageMaxMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日1回',frequency:'分1'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に2噴霧を1日1回',frequency:'分1'},
+    ], notes:'3歳未満の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+]
+
+
+
+// サマリー表示
+const ivCount = DRUGS.filter(d => d.ivDilution).length
+document.getElementById('summary').innerHTML =
+  `<div>薬剤数: <strong>${DRUGS.length}</strong> 件（うち点滴希釈データあり: <strong>${ivCount}</strong> 件）</div>` +
+  `<div>カテゴリ: <strong>${CATEGORIES.length}</strong> 件</div>` +
+  `<div>疾患数: <strong>${DISEASES.length}</strong> 件</div>`;
+
+// 既存 Gist ID を localStorage から引き継ぐ
+const savedGist = localStorage.getItem('master_gist_id') || localStorage.getItem('editor_gist_id') || '';
+if (savedGist) document.getElementById('gistId').value = savedGist;
+const savedToken = localStorage.getItem('editor_gh_token') || '';
+if (savedToken) document.getElementById('token').value = savedToken;
+
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+  const token  = document.getElementById('token').value.trim();
+  const gistId = document.getElementById('gistId').value.trim();
+  const errEl  = document.getElementById('error');
+  const resEl  = document.getElementById('result');
+  errEl.classList.add('hidden');
+  resEl.classList.add('hidden');
+
+  if (!token) { errEl.textContent = 'GitHub Token を入力してください。'; errEl.classList.remove('hidden'); return; }
+
+  const payload = {
+    schemaVersion: 1,
+    drugCategories: CATEGORIES,
+    diseaseCategories: DISEASE_CATEGORIES,
+    drugs: DRUGS,
+    diseases: DISEASES,
+    ivFluidTables: IV_FLUID_TABLES,
+  };
+  const fileContent = JSON.stringify(payload, null, 2);
+  const gistBody = {
+    description: '小児薬用量アプリ マスターデータ',
+    public: false,
+    files: { 'pediatric-dosage-data.json': { content: fileContent } }
+  };
+
+  try {
+    let url = 'https://api.github.com/gists';
+    let method = 'POST';
+    if (gistId) { url += '/' + gistId; method = 'PATCH'; }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(gistBody),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
+    const data = await res.json();
+    const newId = data.id;
+    const htmlUrl = data.html_url;
+
+    // アプリ側 localStorage に同期
+    localStorage.setItem('master_gist_id', newId);
+    localStorage.setItem('editor_gist_id', newId);
+    localStorage.setItem('editor_gh_token', token);
+    // キャッシュを無効化してアプリに最新Gistを読み込ませる
+    localStorage.removeItem('master_gist_cache');
+    localStorage.removeItem('master_gist_cache_at');
+
+    resEl.innerHTML = `✅ アップロード完了！（点滴希釈データ ${ivCount} 件含む）<br>
+      Gist ID: <code class="font-mono bg-green-100 px-1 rounded">${newId}</code><br>
+      <a href="${htmlUrl}" target="_blank" class="underline text-green-700">${htmlUrl}</a><br><br>
+      👉 <a href="/" class="underline font-bold text-green-700">アプリ</a> を <strong>Cmd+Shift+R</strong> でリロードしてください`;
+    resEl.classList.remove('hidden');
+  } catch(e) {
+    errEl.textContent = 'エラー: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+});
+</script>
+</body>
+</html>
