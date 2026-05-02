@@ -1,5 +1,5 @@
 // ネットワーク優先・オフライン時のみキャッシュ使用
-const CACHE = 'pediatric-v35-editor-v3-full'
+const CACHE = 'pediatric-v36-editor-builtin'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
