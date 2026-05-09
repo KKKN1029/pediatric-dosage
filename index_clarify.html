@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v38 / iv-preserve</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v39 / no-vconv-iv</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -1233,8 +1233,10 @@ function doseCard(dose, weight, compact=false, drug=null) {
   const unitMgFactor = (u) => u === 'mg' ? 1 : u === 'g' ? 1000 : (u === 'μg' || u === 'ug') ? 0.001 : null
   const factor = unitMgFactor(unit)
   let formulationsHtml = ''
-  // 注射用製剤 (ivDilution あり) は V換算が無意味なので非表示にする
-  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0 && !drug.ivDilution) {
+  // 注射用製剤 (ivDilution あり、または formulations が "/V" 終わり等) は V換算が無意味なので非表示にする
+  const isInjectableForm = Array.isArray(drug?.formulations) && drug.formulations.length > 0 &&
+    drug.formulations.every(f => /\/V\b|\/バッグ|\/キット|\/アンプル|\/バイアル|注射用|点滴静注用/.test(String(f)))
+  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0 && !drug.ivDilution && !isInjectableForm) {
     // 1日量と1回量の両方を計算 (dose.unit 単位で算出後に mg へ変換)
     const freq = (() => { const m = dose.frequency?.match(/分(\d+)/); return m ? parseInt(m[1]) : null })()
     let dailyMin, dailyMax  // dose.unit 単位
