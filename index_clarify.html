@@ -221,11 +221,11 @@ let DRUGS = [
   // ── セフェム系 (注射 第2世代) ──────────────────────────────
   { id:'cefmetazole', genericName:'セフメタゾールナトリウム', abbreviation:'CMZ', brandNames:['セフメタゾン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g・2g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日まで可'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'cefminox', genericName:'セフミノクスナトリウム水和物', abbreviation:'CMNX', brandNames:['メイセリン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'2,000mg/日 分2 [最大6,000mg/日 分3〜4]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 第3世代) ──────────────────────────────
@@ -234,59 +234,59 @@ let DRUGS = [
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:50,dosePerKgMax:100,frequency:'分3〜4',notes:'化膿性髄膜炎では最大300mg/kg/日まで可'},
     ],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'ceftizoxime', genericName:'セフチゾキシムナトリウム', abbreviation:'CZX', brandNames:['エボセリン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'注射', formulations:['注射用 125mg・250mg'], adultDose:'成人量なし（小児用）',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:70,frequency:'分3〜4'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'ceftriaxone', genericName:'セフトリアキソンナトリウム水和物', abbreviation:'CTRX', brandNames:['ロセフィン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分1〜2 [最大4,000mg/日 分2]',
     pediatricDoses:[
       {ageLabel:'新生児（日齢0〜3）',ageMinMonths:0,ageMaxMonths:0.1,purpose:'治療',fixedDose:'1回20mg/kg 1日1回',frequency:'分1',notes:'低出生体重児・新生児。日齢4以降は1日2回（増量）'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,frequency:'分1〜2',notes:'最大120mg/kg/日。重症感染症には1回40mg/kgまで増量し1日2回。高ビリルビン血症のある低出生体重児・新生児には禁忌'},
     ], notes:'高ビリルビン血症のある低出生体重児・新生児には禁忌。',
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30分以上', incompatible:['カルシウム含有輸液（リンゲル液・乳酸リンゲル液・ハルトマン液）同一ルートへのCa製剤投与（特に新生児）']},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:10, infusionTime:'30分以上', incompatible:['カルシウム含有輸液（リンゲル液・乳酸リンゲル液・ハルトマン液）同一ルートへのCa製剤投与（特に新生児）']},
     references:['新 小児薬用量 改訂第9版']},
   { id:'cefmenoxime', genericName:'セフメノキシム塩酸塩', abbreviation:'CMX', brandNames:['ベストコール'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'重症例では160mg/kg/日、化膿性髄膜炎では200mg/kg/日まで増量可'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'ceftazidime', genericName:'セフタジジム水和物', abbreviation:'CAZ', brandNames:['モダシン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'1回20mg/kg。日齢0〜3は1日2〜3回、日齢4以降は1日3〜4回'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日'},
     ],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 第4世代) ──────────────────────────────
   { id:'cefpirome', genericName:'セフピロム硫酸塩', abbreviation:'CPR', brandNames:['セフピロム硫酸塩CMX'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'重症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで増量可'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'cefozopran', genericName:'セフォゾプラン塩酸塩', abbreviation:'CZOP', brandNames:['ファーストシン'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:80,frequency:'分1〜2',notes:'最大160mg/kg/日。日齢0は1日1〜2回、日齢1〜7は1日2〜3回、日齢8以降は1日3〜4回'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'難治重症感染症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで（最大4,000mg/日）'},
     ],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 オキサセフェム・配合) ────────────────
   { id:'latamoxef', genericName:'ラタモキセフナトリウム', abbreviation:'LMOX', brandNames:['シオマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'最大150mg/kg/日'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'flomoxef', genericName:'フロモキセフナトリウム', abbreviation:'FMOX', brandNames:['フルマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'最大150mg/kg/日。低出生体重児では腎が発達段階のため慎重投与'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日'},
     ],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'cefoperazone-sulbactam', genericName:'セフォペラゾン・スルバクタム', abbreviation:'CPZ/SBT', brandNames:['スルペラゾン'], category:'セフェム系', subcategory:'β-ラクタマーゼ阻害薬配合(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'混合物として1,000〜2,000mg/日 分2 [最大4,000mg/日 分2]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'混合物として。最大160mg/kg/日'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (経口 第1世代) ─────────────────────────────
@@ -310,25 +310,25 @@ let DRUGS = [
   // ── モノバクタム系 ────────────────────────────────────────
   { id:'aztreonam', genericName:'アズトレオナム', abbreviation:'AZT', brandNames:['アザクタム'], category:'その他の抗菌薬', subcategory:'モノバクタム系', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日。低出生体重児・新生児には1回20mg/kgを生後3日まで1日2回、4日以降は1日2〜3回'}],
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── カルバペネム系 ────────────────────────────────────────
   { id:'imipenem-cilastatin', genericName:'イミペネム水和物・シラスタチンナトリウム', abbreviation:'IPM/CS', brandNames:['チエナム'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.5g/V','筋注用 0.5g/V','キット(生食100mL付)'], adultDose:'イミペネムとして 500〜1,000mg/日 分2〜3 [最大2,000mg/日]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:80,maxDosePerDay:2000,frequency:'分3〜4',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意。けいれん・意識障害等の中枢神経症状に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, infusionTime:'30〜60分', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'panipenem-betamipron', genericName:'パニペネム・ベタミプロン', abbreviation:'PAPM/BP', brandNames:['カルベニン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V'], adultDose:'パニペネムとして1,000mg/日 分2 30分以上かけて [最大2,000mg/日 分2]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:2000,frequency:'分3',notes:'30分以上かけて点滴（最大100mg/kg/日）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, infusionTime:'30分以上', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'meropenem', genericName:'メロペネム水和物', abbreviation:'MEPM', brandNames:['メロペン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.5g/キット(生食100mL付)'], adultDose:'500〜1,000mg/日 分2〜3 [最大3,000mg/日 分3]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。化膿性髄膜炎では最大120mg/kg/日（6,000mg/日まで）。発熱性好中球減少症では120mg/kg/日（3,000mg/日まで）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30分以上', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
   { id:'doripenem', genericName:'ドリペネム水和物', abbreviation:'DRPM', brandNames:['フィニバックス'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.25g/キット(生食100mL付)'], adultDose:'ドリペネムとして500〜1,500mg/日 分2〜3 [最大3,000mg/日 分3]',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
-    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, infusionTime:'30分以上', incompatible:[]},
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
     references:['新 小児薬用量 改訂第9版']},
 
   // ── ST合剤 (SMX/TMP) ─────────────────────────────────────
@@ -1191,16 +1191,28 @@ function doseCard(dose, weight, compact=false, drug=null) {
     const iv = drug.ivDilution
     const solventDisp = iv.solvent==='NS' ? '生食' : iv.solvent==='5%DW' ? '5%ブドウ糖液' : iv.solvent==='NS/5%DW' ? '生食 または 5%ブドウ糖液' : iv.solvent
     const freq2 = (() => { const m2=dose.frequency?.match(/分(\d+)/); return m2?parseInt(m2[1]):1 })()
-    const perMin = result.min / freq2; const perMax = result.max / freq2
-    const volMin = Math.max(10, Math.ceil(perMin / iv.maxConcMgPerMl / 10) * 10)
-    const volMax = Math.max(10, Math.ceil(perMax / iv.maxConcMgPerMl / 10) * 10)
+    const perMin = result.min / freq2; const perMax = result.max / freq2  // 1回量 (mg)
+    // 溶解できる最小溶媒量を算出 (reconstitutionMlPerGram 優先、なければ maxConcMgPerMl から逆算)
+    let volMin, volMax, ratioStr = ''
+    if (iv.reconstitutionMlPerGram) {
+      volMin = Math.max(5, Math.ceil(perMin / 1000 * iv.reconstitutionMlPerGram))
+      volMax = Math.max(5, Math.ceil(perMax / 1000 * iv.reconstitutionMlPerGram))
+      ratioStr = `1g/${iv.reconstitutionMlPerGram}mL`
+    } else {
+      volMin = Math.max(10, Math.ceil(perMin / iv.maxConcMgPerMl / 10) * 10)
+      volMax = Math.max(10, Math.ceil(perMax / iv.maxConcMgPerMl / 10) * 10)
+    }
     const volStr = volMin===volMax ? `${volMin}mL` : `${volMin}〜${volMax}mL`
+    const ratioHtml = ratioStr
+      ? `<div class="text-[10px] text-amber-700 mt-1 opacity-80">最小溶解量: ${ratioStr}</div>`
+      : ''
     const incompatHtml = iv.incompatible?.length
       ? `<div class="flex items-start gap-1 text-red-700 font-bold mt-2 text-xs bg-red-50 border border-red-200 rounded px-2 py-1.5"><span>⚠️</span><span>配合禁忌: ${iv.incompatible.map(s=>esc(s)).join('、')}</span></div>`
       : ''
     ivHtml = `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 mt-2">
       <div class="text-xs font-semibold text-amber-700 mb-1">💉 点滴希釈（1回量）</div>
       <div class="text-sm text-amber-900">${esc(solventDisp)} <strong>${volStr}</strong> に溶解、<strong>${esc(iv.infusionTime)}</strong> かけて点滴</div>
+      ${ratioHtml}
       ${incompatHtml}
     </div>`
   }
@@ -1209,7 +1221,8 @@ function doseCard(dose, weight, compact=false, drug=null) {
   const unitMgFactor = (u) => u === 'mg' ? 1 : u === 'g' ? 1000 : (u === 'μg' || u === 'ug') ? 0.001 : null
   const factor = unitMgFactor(unit)
   let formulationsHtml = ''
-  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
+  // 注射用製剤 (ivDilution あり) は V換算が無意味なので非表示にする
+  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0 && !drug.ivDilution) {
     // 1日量と1回量の両方を計算 (dose.unit 単位で算出後に mg へ変換)
     const freq = (() => { const m = dose.frequency?.match(/分(\d+)/); return m ? parseInt(m[1]) : null })()
     let dailyMin, dailyMax  // dose.unit 単位
