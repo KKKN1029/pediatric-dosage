@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v37 / iv-recon</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v38 / iv-preserve</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -804,9 +804,15 @@ function getAllDrugs() {
   const edits = loadEdits()
   const hidden = loadHiddenDrugs()
   // 全マスター薬剤を表示（pending フラグは未確認タブのマーカーとしてだけ使用）
+  // 編集マージ後も master の ivDilution は必ず保持する（ローカル編集で消えてしまう不具合への対策）
   return [
     ...DRUGS.filter(d => !hidden.has(d.id))
-             .map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
+             .map(d => {
+               if (!edits[d.id]) return d
+               const merged = {...d, ...edits[d.id]}
+               if (d.ivDilution && !merged.ivDilution) merged.ivDilution = d.ivDilution
+               return merged
+             }),
     ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
   ]
 }
