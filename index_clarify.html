@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v48 / topical-steroid</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v49 / steroid-editable</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -46,7 +46,7 @@ let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
   '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
-  '制吐薬','整腸薬・止痢薬','点眼薬','点鼻薬','その他',
+  '制吐薬','整腸薬・止痢薬','点眼薬','点鼻薬','外用薬','その他',
 ]
 
 // ============================================================
@@ -1224,7 +1224,7 @@ function render() {
 // 出典: アトピー性皮膚炎診療ガイドライン 2024 (日皮会誌 2024;134:2741-2843,
 //       アレルギー 2024;73:1025-1125) をもとに作成された協和キリン資料
 //       「アトピー性皮膚炎に対するステロイド外用薬の使い方」(2026年1月作成) より引用
-const STEROID_RANKS = [
+let STEROID_RANKS = [
   {
     rank:'I 群', name:'ストロンゲスト', color:'rose', desc:'最も強力。重症の苔癬化病変・難治例に短期使用',
     drugs:[
@@ -1274,7 +1274,7 @@ const STEROID_RANKS = [
     ],
   },
 ]
-const STEROID_NONSTEROID_REFS = [
+let STEROID_NONSTEROID_REFS = [
   { generic:'タクロリムス', cls:'カルシニューリン阻害薬', strength:'ストロングクラス（III群）相当', forms:['プロトピック®軟膏 0.1%','プロトピック®軟膏 0.03% 小児用'] },
   { generic:'デルゴシチニブ', cls:'JAK 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['コレクチム®軟膏 0.5%','コレクチム®軟膏 0.25%'] },
   { generic:'ジファミラスト', cls:'PDE4 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['モイゼルト®軟膏 1%','モイゼルト®軟膏 0.3%'] },
@@ -1285,14 +1285,31 @@ const STEROID_ABSORPTION = [
   ['前腕（外側）','1.1'], ['前腕（内側）','1.0（基準）'], ['手掌','0.83'], ['陰嚢','42.0'],
   ['足首','0.42'], ['足底','0.14'],
 ]
-const STEROID_SEVERITY = [
+let STEROID_SEVERITY = [
   ['重 症','高度の腫脹/浮腫/浸潤ないし苔癬化を伴う紅斑、丘疹の多発、高度の鱗屑、痂皮の付着、小水疱、びらん、多数の搔破痕、痒疹結節などを主体とする','ベリーストロング第一選択。十分な効果が得られない場合はその部位に限定してストロンゲストを使用することもある'],
   ['中等症','中等度までの紅斑、鱗屑、少数の丘疹、搔破痕などを主体とする','ストロングないしミディアムを第一選択'],
   ['軽 症','乾燥および軽度の紅斑、鱗屑などを主体とする','ミディアム以下を第一選択'],
   ['軽 微','炎症症状に乏しく乾燥症状主体','ステロイドを含まない外用薬を選択'],
 ]
+// localStorage に保存された編集を起動時に適用する
+;(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('steroid_data') || 'null')
+    if (saved && typeof saved === 'object') {
+      if (Array.isArray(saved.ranks))      STEROID_RANKS = saved.ranks
+      if (Array.isArray(saved.nonsteroid)) STEROID_NONSTEROID_REFS = saved.nonsteroid
+      if (Array.isArray(saved.severity))   STEROID_SEVERITY = saved.severity
+    }
+  } catch {}
+})()
+function saveSteroidData() {
+  localStorage.setItem('steroid_data', JSON.stringify({
+    ranks: STEROID_RANKS, nonsteroid: STEROID_NONSTEROID_REFS, severity: STEROID_SEVERITY
+  }))
+}
 
 function renderTopicalSteroid() {
+  const editing = !!state.steroidEditing
   const cellTh = 'border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-700 bg-gray-50 text-center'
   const cellTd = 'border border-gray-200 px-2 py-1.5 text-[11px] text-gray-800'
   const rankColor = c => ({
@@ -1306,41 +1323,65 @@ function renderTopicalSteroid() {
     rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500'
   })[c] || 'bg-gray-500'
 
-  const rankCards = STEROID_RANKS.map(r => `
+  const rankCards = STEROID_RANKS.map((r, ri) => {
+    const drugItems = r.drugs.map((d, di) => editing
+      ? `<li class="px-3 py-2 border-b border-gray-100 last:border-0 space-y-1">
+          <div class="flex items-center gap-2">
+            <input data-st-rank="${ri}" data-st-drug="${di}" data-st-field="generic" value="${esc(d.generic)}" class="flex-1 text-sm font-semibold border border-gray-300 rounded px-2 py-1" placeholder="一般名" />
+            <button data-st-act="del-drug" data-st-rank="${ri}" data-st-drug="${di}" class="text-red-500 text-sm px-2" title="削除">✕</button>
+          </div>
+          <textarea data-st-rank="${ri}" data-st-drug="${di}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 leading-relaxed" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
+        </li>`
+      : `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
+          <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
+          <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+        </li>`).join('')
+    return `
     <div class="rounded-xl border ${rankColor(r.color)} overflow-hidden">
       <div class="${rankBadge(r.color)} text-white px-3 py-2 flex items-baseline gap-2">
         <span class="text-xs font-bold opacity-80">${esc(r.rank)}</span>
         <span class="text-base font-bold">${esc(r.name)}</span>
       </div>
-      <div class="px-3 py-2 text-[11px] leading-relaxed border-b border-current/10 opacity-80">${esc(r.desc)}</div>
-      <ul class="bg-white">
-        ${r.drugs.map(d => `
-          <li class="px-3 py-2 border-b border-gray-100 last:border-0">
-            <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
-            <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${d.forms.map(f => esc(f)).join(' / ')}</div>
-          </li>`).join('')}
-      </ul>
-    </div>`).join('')
+      <div class="px-3 py-2 text-[11px] leading-relaxed border-b border-current/10 opacity-80">${editing
+        ? `<input data-st-rank="${ri}" data-st-field="desc" value="${esc(r.desc)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 bg-white/70" placeholder="ランクの説明" />`
+        : esc(r.desc)}</div>
+      <ul class="bg-white">${drugItems}</ul>
+      ${editing ? `<div class="bg-white px-3 py-2 border-t border-gray-100"><button data-st-act="add-drug" data-st-rank="${ri}" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ 薬剤を追加</button></div>` : ''}
+    </div>`}).join('')
 
   const absRows = STEROID_ABSORPTION.map(([part, val]) => `
     <tr><td class="${cellTd} text-center font-semibold bg-gray-50">${esc(part)}</td><td class="${cellTd} text-center">${esc(val)}</td></tr>`).join('')
 
-  const sevRows = STEROID_SEVERITY.map(([sev, sym, sel]) => `
-    <tr>
-      <td class="${cellTd} text-center font-bold bg-gray-50 whitespace-nowrap">${esc(sev)}</td>
-      <td class="${cellTd}">${esc(sym)}</td>
-      <td class="${cellTd}">${esc(sel)}</td>
-    </tr>`).join('')
+  const sevRows = STEROID_SEVERITY.map((row, si) => editing
+    ? `<tr>
+        <td class="${cellTd} bg-gray-50"><input data-st-sev="${si}" data-st-col="0" value="${esc(row[0])}" class="w-full text-[11px] font-bold border border-gray-300 rounded px-1 py-0.5 text-center" /></td>
+        <td class="${cellTd}"><textarea data-st-sev="${si}" data-st-col="1" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-1 py-0.5 leading-relaxed">${esc(row[1])}</textarea></td>
+        <td class="${cellTd}"><textarea data-st-sev="${si}" data-st-col="2" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-1 py-0.5 leading-relaxed">${esc(row[2])}</textarea></td>
+      </tr>`
+    : `<tr>
+        <td class="${cellTd} text-center font-bold bg-gray-50 whitespace-nowrap">${esc(row[0])}</td>
+        <td class="${cellTd}">${esc(row[1])}</td>
+        <td class="${cellTd}">${esc(row[2])}</td>
+      </tr>`).join('')
 
-  const nonSteroidCards = STEROID_NONSTEROID_REFS.map(d => `
-    <div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
-      <div class="flex items-baseline gap-2 flex-wrap">
-        <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
-        <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
-      </div>
-      <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
-      <div class="text-[11px] text-gray-700">${d.forms.map(f => esc(f)).join(' / ')}</div>
-    </div>`).join('')
+  const nonSteroidCards = STEROID_NONSTEROID_REFS.map((d, ni) => editing
+    ? `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1.5">
+        <div class="flex items-center gap-2">
+          <input data-st-non="${ni}" data-st-field="generic" value="${esc(d.generic)}" class="flex-1 text-sm font-bold border border-gray-300 rounded px-2 py-1" placeholder="一般名" />
+          <button data-st-act="del-non" data-st-non="${ni}" class="text-red-500 text-sm px-2">✕</button>
+        </div>
+        <input data-st-non="${ni}" data-st-field="cls" value="${esc(d.cls)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="作用機序 (例: JAK 阻害薬)" />
+        <input data-st-non="${ni}" data-st-field="strength" value="${esc(d.strength)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="強さ (例: ストロングクラス相当)" />
+        <textarea data-st-non="${ni}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
+      </div>`
+    : `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
+          <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
+        </div>
+        <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
+        <div class="text-[11px] text-gray-700">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+      </div>`).join('')
 
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3 sticky top-0 z-10">
@@ -1350,9 +1391,20 @@ function renderTopicalSteroid() {
           <h1 class="text-base font-bold text-gray-900 truncate">ステロイド外用薬</h1>
           <p class="text-xs text-gray-500">5段階のランク表 / 部位別経皮吸収率 / 重症度別の選択</p>
         </div>
+        ${editing
+          ? `<div class="flex gap-1">
+              <button id="btn-ts-cancel" class="text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg">キャンセル</button>
+              <button id="btn-ts-save" class="text-xs text-white bg-blue-600 hover:bg-blue-500 px-2 py-1 rounded-lg font-medium">保存</button>
+             </div>`
+          : `<button id="btn-ts-edit" class="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.pencil} 編集</button>`}
       </div>
     </div>
     <div class="flex-1 overflow-auto bg-gray-50 p-4 space-y-4">
+      <section class="space-y-3">
+        <h2 class="text-base font-bold text-gray-900 px-1">ステロイド外用薬ランク表（2024年11月現在）</h2>
+        ${rankCards}
+      </section>
+
       <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <header class="bg-blue-600 text-white px-3 py-2 text-sm font-bold">皮疹の重症度と外用薬の選択</header>
         <div class="overflow-x-auto">
@@ -1360,6 +1412,9 @@ function renderTopicalSteroid() {
             <thead><tr><th class="${cellTh}">重症度</th><th class="${cellTh}">皮疹</th><th class="${cellTh}">外用薬の選択</th></tr></thead>
             <tbody>${sevRows}</tbody>
           </table>
+        </div>
+        <div class="bg-amber-50 border-t border-amber-200 px-3 py-2 text-xs text-amber-900 font-medium leading-relaxed">
+          ⚠️ <strong>小児では成人の選択基準より 1 ランク下げたものを使用する</strong>（顔面・乳幼児・長期連用部位はさらに弱いランク + タクロリムス等の併用も検討）。
         </div>
       </section>
 
@@ -1374,13 +1429,11 @@ function renderTopicalSteroid() {
         </div>
       </section>
 
-      <section class="space-y-3">
-        <h2 class="text-base font-bold text-gray-900 px-1">ステロイド外用薬ランク表（2024年11月現在）</h2>
-        ${rankCards}
-      </section>
-
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
-        <h2 class="text-sm font-bold text-purple-900">参考: 非ステロイド系抗炎症外用薬</h2>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-sm font-bold text-purple-900">参考: 非ステロイド系抗炎症外用薬</h2>
+          ${editing ? `<button data-st-act="add-non" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ 追加</button>` : ''}
+        </div>
         <p class="text-[11px] text-gray-600">タクロリムス軟膏は寛解導入後の維持療法として、また顔面など皮膚萎縮を避けたい部位で活用される。</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           ${nonSteroidCards}
@@ -1417,7 +1470,75 @@ function renderTopicalSteroid() {
     </div>`
 }
 function attachTopicalSteroid() {
-  document.getElementById('btn-ts-back')?.addEventListener('click', () => setState({screen:'list', category:'__topical__'}))
+  document.getElementById('btn-ts-back')?.addEventListener('click', () => setState({screen:'list', category:'外用薬', steroidEditing:false}))
+  document.getElementById('btn-ts-edit')?.addEventListener('click', () => setState({steroidEditing:true}))
+  document.getElementById('btn-ts-cancel')?.addEventListener('click', () => {
+    // 編集をキャンセル: localStorage から再読み込み (未保存変更を破棄)
+    try {
+      const saved = JSON.parse(localStorage.getItem('steroid_data') || 'null')
+      if (saved) {
+        if (Array.isArray(saved.ranks))      STEROID_RANKS = saved.ranks
+        if (Array.isArray(saved.nonsteroid)) STEROID_NONSTEROID_REFS = saved.nonsteroid
+        if (Array.isArray(saved.severity))   STEROID_SEVERITY = saved.severity
+      }
+    } catch {}
+    setState({steroidEditing:false})
+  })
+  document.getElementById('btn-ts-save')?.addEventListener('click', () => {
+    // 入力中の値を STEROID_RANKS / SEVERITY / NONSTEROID に反映してから保存
+    document.querySelectorAll('[data-st-rank][data-st-drug]').forEach(el => {
+      const ri = +el.dataset.stRank, di = +el.dataset.stDrug, f = el.dataset.stField
+      if (!STEROID_RANKS[ri] || !STEROID_RANKS[ri].drugs[di]) return
+      if (f === 'generic') STEROID_RANKS[ri].drugs[di].generic = el.value
+      if (f === 'forms') STEROID_RANKS[ri].drugs[di].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    })
+    document.querySelectorAll('[data-st-rank][data-st-field="desc"]').forEach(el => {
+      const ri = +el.dataset.stRank
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].desc = el.value
+    })
+    document.querySelectorAll('[data-st-sev]').forEach(el => {
+      const si = +el.dataset.stSev, ci = +el.dataset.stCol
+      if (STEROID_SEVERITY[si]) STEROID_SEVERITY[si][ci] = el.value
+    })
+    document.querySelectorAll('[data-st-non]').forEach(el => {
+      const ni = +el.dataset.stNon, f = el.dataset.stField
+      if (!STEROID_NONSTEROID_REFS[ni] || !f) return
+      if (f === 'forms') STEROID_NONSTEROID_REFS[ni].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+      else STEROID_NONSTEROID_REFS[ni][f] = el.value
+    })
+    saveSteroidData()
+    setState({steroidEditing:false})
+  })
+  // 薬剤・参考非ステロイドの追加/削除 (再描画して入力 UI を更新)
+  document.querySelectorAll('[data-st-act]').forEach(b => b.addEventListener('click', () => {
+    // ボタン押下時、現在の入力中の値を一旦取り込んでから配列を変更する
+    document.querySelectorAll('[data-st-rank][data-st-drug]').forEach(el => {
+      const ri = +el.dataset.stRank, di = +el.dataset.stDrug, f = el.dataset.stField
+      if (!STEROID_RANKS[ri] || !STEROID_RANKS[ri].drugs[di]) return
+      if (f === 'generic') STEROID_RANKS[ri].drugs[di].generic = el.value
+      if (f === 'forms') STEROID_RANKS[ri].drugs[di].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    })
+    document.querySelectorAll('[data-st-non]').forEach(el => {
+      const ni = +el.dataset.stNon, f = el.dataset.stField
+      if (!STEROID_NONSTEROID_REFS[ni] || !f) return
+      if (f === 'forms') STEROID_NONSTEROID_REFS[ni].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+      else STEROID_NONSTEROID_REFS[ni][f] = el.value
+    })
+    const act = b.dataset.stAct
+    if (act === 'add-drug') {
+      const ri = +b.dataset.stRank
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].drugs.push({ generic:'', forms:[] })
+    } else if (act === 'del-drug') {
+      const ri = +b.dataset.stRank, di = +b.dataset.stDrug
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].drugs.splice(di, 1)
+    } else if (act === 'add-non') {
+      STEROID_NONSTEROID_REFS.push({ generic:'', cls:'', strength:'', forms:[] })
+    } else if (act === 'del-non') {
+      const ni = +b.dataset.stNon
+      STEROID_NONSTEROID_REFS.splice(ni, 1)
+    }
+    render()
+  }))
 }
 
 // ── 小児バイタルサイン正常範囲 ─────────────────────────────────
@@ -2401,7 +2522,6 @@ function buildListBodyHTML(query) {
   const isFav = state.category==='__favorites__'
   const isSets = state.category==='__sets__'
   const isPending = state.category === '__pending__'
-  const isTopical = state.category === '__topical__'
   const sets = loadSets()
   const pending = getAllPendingDrugs()
   const pendingCount = pending.length
@@ -2411,7 +2531,6 @@ function buildListBodyHTML(query) {
     `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors flex flex-col items-center gap-0.5 ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${ICON.star(state.category==='__favorites__')}<span>お気に入り</span></button>`,
     `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}"><span class="inline-block text-base leading-none">${ICON.bookmark}</span><br>セット</button>`,
     ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
-    `<button data-cat="__topical__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__topical__'?'border-purple-600 bg-purple-50 text-purple-700 font-semibold':'border-l-transparent text-gray-600'}"><span class="inline-block text-base leading-none">🧴</span><br>外用薬</button>`,
     `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}"><span class="inline-block text-base leading-none">${ICON.fileEdit}</span><br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
 </button>`,
     `<div class="flex justify-center py-1 border-t border-gray-100 gap-1"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-sm px-2 py-1 rounded border border-gray-200 bg-white leading-none" title="カテゴリ編集">${ICON.pencil}</button><button id="btn-master-gist" class="text-gray-400 hover:text-blue-500 text-sm px-2 py-1 rounded border border-gray-200 bg-white leading-none" title="マスターデータ同期 (Gist)">${ICON.settings}</button></div>`,
@@ -2473,36 +2592,30 @@ function buildListBodyHTML(query) {
         </div>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
-  } else if (isTopical) {
-    // 外用薬グループ: 各種外用薬カテゴリのエントリーポイント
-    const topicalEntries = [
-      { id:'steroid', label:'ステロイド外用薬', desc:'5段階のランク表 / 部位別吸収率 / 重症度別の選択', icon:'💊' },
-    ]
-    const items = topicalEntries.map(e => `
-      <li><button data-topical="${e.id}" class="w-full flex items-center px-4 py-4 hover:bg-purple-50 active:bg-purple-100 text-left gap-3 border-b border-gray-100">
-        <span class="text-3xl shrink-0">${e.icon}</span>
-        <div class="flex-1 min-w-0">
-          <div class="font-bold text-gray-900 text-base">${esc(e.label)}</div>
-          <div class="text-xs text-gray-500 mt-0.5">${esc(e.desc)}</div>
-        </div>
-        <span class="text-gray-300 text-lg shrink-0">›</span>
-      </button></li>`).join('')
-    mainContent = `
-      <div class="px-4 py-2 bg-purple-600 flex items-center justify-between">
-        <h2 class="text-sm font-bold text-white">外用薬</h2>
-      </div>
-      <ul class="bg-white">${items}</ul>`
   } else {
     let drugs = isFav ? getVerifiedDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
+    // 外用薬カテゴリでは先頭にステロイド外用薬の特設カードを表示
+    const isTopicalCat = state.category === '外用薬'
+    const topicalCard = isTopicalCat ? `
+      <li class="border-b-2 border-purple-200 bg-purple-50/40">
+        <button data-topical="steroid" class="w-full flex items-center px-4 py-4 hover:bg-purple-100 active:bg-purple-200 text-left gap-3">
+          <span class="text-3xl shrink-0">💊</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-purple-900 text-base">ステロイド外用薬</div>
+            <div class="text-xs text-gray-600 mt-0.5">5段階のランク表 / 部位別吸収率 / 重症度別の選択</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>` : ''
     const items = drugs.length===0
-      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
+      ? (isTopicalCat ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
         <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.plus} 薬剤追加</button>
       </div>
-      <ul class="bg-white">${items}</ul>`
+      <ul class="bg-white">${topicalCard}${items}</ul>`
   }
 
   return `
