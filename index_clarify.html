@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v43 / verified-only</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v44 / gist-diff-reset</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -623,8 +623,31 @@ function setGistId(id) {
 
 function applyMasterData(data) {
   if (!data || typeof data !== 'object') return false
-  // Gist のデータをそのまま採用（id ベースの自動同期は行わない。確認/未確認はユーザーが判断する）
-  if (Array.isArray(data.drugs)) DRUGS = data.drugs
+  // Gist や cache 経由で薬剤データが更新された場合、変更された薬剤のダブルチェックを解除する
+  // 比較の基準は前回 applyMasterData した時のスナップショット (master_drugs_applied)
+  if (Array.isArray(data.drugs)) {
+    let lastApplied = []
+    try { lastApplied = JSON.parse(localStorage.getItem('master_drugs_applied') || '[]') } catch {}
+    if (Array.isArray(lastApplied) && lastApplied.length > 0) {
+      const prevById = new Map(lastApplied.map(d => [d.id, JSON.stringify(d)]))
+      const newById = new Map(data.drugs.map(d => [d.id, JSON.stringify(d)]))
+      const s1 = new Set(LS.get('check1', '[]'))
+      const s2 = new Set(LS.get('check2', '[]'))
+      let changed = false
+      new Set([...s1, ...s2]).forEach(id => {
+        const prev = prevById.get(id), nxt = newById.get(id)
+        // 前回適用と今回適用でデータが変わっていれば確認を解除
+        // (前回に存在しなかった id (prev=undefined) は変更ではないので解除しない)
+        if (prev !== undefined && prev !== nxt) {
+          if (s1.delete(id)) changed = true
+          if (s2.delete(id)) changed = true
+        }
+      })
+      if (changed) { LS.set('check1', [...s1]); LS.set('check2', [...s2]) }
+    }
+    DRUGS = data.drugs
+    try { localStorage.setItem('master_drugs_applied', JSON.stringify(data.drugs)) } catch {}
+  }
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
@@ -3666,6 +3689,10 @@ function openLightbox(src) {
 }
 
 // ── 起動: Gist キャッシュ適用 → 初回描画 → バックグラウンドで Gist 取得 ──
+// master_drugs_applied 未設定なら現在の DRUGS で初期化 (以後の差分検出の基準にする)
+if (!localStorage.getItem('master_drugs_applied')) {
+  try { localStorage.setItem('master_drugs_applied', JSON.stringify(DRUGS)) } catch {}
+}
 applyCachedMasterIfAny()
 render()
 refreshMasterFromGist().then(changed => { if (changed) render() })
