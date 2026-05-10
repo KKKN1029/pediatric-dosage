@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v41 / double-check</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v42 / pending-all</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -804,9 +804,17 @@ function getPendingMasterDrugs() {
   const hidden = loadHiddenDrugs()
   return DRUGS.filter(d => !hidden.has(d.id) && !isFullyChecked(d.id))
 }
-// カスタム＋マスター両方の未確認薬剤を返す
+// 全薬剤の未確認版を返す: pending custom drafts + master + custom_drugs (登録済み)
+// すべて id で dedupe し、hidden と fully checked を除外する。
 function getAllPendingDrugs() {
-  return [...loadPendingDrugs(), ...getPendingMasterDrugs()]
+  const hidden = loadHiddenDrugs()
+  const seen = new Set()
+  const result = []
+  const push = d => { if (!hidden.has(d.id) && !isFullyChecked(d.id) && !seen.has(d.id)) { result.push(d); seen.add(d.id) } }
+  loadPendingDrugs().forEach(push)
+  DRUGS.forEach(push)
+  loadCustomDrugs().forEach(push)
+  return result
 }
 
 function deleteDrug(id) {
@@ -2131,9 +2139,12 @@ function buildListBodyHTML(query) {
             </div>
           </li>`}).join('')
     mainContent = `
-      <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
+      <div class="px-4 py-2 bg-orange-500 flex items-center justify-between gap-2">
         <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
-        <span class="text-xs text-white opacity-80">${pending.length}件</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-reset-checks" class="text-[11px] bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg" title="全薬剤の 1次/2次 確認を解除して未確認に戻す">全リセット</button>
+          <span class="text-xs text-white opacity-80">${pending.length}件</span>
+        </div>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
   } else {
@@ -2177,6 +2188,12 @@ function attachListBody() {
   })
   document.getElementById('btn-create-set')?.addEventListener('click', () => {
     setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
+  })
+  document.getElementById('btn-reset-checks')?.addEventListener('click', () => {
+    if (!confirm('全薬剤の 1次/2次 確認を解除して全て未確認に戻します。よろしいですか？')) return
+    saveCheck1(new Set())
+    saveCheck2(new Set())
+    render()
   })
   app.querySelectorAll('[data-check-drug]').forEach(b => b.addEventListener('click', e => {
     e.stopPropagation()
