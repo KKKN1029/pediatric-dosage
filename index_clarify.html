@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v42 / pending-all</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v43 / verified-only</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -755,7 +755,15 @@ async function openMasterGistDialog() {
 }
 
 const loadEdits = () => LS.get('drug_edits')
-const saveEdit = (id, patch) => { const e = loadEdits(); e[id] = {...(e[id]||{}), ...patch}; LS.set('drug_edits', e) }
+const saveEdit = (id, patch) => {
+  const e = loadEdits(); e[id] = {...(e[id]||{}), ...patch}; LS.set('drug_edits', e)
+  // 編集が入った薬剤はダブルチェックをリセットして未確認に戻す
+  // (ローカル変数として直接 set を扱う — 関数定義順の制約を避ける)
+  try {
+    const s1 = new Set(LS.get('check1', '[]')); if (s1.delete(id)) LS.set('check1', [...s1])
+    const s2 = new Set(LS.get('check2', '[]')); if (s2.delete(id)) LS.set('check2', [...s2])
+  } catch {}
+}
 const loadCustomDrugs = () => LS.get('custom_drugs', '[]')
 const saveCustomDrugs = d => LS.set('custom_drugs', d)
 const loadSets = () => LS.get('drug_sets', '[]')
@@ -860,10 +868,13 @@ function getDrugById(id) {
   }
   return found
 }
-function getDrugsByCategory(cat) { return getAllDrugs().filter(d => d.category === cat) }
+// 完全確認済み (1次・2次両方) の薬剤のみを返す
+// 未確認の薬剤は通常カテゴリ・お気に入り・検索結果から除外し、未確認タブからのみ閲覧できる
+function getVerifiedDrugs() { return getAllDrugs().filter(d => isFullyChecked(d.id)) }
+function getDrugsByCategory(cat) { return getVerifiedDrugs().filter(d => d.category === cat) }
 function searchDrugsQ(q) {
   const lq = jpNorm(q)
-  return getAllDrugs().filter(d =>
+  return getVerifiedDrugs().filter(d =>
     jpNorm(d.genericName).includes(lq) ||
     jpNorm(d.abbreviation).includes(lq) ||
     d.brandNames.some(b => jpNorm(b).includes(lq))
@@ -2148,7 +2159,7 @@ function buildListBodyHTML(query) {
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
   } else {
-    let drugs = isFav ? getAllDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
+    let drugs = isFav ? getVerifiedDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
     const items = drugs.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
