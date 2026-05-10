@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v47 / vitalsigns</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v48 / topical-steroid</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -1217,6 +1217,207 @@ function render() {
   else if (s==='add-disease')    { app.innerHTML=renderAddDisease(); attachAddDisease() }
   else if (s==='manage-disease-categories') { app.innerHTML=renderManageDiseaseCategories(); attachManageDiseaseCategories() }
   else if (s==='vitalsigns') { app.innerHTML=renderVitalSigns(); attachVitalSigns() }
+  else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
+}
+
+// ── ステロイド外用薬一覧 ───────────────────────────────────────
+// 出典: アトピー性皮膚炎診療ガイドライン 2024 (日皮会誌 2024;134:2741-2843,
+//       アレルギー 2024;73:1025-1125) をもとに作成された協和キリン資料
+//       「アトピー性皮膚炎に対するステロイド外用薬の使い方」(2026年1月作成) より引用
+const STEROID_RANKS = [
+  {
+    rank:'I 群', name:'ストロンゲスト', color:'rose', desc:'最も強力。重症の苔癬化病変・難治例に短期使用',
+    drugs:[
+      { generic:'クロベタゾールプロピオン酸エステル', forms:['軟膏','クリーム','ローション','コムクロ®シャンプー 0.05%'] },
+      { generic:'ジフロラゾン酢酸エステル', forms:['ダイアコート®軟膏 0.05%','ダイアコート®クリーム 0.05%'] },
+    ],
+  },
+  {
+    rank:'II 群', name:'ベリーストロング', color:'orange', desc:'中等症〜重症。重症皮疹の第一選択',
+    drugs:[
+      { generic:'モメタゾンフランカルボン酸エステル', forms:['フルメタ®軟膏','フルメタ®クリーム','フルメタ®ローション'] },
+      { generic:'ベタメタゾン酪酸エステルプロピオン酸エステル', forms:['アンテベート®軟膏 0.05%','アンテベート®クリーム 0.05%','アンテベート®ローション 0.05%'] },
+      { generic:'フルオシノニド', forms:['トプシム®軟膏 0.05%','トプシム®クリーム 0.05%','トプシム®E クリーム 0.05%','トプシム®ローション 0.05%','トプシム®スプレー 0.0143%'] },
+      { generic:'ベタメタゾンジプロピオン酸エステル', forms:['リンデロン®-DP 軟膏','リンデロン®-DP クリーム','リンデロン®-DP ゾル'] },
+      { generic:'ジフルプレドナート', forms:['マイザー®軟膏 0.05%','マイザー®クリーム 0.05%'] },
+      { generic:'アムシノニド', forms:['ビスダーム®軟膏 0.1%','ビスダーム®クリーム 0.1%'] },
+      { generic:'酪酸プロピオン酸ヒドロコルチゾン', forms:['パンデル®軟膏 0.1%','パンデル®クリーム 0.1%','パンデル®ローション 0.1%'] },
+      { generic:'ジフルコルトロン吉草酸エステル', forms:['ネリゾナ®軟膏 0.1%','ネリゾナ®クリーム 0.1%','ネリゾナ®ユニバーサルクリーム 0.1%','ネリゾナ®ソリューション 0.1%'] },
+    ],
+  },
+  {
+    rank:'III 群', name:'ストロング', color:'amber', desc:'中等症の第一選択。広範囲・体幹四肢に多用',
+    drugs:[
+      { generic:'デキサメタゾンプロピオン酸エステル', forms:['メサデルム®軟膏 0.1%','メサデルム®クリーム 0.1%','メサデルム®ローション 0.1%'] },
+      { generic:'デプロドンプロピオン酸エステル', forms:['エクラー®軟膏 0.3%','エクラー®クリーム 0.3%','エクラー®ローション 0.3%'] },
+      { generic:'デキサメタゾン吉草酸エステル', forms:['ボアラ®軟膏 0.12%','ボアラ®クリーム 0.12%'] },
+      { generic:'ベタメタゾン吉草酸エステル', forms:['ベトネベート®軟膏 0.12%','ベトネベート®クリーム 0.12%','リンデロン®-V 軟膏 0.12%','リンデロン®-V クリーム 0.12%','リンデロン®-V ローション'] },
+      { generic:'フルオシノロンアセトニド', forms:['フルコート®軟膏 0.025%','フルコート®クリーム 0.025%','フルコート®外用液 0.01%','フルコート®スプレー 0.007%'] },
+    ],
+  },
+  {
+    rank:'IV 群', name:'ミディアム', color:'sky', desc:'軽症〜中等症。顔面・小児の第一選択',
+    drugs:[
+      { generic:'プレドニゾロン吉草酸エステル酢酸エステル', forms:['リドメックスコーワ軟膏 0.3%','リドメックスコーワクリーム 0.3%','リドメックスコーワローション 0.3%'] },
+      { generic:'トリアムシノロンアセトニド', forms:['レダコート®軟膏 0.1%','レダコート®クリーム 0.1%'] },
+      { generic:'アルクロメタゾンプロピオン酸エステル', forms:['アルメタ軟膏'] },
+      { generic:'クロベタゾン酪酸エステル', forms:['クロベタゾン酪酸エステル軟膏'] },
+      { generic:'フルドロキシコルチド', forms:['テクスメテン®軟膏 0.1%','テクスメテン®ユニバーサルクリーム 0.1%'] },
+      { generic:'ヒドロコルチゾン酪酸エステル', forms:['ロコイド®軟膏 0.1%','ロコイド®クリーム 0.1%'] },
+      { generic:'デキサメタゾン', forms:['グリメサゾン®軟膏','オイラゾン®クリーム 0.05%','オイラゾン®クリーム 0.1%'] },
+    ],
+  },
+  {
+    rank:'V 群', name:'ウィーク', color:'emerald', desc:'軽症〜軽微。乾燥・軽度紅斑',
+    drugs:[
+      { generic:'プレドニゾロン', forms:['プレドニゾロン軟膏','プレドニゾロンクリーム'] },
+    ],
+  },
+]
+const STEROID_NONSTEROID_REFS = [
+  { generic:'タクロリムス', cls:'カルシニューリン阻害薬', strength:'ストロングクラス（III群）相当', forms:['プロトピック®軟膏 0.1%','プロトピック®軟膏 0.03% 小児用'] },
+  { generic:'デルゴシチニブ', cls:'JAK 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['コレクチム®軟膏 0.5%','コレクチム®軟膏 0.25%'] },
+  { generic:'ジファミラスト', cls:'PDE4 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['モイゼルト®軟膏 1%','モイゼルト®軟膏 0.3%'] },
+  { generic:'タピナロフ', cls:'治療用 AhR 調節薬', strength:'—', forms:['ブイタマー®クリーム 1%'] },
+]
+const STEROID_ABSORPTION = [
+  ['頭皮','3.5'], ['前頭','6.0'], ['下顎','13.0'], ['腋窩','3.6'], ['背面','1.7'],
+  ['前腕（外側）','1.1'], ['前腕（内側）','1.0（基準）'], ['手掌','0.83'], ['陰嚢','42.0'],
+  ['足首','0.42'], ['足底','0.14'],
+]
+const STEROID_SEVERITY = [
+  ['重 症','高度の腫脹/浮腫/浸潤ないし苔癬化を伴う紅斑、丘疹の多発、高度の鱗屑、痂皮の付着、小水疱、びらん、多数の搔破痕、痒疹結節などを主体とする','ベリーストロング第一選択。十分な効果が得られない場合はその部位に限定してストロンゲストを使用することもある'],
+  ['中等症','中等度までの紅斑、鱗屑、少数の丘疹、搔破痕などを主体とする','ストロングないしミディアムを第一選択'],
+  ['軽 症','乾燥および軽度の紅斑、鱗屑などを主体とする','ミディアム以下を第一選択'],
+  ['軽 微','炎症症状に乏しく乾燥症状主体','ステロイドを含まない外用薬を選択'],
+]
+
+function renderTopicalSteroid() {
+  const cellTh = 'border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-700 bg-gray-50 text-center'
+  const cellTd = 'border border-gray-200 px-2 py-1.5 text-[11px] text-gray-800'
+  const rankColor = c => ({
+    rose:    'bg-rose-50 border-rose-200 text-rose-800',
+    orange:  'bg-orange-50 border-orange-200 text-orange-800',
+    amber:   'bg-amber-50 border-amber-200 text-amber-800',
+    sky:     'bg-sky-50 border-sky-200 text-sky-800',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+  })[c] || 'bg-gray-50 border-gray-200 text-gray-800'
+  const rankBadge = c => ({
+    rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500'
+  })[c] || 'bg-gray-500'
+
+  const rankCards = STEROID_RANKS.map(r => `
+    <div class="rounded-xl border ${rankColor(r.color)} overflow-hidden">
+      <div class="${rankBadge(r.color)} text-white px-3 py-2 flex items-baseline gap-2">
+        <span class="text-xs font-bold opacity-80">${esc(r.rank)}</span>
+        <span class="text-base font-bold">${esc(r.name)}</span>
+      </div>
+      <div class="px-3 py-2 text-[11px] leading-relaxed border-b border-current/10 opacity-80">${esc(r.desc)}</div>
+      <ul class="bg-white">
+        ${r.drugs.map(d => `
+          <li class="px-3 py-2 border-b border-gray-100 last:border-0">
+            <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
+            <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${d.forms.map(f => esc(f)).join(' / ')}</div>
+          </li>`).join('')}
+      </ul>
+    </div>`).join('')
+
+  const absRows = STEROID_ABSORPTION.map(([part, val]) => `
+    <tr><td class="${cellTd} text-center font-semibold bg-gray-50">${esc(part)}</td><td class="${cellTd} text-center">${esc(val)}</td></tr>`).join('')
+
+  const sevRows = STEROID_SEVERITY.map(([sev, sym, sel]) => `
+    <tr>
+      <td class="${cellTd} text-center font-bold bg-gray-50 whitespace-nowrap">${esc(sev)}</td>
+      <td class="${cellTd}">${esc(sym)}</td>
+      <td class="${cellTd}">${esc(sel)}</td>
+    </tr>`).join('')
+
+  const nonSteroidCards = STEROID_NONSTEROID_REFS.map(d => `
+    <div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
+        <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
+      </div>
+      <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
+      <div class="text-[11px] text-gray-700">${d.forms.map(f => esc(f)).join(' / ')}</div>
+    </div>`).join('')
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3 sticky top-0 z-10">
+      <div class="flex items-center gap-2">
+        <button id="btn-ts-back" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">‹</button>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-base font-bold text-gray-900 truncate">ステロイド外用薬</h1>
+          <p class="text-xs text-gray-500">5段階のランク表 / 部位別経皮吸収率 / 重症度別の選択</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-auto bg-gray-50 p-4 space-y-4">
+      <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <header class="bg-blue-600 text-white px-3 py-2 text-sm font-bold">皮疹の重症度と外用薬の選択</header>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead><tr><th class="${cellTh}">重症度</th><th class="${cellTh}">皮疹</th><th class="${cellTh}">外用薬の選択</th></tr></thead>
+            <tbody>${sevRows}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <header class="bg-blue-600 text-white px-3 py-2 text-sm font-bold">ヒドロコルチゾン部位別経皮吸収率</header>
+        <p class="text-[11px] text-gray-600 px-3 py-1.5 bg-gray-50 border-b border-gray-200">前腕（内側）= 1.0 を基準値とした相対吸収率</p>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead><tr><th class="${cellTh}">部位</th><th class="${cellTh}">吸収率</th></tr></thead>
+            <tbody>${absRows}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="space-y-3">
+        <h2 class="text-base font-bold text-gray-900 px-1">ステロイド外用薬ランク表（2024年11月現在）</h2>
+        ${rankCards}
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <h2 class="text-sm font-bold text-purple-900">参考: 非ステロイド系抗炎症外用薬</h2>
+        <p class="text-[11px] text-gray-600">タクロリムス軟膏は寛解導入後の維持療法として、また顔面など皮膚萎縮を避けたい部位で活用される。</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${nonSteroidCards}
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <h2 class="text-sm font-bold text-gray-900">外用量の目安 (Finger Tip Unit)</h2>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          口径5mmのチューブから第二指の先端〜第一関節まで押し出した量（約 <strong>0.5g</strong>）が、成人の手2枚分（体表面積の約 <strong>2%</strong>）に対する適量とされる（finger tip unit）。
+        </p>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          通常の成人患者では1日 <strong>5〜10g</strong> の初期外用量で開始し、症状に合わせて漸減する。3ヶ月までの使用では一過性で可逆性の副腎機能抑制は生じうるが、不可逆性の全身的副作用は生じないと考えられる。
+        </p>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          急性増悪時は1日2回（朝・夕：入浴後）を原則とし、炎症が落ち着いたら1日1回外用に減らして寛解導入を目指す。
+        </p>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 class="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5 mb-2">出典</h2>
+        <ol class="text-xs text-gray-700 space-y-1.5 list-decimal list-inside leading-relaxed">
+          <li>アトピー性皮膚炎診療ガイドライン 2024（日皮会誌 2024 ; 134 : 2741-2843, アレルギー 2024 ; 73 : 1025-1125）</li>
+          <li>協和キリン資料「アトピー性皮膚炎に対するステロイド外用薬の使い方」(2026年1月作成)</li>
+          <li>Feldmann RJ, et al : J Invest Dermatol, 48, 181-183, 1967（部位別経皮吸収率）</li>
+          <li>Long CC, et al : Clin Exp Dermatol, 16, 444-447, 1991 / Arch Dermatol, 128, 1129-1130, 1992（finger tip unit）</li>
+          <li>Furue M, et al : Br J Dermatol, 148, 128-133, 2003（ベリーストロング長期使用試験）</li>
+        </ol>
+      </section>
+
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
+        本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。
+      </div>
+    </div>`
+}
+function attachTopicalSteroid() {
+  document.getElementById('btn-ts-back')?.addEventListener('click', () => setState({screen:'list', category:'__topical__'}))
 }
 
 // ── 小児バイタルサイン正常範囲 ─────────────────────────────────
@@ -2200,6 +2401,7 @@ function buildListBodyHTML(query) {
   const isFav = state.category==='__favorites__'
   const isSets = state.category==='__sets__'
   const isPending = state.category === '__pending__'
+  const isTopical = state.category === '__topical__'
   const sets = loadSets()
   const pending = getAllPendingDrugs()
   const pendingCount = pending.length
@@ -2209,6 +2411,7 @@ function buildListBodyHTML(query) {
     `<button data-cat="__favorites__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors flex flex-col items-center gap-0.5 ${state.category==='__favorites__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${ICON.star(state.category==='__favorites__')}<span>お気に入り</span></button>`,
     `<button data-cat="__sets__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category==='__sets__'?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}"><span class="inline-block text-base leading-none">${ICON.bookmark}</span><br>セット</button>`,
     ...userCats.map(cat => `<button data-cat="${cat}" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors ${state.category===cat?'border-blue-600 bg-blue-50 text-blue-700 font-semibold':'border-transparent text-gray-600'}">${cat}</button>`),
+    `<button data-cat="__topical__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__topical__'?'border-purple-600 bg-purple-50 text-purple-700 font-semibold':'border-l-transparent text-gray-600'}"><span class="inline-block text-base leading-none">🧴</span><br>外用薬</button>`,
     `<button data-cat="__pending__" class="w-full text-xs py-3 px-1 text-center border-l-2 transition-colors border-t border-gray-100 ${state.category==='__pending__'?'border-l-orange-500 bg-orange-50 text-orange-700 font-semibold':'border-l-transparent text-gray-600'}"><span class="inline-block text-base leading-none">${ICON.fileEdit}</span><br>未確認${pendingCount>0?('<br><b class="text-orange-500">'+pendingCount+'</b>'):''}
 </button>`,
     `<div class="flex justify-center py-1 border-t border-gray-100 gap-1"><button id="btn-edit-cats" class="text-gray-400 hover:text-blue-500 text-sm px-2 py-1 rounded border border-gray-200 bg-white leading-none" title="カテゴリ編集">${ICON.pencil}</button><button id="btn-master-gist" class="text-gray-400 hover:text-blue-500 text-sm px-2 py-1 rounded border border-gray-200 bg-white leading-none" title="マスターデータ同期 (Gist)">${ICON.settings}</button></div>`,
@@ -2270,6 +2473,25 @@ function buildListBodyHTML(query) {
         </div>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
+  } else if (isTopical) {
+    // 外用薬グループ: 各種外用薬カテゴリのエントリーポイント
+    const topicalEntries = [
+      { id:'steroid', label:'ステロイド外用薬', desc:'5段階のランク表 / 部位別吸収率 / 重症度別の選択', icon:'💊' },
+    ]
+    const items = topicalEntries.map(e => `
+      <li><button data-topical="${e.id}" class="w-full flex items-center px-4 py-4 hover:bg-purple-50 active:bg-purple-100 text-left gap-3 border-b border-gray-100">
+        <span class="text-3xl shrink-0">${e.icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-gray-900 text-base">${esc(e.label)}</div>
+          <div class="text-xs text-gray-500 mt-0.5">${esc(e.desc)}</div>
+        </div>
+        <span class="text-gray-300 text-lg shrink-0">›</span>
+      </button></li>`).join('')
+    mainContent = `
+      <div class="px-4 py-2 bg-purple-600 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white">外用薬</h2>
+      </div>
+      <ul class="bg-white">${items}</ul>`
   } else {
     let drugs = isFav ? getVerifiedDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
     const items = drugs.length===0
@@ -2292,6 +2514,9 @@ function attachListBody() {
   app.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
     state.query = ''
     setState({category:b.dataset.cat})
+  }))
+  app.querySelectorAll('[data-topical]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.topical === 'steroid') setState({screen:'topical-steroid'})
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
