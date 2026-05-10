@@ -50,6 +50,7 @@
 </style>
 </head>
 <body>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v45 / editor-check-badge</div>
 <div id="app" class="min-h-screen flex flex-col"></div>
 
 <script>
@@ -88,6 +89,23 @@ const LS = {
   get: (k, def='null') => { try { return JSON.parse(localStorage.getItem(k) ?? def) } catch { return JSON.parse(def) } },
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
   del: k => localStorage.removeItem(k),
+}
+
+// メインアプリ (index_clarify.html) と共有するダブルチェック状態
+// localStorage 上で同じキーを使うので、編集ツール側でも「未確認」状態を表示できる
+const _loadCheckSet = (key) => {
+  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')) } catch { return new Set() }
+}
+const getCheckStatus = (id) => {
+  const s1 = _loadCheckSet('check1'), s2 = _loadCheckSet('check2')
+  return { c1: s1.has(id), c2: s2.has(id), full: s1.has(id) && s2.has(id) }
+}
+const checkBadgeHTML = (id) => {
+  const { c1, c2, full } = getCheckStatus(id)
+  if (full) return `<span class="badge bg-emerald-100 text-emerald-700 inline-flex items-center gap-1">${ICON.check} 確認済</span>`
+  if (c1 && !c2) return `<span class="badge bg-amber-100 text-amber-700 inline-flex items-center gap-1">${ICON.alert} 1次のみ</span>`
+  if (!c1 && c2) return `<span class="badge bg-amber-100 text-amber-700 inline-flex items-center gap-1">${ICON.alert} 2次のみ</span>`
+  return `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>`
 }
 
 // 設定情報の保存キー
@@ -640,7 +658,7 @@ function drugsListHTML() {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.genericName || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-blue-50 text-blue-700">${esc(d.abbreviation)}</span>` : ''}
-                ${d.pending ? `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>` : ''}
+                ${checkBadgeHTML(d.id)}
                 ${d.brandNames && d.brandNames.length ? `<span class="text-xs text-gray-500">${esc(d.brandNames.join(' / '))}</span>` : ''}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">
@@ -966,7 +984,7 @@ function diseasesListHTML() {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-gray-900">${esc(d.name || '(未入力)')}</span>
                 ${d.abbreviation ? `<span class="badge bg-purple-50 text-purple-700">${esc(d.abbreviation)}</span>` : ''}
-                ${d.pending ? `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>` : ''}
+                ${checkBadgeHTML(d.id)}
                 ${d.englishName ? `<span class="text-xs text-gray-500">${esc(d.englishName)}</span>` : ''}
               </div>
               <div class="text-xs text-gray-500 mt-0.5">
