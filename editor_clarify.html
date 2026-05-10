@@ -50,7 +50,7 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v45 / editor-check-badge</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v46 / editor-double-check</div>
 <div id="app" class="min-h-screen flex flex-col"></div>
 
 <script>
@@ -106,6 +106,20 @@ const checkBadgeHTML = (id) => {
   if (c1 && !c2) return `<span class="badge bg-amber-100 text-amber-700 inline-flex items-center gap-1">${ICON.alert} 1次のみ</span>`
   if (!c1 && c2) return `<span class="badge bg-amber-100 text-amber-700 inline-flex items-center gap-1">${ICON.alert} 2次のみ</span>`
   return `<span class="badge bg-orange-100 text-orange-700 inline-flex items-center gap-1">${ICON.alert} 未確認</span>`
+}
+// 1次 / 2次 チェックボタン (data-act="check-drug" or "check-disease", data-level="1"|"2")
+const checkButtonsHTML = (id, kind) => {
+  const { c1, c2 } = getCheckStatus(id)
+  const cls = on => `text-[11px] px-1.5 py-0.5 rounded font-medium border ${on ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-emerald-50 hover:border-emerald-200'}`
+  return `<button data-act="check-${kind}" data-id="${esc(id)}" data-level="1" class="${cls(c1)}" title="1次確認をトグル">${c1?'☑':'☐'}1次</button>
+          <button data-act="check-${kind}" data-id="${esc(id)}" data-level="2" class="${cls(c2)}" title="2次確認をトグル">${c2?'☑':'☐'}2次</button>`
+}
+// localStorage に check1 / check2 のトグルを書き込む (メインアプリと共通)
+const toggleCheckLS = (id, level) => {
+  const key = level === 1 ? 'check1' : 'check2'
+  const set = _loadCheckSet(key)
+  set.has(id) ? set.delete(id) : set.add(id)
+  localStorage.setItem(key, JSON.stringify([...set]))
 }
 
 // 設定情報の保存キー
@@ -665,7 +679,7 @@ function drugsListHTML() {
                 ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · ${esc(d.route || '')} · 用量 ${(d.pediatricDoses||[]).length}件
               </div>
             </div>
-            <button data-act="toggle-pending-drug" data-id="${esc(d.id)}" class="${d.pending ? 'text-orange-600' : 'text-gray-300 hover:text-orange-500'} text-sm px-2" title="${d.pending ? '確認済みに戻す' : '未確認にする'}">${ICON.alert}</button>
+            <div class="flex items-center gap-1 shrink-0">${checkButtonsHTML(d.id, 'drug')}</div>
             <button data-act="del-drug" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2" title="削除">${ICON.x}</button>
           </div>
         `).join('')}
@@ -675,18 +689,17 @@ function drugsListHTML() {
 }
 
 function drugFormHTML(d) {
-  const isPending = d.pending === true
+  const cs = getCheckStatus(d.id)
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
       <div class="flex items-center gap-2 flex-wrap">
         <button data-act="back-drug" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
-        <button data-act="toggle-pending-drug" data-id="${esc(d.id)}" class="${isPending ? 'btn-primary' : 'btn-secondary'} inline-flex items-center gap-1.5" title="${isPending ? '確認済みに戻す' : '未確認にする (利用者側で「未確認」タブに表示)'}">
-          ${isPending ? ICON.check + ' 確認済みに戻す' : ICON.alert + ' 未確認にする'}
-        </button>
+        ${checkBadgeHTML(d.id)}
+        <div class="flex items-center gap-1">${checkButtonsHTML(d.id, 'drug')}</div>
         <button data-act="del-drug" data-id="${esc(d.id)}" class="btn-danger">この薬剤を削除</button>
       </div>
-      ${isPending ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この薬剤は <strong>未確認</strong> として保存されます。利用者側ではデフォルトで「未確認」タブにのみ表示されます。</div>` : ''}
+      ${!cs.full ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この薬剤は <strong>${cs.c1||cs.c2 ? (cs.c1?'1次のみ':'2次のみ') : '未確認'}</strong> です。1次・2次の両方をチェックすると利用者側のカテゴリに表示されます。</div>` : ''}
 
       <div class="card p-5 space-y-4">
         <h3 class="section-title">基本情報</h3>
@@ -991,7 +1004,7 @@ function diseasesListHTML() {
                 ${esc(d.category || '')}${d.subcategory ? ' / ' + esc(d.subcategory) : ''} · セクション ${(d.sections||[]).length}件
               </div>
             </div>
-            <button data-act="toggle-pending-disease" data-id="${esc(d.id)}" class="${d.pending ? 'text-orange-600' : 'text-gray-300 hover:text-orange-500'} text-sm px-2" title="${d.pending ? '確認済みに戻す' : '未確認にする'}">${ICON.alert}</button>
+            <div class="flex items-center gap-1 shrink-0">${checkButtonsHTML(d.id, 'disease')}</div>
             <button data-act="del-disease" data-id="${esc(d.id)}" class="text-gray-400 hover:text-red-600 text-sm px-2">${ICON.x}</button>
           </div>
         `).join('')}
@@ -1001,18 +1014,17 @@ function diseasesListHTML() {
 }
 
 function diseaseFormHTML(d) {
-  const isPending = d.pending === true
+  const cs = getCheckStatus(d.id)
   return `
     <div class="p-4 space-y-3 max-w-3xl mx-auto">
       <div class="flex items-center gap-2 flex-wrap">
         <button data-act="back-disease" class="btn-ghost inline-flex items-center gap-1.5">${ICON.arrowLeft} 一覧へ戻る</button>
         <div class="flex-1"></div>
-        <button data-act="toggle-pending-disease" data-id="${esc(d.id)}" class="${isPending ? 'btn-primary' : 'btn-secondary'} inline-flex items-center gap-1.5" title="${isPending ? '確認済みに戻す' : '未確認にする (利用者側で「未確認」タブに表示)'}">
-          ${isPending ? ICON.check + ' 確認済みに戻す' : ICON.alert + ' 未確認にする'}
-        </button>
+        ${checkBadgeHTML(d.id)}
+        <div class="flex items-center gap-1">${checkButtonsHTML(d.id, 'disease')}</div>
         <button data-act="del-disease" data-id="${esc(d.id)}" class="btn-danger">この疾患を削除</button>
       </div>
-      ${isPending ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この疾患は <strong>未確認</strong> として保存されます。利用者側ではデフォルトで「未確認」タブにのみ表示されます。</div>` : ''}
+      ${!cs.full ? `<div class="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 inline-flex items-center gap-1.5">${ICON.alert} この疾患は <strong>${cs.c1||cs.c2 ? (cs.c1?'1次のみ':'2次のみ') : '未確認'}</strong> です。1次・2次の両方をチェックすると利用者側のカテゴリに表示されます。</div>` : ''}
 
       <div class="card p-5 space-y-4">
         <h3 class="section-title">基本情報</h3>
@@ -1505,6 +1517,13 @@ function onClick(e) {
     drug.pending = !drug.pending
     markDirty(); render()
     showToast(drug.pending ? '未確認にしました' : '確認済みに戻しました', 'ok')
+    return
+  }
+  if (act === 'check-drug' || act === 'check-disease') {
+    const id = t.dataset.id
+    const level = parseInt(t.dataset.level) === 2 ? 2 : 1
+    toggleCheckLS(id, level)
+    render()
     return
   }
   if (act === 'drug-up' || act === 'drug-down') {
