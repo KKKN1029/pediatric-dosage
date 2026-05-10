@@ -25,7 +25,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v40 / iv-fallback</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v41 / double-check</div>
 <script>
 // 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
 if ('serviceWorker' in navigator) {
@@ -772,16 +772,37 @@ const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categor
 const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
 const getDiseaseCategories = () => loadUserDiseaseCategories()
 
-// マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
-const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
-const confirmMasterDrug = id => { const s = loadConfirmedMaster(); s.add(id); LS.set('confirmed_master', [...s]) }
-// マスターデータのうち未確認のもの（confirmed_master に未登録のもの全て）
+// マスターデータのダブルチェック管理
+// 1次 / 2次 の両方の確認が完了するまで未確認タブに表示する。
+const loadCheck1 = () => new Set(LS.get('check1', '[]'))
+const loadCheck2 = () => new Set(LS.get('check2', '[]'))
+const saveCheck1 = s => LS.set('check1', [...s])
+const saveCheck2 = s => LS.set('check2', [...s])
+const isCheck1 = id => loadCheck1().has(id)
+const isCheck2 = id => loadCheck2().has(id)
+const isFullyChecked = id => isCheck1(id) && isCheck2(id)
+const toggleCheck = (id, level) => {
+  const set = level === 1 ? loadCheck1() : loadCheck2()
+  set.has(id) ? set.delete(id) : set.add(id)
+  ;(level === 1 ? saveCheck1 : saveCheck2)(set)
+}
+// 旧 confirmed_master からの一度きりの移行: 旧データは「1次のみ確認済み」として扱う
+;(() => {
+  const old = LS.get('confirmed_master', null)
+  if (Array.isArray(old) && old.length > 0) {
+    const s1 = loadCheck1()
+    old.forEach(id => s1.add(id))
+    saveCheck1(s1)
+    LS.set('confirmed_master', [])
+  }
+})()
+// 互換用 (古いコードパスから呼ばれる可能性に備えて残す)
+const loadConfirmedMaster = () => new Set([...loadCheck1()].filter(id => isCheck2(id)))
+const confirmMasterDrug = id => { /* 後方互換ダミー: 新しいフローでは使わない */ }
+// マスターデータのうち未確認のもの (1次・2次の両方が完了していない全薬剤)
 function getPendingMasterDrugs() {
-  // pending:true のマスター薬剤のみ未確認タブに表示
-  // (利用者が「確認」ボタンを押すと confirmed_master に入り、未確認タブから消える)
   const hidden = loadHiddenDrugs()
-  const confirmed = loadConfirmedMaster()
-  return DRUGS.filter(d => d.pending === true && !hidden.has(d.id) && !confirmed.has(d.id))
+  return DRUGS.filter(d => !hidden.has(d.id) && !isFullyChecked(d.id))
 }
 // カスタム＋マスター両方の未確認薬剤を返す
 function getAllPendingDrugs() {
@@ -2085,7 +2106,10 @@ function buildListBodyHTML(query) {
   } else if (isPending) {
     const pendingItems = pending.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-4xl">${ICON.fileEdit}</span><span>未確認の薬剤はありません</span></div>`
-      : pending.map(d => `
+      : pending.map(d => {
+          const c1 = isCheck1(d.id), c2 = isCheck2(d.id)
+          const btnCls = on => `text-[11px] px-2 py-1 rounded-lg font-medium inline-flex items-center justify-center gap-0.5 ${on ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`
+          return `
           <li class="border-b border-gray-100 flex items-stretch">
             <button data-drug="${d.id}" class="flex-1 min-w-0 flex items-start px-4 py-3 gap-3 hover:bg-gray-50 active:bg-gray-100 text-left">
               <div class="flex-1 min-w-0">
@@ -2099,10 +2123,13 @@ function buildListBodyHTML(query) {
               </div>
             </button>
             <div class="flex flex-col gap-1 shrink-0 px-3 py-3 justify-center">
-              <button data-confirm-drug="${d.id}" class="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg font-medium inline-flex items-center gap-1">${ICON.check} 確認</button>
-              <button data-del-pending="${d.id}" class="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg">削除</button>
+              <div class="flex gap-1">
+                <button data-check-drug="${d.id}" data-check-level="1" class="${btnCls(c1)}" title="1次確認">${c1?'☑':'☐'} 1次</button>
+                <button data-check-drug="${d.id}" data-check-level="2" class="${btnCls(c2)}" title="2次確認">${c2?'☑':'☐'} 2次</button>
+              </div>
+              <button data-del-pending="${d.id}" class="text-[11px] bg-red-50 text-red-500 px-2 py-1 rounded-lg">削除</button>
             </div>
-          </li>`).join('')
+          </li>`}).join('')
     mainContent = `
       <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
@@ -2151,22 +2178,21 @@ function attachListBody() {
   document.getElementById('btn-create-set')?.addEventListener('click', () => {
     setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
   })
-  app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
-    const drugId = b.dataset.confirmDrug
-    // マスターデータの薬剤の場合（全てが確認制）
-    if (DRUGS.find(d => d.id === drugId)) {
-      confirmMasterDrug(drugId)
-      render()
-      return
-    }
-    // カスタムpending薬剤の場合
+  app.querySelectorAll('[data-check-drug]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation()
+    const drugId = b.dataset.checkDrug
+    const level = parseInt(b.dataset.checkLevel)
+    if (level !== 1 && level !== 2) return
+    toggleCheck(drugId, level)
+    // カスタム pending 薬剤も両方チェックされたら custom_drugs に昇格
     const pending = loadPendingDrugs()
-    const drug = pending.find(d => d.id === drugId)
-    if (!drug) return
-    const custom = loadCustomDrugs()
-    custom.push(drug)
-    saveCustomDrugs(custom)
-    savePendingDrugs(pending.filter(d => d.id !== drugId))
+    const customDraft = pending.find(d => d.id === drugId)
+    if (customDraft && isFullyChecked(drugId)) {
+      const custom = loadCustomDrugs()
+      custom.push(customDraft)
+      saveCustomDrugs(custom)
+      savePendingDrugs(pending.filter(d => d.id !== drugId))
+    }
     render()
   }))
   app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
