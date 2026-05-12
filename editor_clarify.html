@@ -4,9 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>小児薬用量 — 編集ツール</title>
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png" />
+<!-- HTML 自体は常にネットワークから取得 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=51" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=51" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=51" />
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html, body { height: 100%; }
@@ -50,7 +54,34 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v46 / editor-double-check</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v51 / cache-bust</div>
+<script>
+// バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
+const BUILD_VERSION = '51'
+;(async () => {
+  if (!('serviceWorker' in navigator)) return
+  const stored = localStorage.getItem('app_build_version')
+  if (stored && stored !== BUILD_VERSION) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    } catch {}
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+    } catch {}
+    localStorage.setItem('app_build_version', BUILD_VERSION)
+    if (!sessionStorage.getItem('reloaded_' + BUILD_VERSION)) {
+      sessionStorage.setItem('reloaded_' + BUILD_VERSION, '1')
+      location.reload()
+      return
+    }
+  }
+  localStorage.setItem('app_build_version', BUILD_VERSION)
+})()
+</script>
 <div id="app" class="min-h-screen flex flex-col"></div>
 
 <script>
@@ -270,7 +301,64 @@ function emptyData() {
     drugs: [],
     diseases: [],
     ivFluidTables: [],
+    steroidRanks: defaultSteroidRanks(),
+    steroidSeverity: defaultSteroidSeverity(),
+    steroidNonsteroid: defaultSteroidNonsteroid(),
   }
+}
+// 既定のステロイド外用薬データ (アトピー性皮膚炎診療ガイドライン 2024 より)
+function defaultSteroidRanks() {
+  return [
+    { rank:'I 群', name:'ストロンゲスト', color:'rose', desc:'最も強力。重症の苔癬化病変・難治例に短期使用', drugs:[
+      { generic:'クロベタゾールプロピオン酸エステル', forms:['軟膏','クリーム','ローション','コムクロ®シャンプー 0.05%'] },
+      { generic:'ジフロラゾン酢酸エステル', forms:['ダイアコート®軟膏 0.05%','ダイアコート®クリーム 0.05%'] },
+    ]},
+    { rank:'II 群', name:'ベリーストロング', color:'orange', desc:'中等症〜重症。重症皮疹の第一選択', drugs:[
+      { generic:'モメタゾンフランカルボン酸エステル', forms:['フルメタ®軟膏','フルメタ®クリーム','フルメタ®ローション'] },
+      { generic:'ベタメタゾン酪酸エステルプロピオン酸エステル', forms:['アンテベート®軟膏 0.05%','アンテベート®クリーム 0.05%','アンテベート®ローション 0.05%'] },
+      { generic:'フルオシノニド', forms:['トプシム®軟膏 0.05%','トプシム®クリーム 0.05%','トプシム®E クリーム 0.05%','トプシム®ローション 0.05%','トプシム®スプレー 0.0143%'] },
+      { generic:'ベタメタゾンジプロピオン酸エステル', forms:['リンデロン®-DP 軟膏','リンデロン®-DP クリーム','リンデロン®-DP ゾル'] },
+      { generic:'ジフルプレドナート', forms:['マイザー®軟膏 0.05%','マイザー®クリーム 0.05%'] },
+      { generic:'アムシノニド', forms:['ビスダーム®軟膏 0.1%','ビスダーム®クリーム 0.1%'] },
+      { generic:'酪酸プロピオン酸ヒドロコルチゾン', forms:['パンデル®軟膏 0.1%','パンデル®クリーム 0.1%','パンデル®ローション 0.1%'] },
+      { generic:'ジフルコルトロン吉草酸エステル', forms:['ネリゾナ®軟膏 0.1%','ネリゾナ®クリーム 0.1%','ネリゾナ®ユニバーサルクリーム 0.1%','ネリゾナ®ソリューション 0.1%'] },
+    ]},
+    { rank:'III 群', name:'ストロング', color:'amber', desc:'中等症の第一選択。広範囲・体幹四肢に多用', drugs:[
+      { generic:'デキサメタゾンプロピオン酸エステル', forms:['メサデルム®軟膏 0.1%','メサデルム®クリーム 0.1%','メサデルム®ローション 0.1%'] },
+      { generic:'デプロドンプロピオン酸エステル', forms:['エクラー®軟膏 0.3%','エクラー®クリーム 0.3%','エクラー®ローション 0.3%'] },
+      { generic:'デキサメタゾン吉草酸エステル', forms:['ボアラ®軟膏 0.12%','ボアラ®クリーム 0.12%'] },
+      { generic:'ベタメタゾン吉草酸エステル', forms:['ベトネベート®軟膏 0.12%','ベトネベート®クリーム 0.12%','リンデロン®-V 軟膏 0.12%','リンデロン®-V クリーム 0.12%','リンデロン®-V ローション'] },
+      { generic:'フルオシノロンアセトニド', forms:['フルコート®軟膏 0.025%','フルコート®クリーム 0.025%','フルコート®外用液 0.01%','フルコート®スプレー 0.007%'] },
+    ]},
+    { rank:'IV 群', name:'ミディアム', color:'sky', desc:'軽症〜中等症。顔面・小児の第一選択', drugs:[
+      { generic:'プレドニゾロン吉草酸エステル酢酸エステル', forms:['リドメックスコーワ軟膏 0.3%','リドメックスコーワクリーム 0.3%','リドメックスコーワローション 0.3%'] },
+      { generic:'トリアムシノロンアセトニド', forms:['レダコート®軟膏 0.1%','レダコート®クリーム 0.1%'] },
+      { generic:'アルクロメタゾンプロピオン酸エステル', forms:['アルメタ軟膏'] },
+      { generic:'クロベタゾン酪酸エステル', forms:['クロベタゾン酪酸エステル軟膏'] },
+      { generic:'フルドロキシコルチド', forms:['テクスメテン®軟膏 0.1%','テクスメテン®ユニバーサルクリーム 0.1%'] },
+      { generic:'ヒドロコルチゾン酪酸エステル', forms:['ロコイド®軟膏 0.1%','ロコイド®クリーム 0.1%'] },
+      { generic:'デキサメタゾン', forms:['グリメサゾン®軟膏','オイラゾン®クリーム 0.05%','オイラゾン®クリーム 0.1%'] },
+    ]},
+    { rank:'V 群', name:'ウィーク', color:'emerald', desc:'軽症〜軽微。乾燥・軽度紅斑', drugs:[
+      { generic:'プレドニゾロン', forms:['プレドニゾロン軟膏','プレドニゾロンクリーム'] },
+    ]},
+  ]
+}
+function defaultSteroidSeverity() {
+  return [
+    ['重 症','高度の腫脹/浮腫/浸潤ないし苔癬化を伴う紅斑、丘疹の多発、高度の鱗屑、痂皮の付着、小水疱、びらん、多数の搔破痕、痒疹結節などを主体とする','ベリーストロング第一選択。十分な効果が得られない場合はその部位に限定してストロンゲストを使用することもある'],
+    ['中等症','中等度までの紅斑、鱗屑、少数の丘疹、搔破痕などを主体とする','ストロングないしミディアムを第一選択'],
+    ['軽 症','乾燥および軽度の紅斑、鱗屑などを主体とする','ミディアム以下を第一選択'],
+    ['軽 微','炎症症状に乏しく乾燥症状主体','ステロイドを含まない外用薬を選択'],
+  ]
+}
+function defaultSteroidNonsteroid() {
+  return [
+    { generic:'タクロリムス', cls:'カルシニューリン阻害薬', strength:'ストロングクラス（III群）相当', forms:['プロトピック®軟膏 0.1%','プロトピック®軟膏 0.03% 小児用'] },
+    { generic:'デルゴシチニブ', cls:'JAK 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['コレクチム®軟膏 0.5%','コレクチム®軟膏 0.25%'] },
+    { generic:'ジファミラスト', cls:'PDE4 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['モイゼルト®軟膏 1%','モイゼルト®軟膏 0.3%'] },
+    { generic:'タピナロフ', cls:'治療用 AhR 調節薬', strength:'—', forms:['ブイタマー®クリーム 1%'] },
+  ]
 }
 
 function normalizeData(raw) {
@@ -297,6 +385,15 @@ function normalizeData(raw) {
     if (!Array.isArray(s.fluids)) s.fluids = []
     if (!Array.isArray(s.notes)) s.notes = []
   })
+  // ステロイド外用薬データ (Gist 経由で同期)
+  if (!Array.isArray(d.steroidRanks))      d.steroidRanks = defaultSteroidRanks()
+  if (!Array.isArray(d.steroidSeverity))   d.steroidSeverity = defaultSteroidSeverity()
+  if (!Array.isArray(d.steroidNonsteroid)) d.steroidNonsteroid = defaultSteroidNonsteroid()
+  d.steroidRanks.forEach(r => {
+    if (!Array.isArray(r.drugs)) r.drugs = []
+    r.drugs.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
+  })
+  d.steroidNonsteroid.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
   return d
 }
 
@@ -512,6 +609,7 @@ function tabsHTML() {
     ['drugs', '薬剤', state.data.drugs.length],
     ['diseases', '疾患', state.data.diseases.length],
     ['iv', '輸液', state.data.ivFluidTables.reduce((n, s) => n + s.fluids.length, 0)],
+    ['topical', '外用薬', (state.data.steroidRanks || []).reduce((n, r) => n + (r.drugs || []).length, 0)],
     ['categories', 'カテゴリ', ''],
     ['settings', '設定', ''],
   ]
@@ -1089,6 +1187,109 @@ function sectionRowHTML(s, i) {
 }
 
 // ============================================================
+// 描画: 外用薬タブ (ステロイド外用薬編集)
+// ============================================================
+function topicalTabHTML() {
+  const ranks = state.data.steroidRanks || []
+  const severity = state.data.steroidSeverity || []
+  const nonsteroid = state.data.steroidNonsteroid || []
+  const rankColor = c => ({ rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500' })[c] || 'bg-gray-500'
+  const colorOptions = ['rose','orange','amber','sky','emerald'].map(c => `<option value="${c}">${c}</option>`).join('')
+
+  const rankCards = ranks.map((r, ri) => `
+    <div class="card p-4 space-y-3 border-l-4 ${rankColor(r.color)} border-l-current/0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="${rankColor(r.color)} text-white text-xs font-bold px-2 py-1 rounded">${esc(r.rank)}</span>
+        <input data-tact="rank-field" data-ri="${ri}" data-field="rank" value="${esc(r.rank)}" class="input flex-1 min-w-0" placeholder="例: I 群" style="max-width:120px;" />
+        <input data-tact="rank-field" data-ri="${ri}" data-field="name" value="${esc(r.name)}" class="input flex-1" placeholder="例: ストロンゲスト" style="max-width:200px;" />
+        <select data-tact="rank-field" data-ri="${ri}" data-field="color" class="input" style="max-width:140px;">
+          ${['rose','orange','amber','sky','emerald'].map(c => `<option value="${c}" ${r.color===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <div class="flex gap-1 ml-auto">
+          <button data-tact="rank-up" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" title="上へ" ${ri===0?'disabled':''}>${ICON.chevUp}</button>
+          <button data-tact="rank-down" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" title="下へ" ${ri===ranks.length-1?'disabled':''}>${ICON.chevDown}</button>
+          <button data-tact="rank-del" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-red-600 px-2" title="ランク削除">${ICON.x}</button>
+        </div>
+      </div>
+      <textarea data-tact="rank-field" data-ri="${ri}" data-field="desc" rows="1" class="input text-xs" placeholder="このランクの説明">${esc(r.desc || '')}</textarea>
+      <div class="space-y-2">
+        ${(r.drugs || []).map((d, di) => `
+          <div class="border border-gray-200 rounded-lg p-3 space-y-1.5 bg-gray-50">
+            <div class="flex items-center gap-2">
+              <input data-tact="drug-field" data-ri="${ri}" data-di="${di}" data-field="generic" value="${esc(d.generic || '')}" class="input flex-1" placeholder="一般名 (例: クロベタゾールプロピオン酸エステル)" />
+              <button data-tact="drug-up" data-ri="${ri}" data-di="${di}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${di===0?'disabled':''} title="上へ">${ICON.chevUp}</button>
+              <button data-tact="drug-down" data-ri="${ri}" data-di="${di}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${di===(r.drugs||[]).length-1?'disabled':''} title="下へ">${ICON.chevDown}</button>
+              <button data-tact="drug-del" data-ri="${ri}" data-di="${di}" class="btn-ghost text-gray-400 hover:text-red-600 px-2" title="削除">${ICON.x}</button>
+            </div>
+            <textarea data-tact="drug-field" data-ri="${ri}" data-di="${di}" data-field="forms" rows="2" class="input text-xs leading-relaxed" placeholder="製品名・剤形（複数行）&#10;例:&#10;ダイアコート®軟膏 0.05%&#10;ダイアコート®クリーム 0.05%">${esc((d.forms || []).join('\n'))}</textarea>
+          </div>`).join('')}
+        <button data-tact="drug-add" data-ri="${ri}" class="btn-secondary text-xs">+ 薬剤を追加</button>
+      </div>
+    </div>`).join('')
+
+  const sevRows = severity.map((row, si) => `
+    <div class="card p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <input data-tact="sev-field" data-si="${si}" data-col="0" value="${esc(row[0] || '')}" class="input font-bold text-center" style="max-width:120px;" placeholder="重症度" />
+        <button data-tact="sev-up" data-si="${si}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${si===0?'disabled':''}>${ICON.chevUp}</button>
+        <button data-tact="sev-down" data-si="${si}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${si===severity.length-1?'disabled':''}>${ICON.chevDown}</button>
+        <button data-tact="sev-del" data-si="${si}" class="btn-ghost text-gray-400 hover:text-red-600 px-2 ml-auto" title="削除">${ICON.x}</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div><label class="label">皮疹</label><textarea data-tact="sev-field" data-si="${si}" data-col="1" rows="3" class="input text-xs">${esc(row[1] || '')}</textarea></div>
+        <div><label class="label">外用薬の選択</label><textarea data-tact="sev-field" data-si="${si}" data-col="2" rows="3" class="input text-xs">${esc(row[2] || '')}</textarea></div>
+      </div>
+    </div>`).join('')
+
+  const nonCards = nonsteroid.map((d, ni) => `
+    <div class="card p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <input data-tact="non-field" data-ni="${ni}" data-field="generic" value="${esc(d.generic || '')}" class="input flex-1 font-bold" placeholder="一般名" />
+        <button data-tact="non-up" data-ni="${ni}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${ni===0?'disabled':''}>${ICON.chevUp}</button>
+        <button data-tact="non-down" data-ni="${ni}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" ${ni===nonsteroid.length-1?'disabled':''}>${ICON.chevDown}</button>
+        <button data-tact="non-del" data-ni="${ni}" class="btn-ghost text-gray-400 hover:text-red-600 px-2" title="削除">${ICON.x}</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input data-tact="non-field" data-ni="${ni}" data-field="cls" value="${esc(d.cls || '')}" class="input text-xs" placeholder="作用機序 (例: JAK 阻害薬)" />
+        <input data-tact="non-field" data-ni="${ni}" data-field="strength" value="${esc(d.strength || '')}" class="input text-xs" placeholder="強さ (例: ストロングクラス相当)" />
+      </div>
+      <textarea data-tact="non-field" data-ni="${ni}" data-field="forms" rows="2" class="input text-xs" placeholder="製品名・剤形（複数行）">${esc((d.forms || []).join('\n'))}</textarea>
+    </div>`).join('')
+
+  return `
+    <div class="p-4 space-y-6 max-w-5xl mx-auto">
+      <header class="space-y-1">
+        <h2 class="text-lg font-bold text-gray-900">ステロイド外用薬</h2>
+        <p class="text-xs text-gray-500">利用者側の「薬剤」→「外用薬」内のステロイド外用薬一覧に表示されます。Gist 経由で全端末に同期されます。</p>
+      </header>
+
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-base font-bold text-gray-900">ランク表（${ranks.length} ランク / ${ranks.reduce((n,r)=>n+(r.drugs||[]).length,0)} 薬剤）</h3>
+          <button data-tact="rank-add" class="btn-primary text-xs">+ ランクを追加</button>
+        </div>
+        <div class="space-y-3">${rankCards}</div>
+      </section>
+
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-base font-bold text-gray-900">皮疹の重症度と外用薬の選択</h3>
+          <button data-tact="sev-add" class="btn-primary text-xs">+ 行を追加</button>
+        </div>
+        <div class="space-y-3">${sevRows}</div>
+      </section>
+
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-base font-bold text-gray-900">参考: 非ステロイド系抗炎症外用薬</h3>
+          <button data-tact="non-add" class="btn-primary text-xs">+ 追加</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${nonCards}</div>
+      </section>
+    </div>`
+}
+
+// ============================================================
 // 描画: 輸液タブ
 // ============================================================
 function ivTabHTML() {
@@ -1304,6 +1505,7 @@ function bodyHTML() {
     case 'drugs': return drugsTabHTML()
     case 'diseases': return diseasesTabHTML()
     case 'iv': return ivTabHTML()
+    case 'topical': return topicalTabHTML()
     case 'categories': return categoriesTabHTML()
     case 'settings': return settingsTabHTML()
   }
@@ -1396,9 +1598,10 @@ function bindGlobalEvents() {
 }
 
 function onClick(e) {
-  const t = e.target.closest('[data-act], [data-tab], [data-edit-drug], [data-edit-disease]')
+  const t = e.target.closest('[data-act], [data-tab], [data-edit-drug], [data-edit-disease], [data-tact]')
   if (!t) return
   const act = t.dataset.act
+  const tact = t.dataset.tact
   const tab = t.dataset.tab
   const editDrug = t.dataset.editDrug
   const editDisease = t.dataset.editDisease
@@ -1406,6 +1609,7 @@ function onClick(e) {
   if (tab) { setState({ tab, search:'', filter:'', editingDrugId:null, editingDiseaseId:null }); return }
   if (editDrug) { setState({ editingDrugId: editDrug }); return }
   if (editDisease) { setState({ editingDiseaseId: editDisease }); return }
+  if (tact) { handleTopicalAction(tact, t); return }
 
   if (act === 'goto-setup') { setState({ view:'setup' }); return }
   if (act === 'save-token') {
@@ -1708,6 +1912,11 @@ function onChange(e) {
   if (t.id === 'drugs-filter' || t.id === 'diseases-filter') {
     setState({ filter: t.value }); return
   }
+  // 外用薬タブの <select> (color) は change イベントでフォーカスを失う前に拾う
+  if (t.dataset.tact) {
+    applyTopicalInput(t)
+    return
+  }
   // data-bind 経由の更新は input イベントで処理
 }
 
@@ -1718,6 +1927,11 @@ function onInput(e) {
     // 日本語変換中は再描画しない (compositionend で発火する)
     if (_imeComposing) return
     debouncedRender(t)
+    return
+  }
+  // 外用薬タブのフィールド入力 (data-tact + 既存配列を直接更新)
+  if (t.dataset.tact) {
+    applyTopicalInput(t)
     return
   }
   const bind = t.dataset.bind
@@ -1733,6 +1947,58 @@ const debouncedRender = debounce((focusEl) => {
   const after = document.getElementById(id)
   if (after) { after.focus(); after.value = val; after.setSelectionRange(val.length, val.length) }
 }, 250)
+
+// ── 外用薬タブの入力反映 ───────────────────────────────────────
+function applyTopicalInput(t) {
+  const tact = t.dataset.tact
+  const ranks = state.data.steroidRanks || (state.data.steroidRanks = [])
+  const sev   = state.data.steroidSeverity || (state.data.steroidSeverity = [])
+  const non   = state.data.steroidNonsteroid || (state.data.steroidNonsteroid = [])
+  if (tact === 'rank-field') {
+    const ri = +t.dataset.ri, f = t.dataset.field
+    if (!ranks[ri]) return
+    if (f === 'rank' || f === 'name' || f === 'desc' || f === 'color') ranks[ri][f] = t.value
+  } else if (tact === 'drug-field') {
+    const ri = +t.dataset.ri, di = +t.dataset.di, f = t.dataset.field
+    if (!ranks[ri] || !ranks[ri].drugs[di]) return
+    if (f === 'generic') ranks[ri].drugs[di].generic = t.value
+    else if (f === 'forms') ranks[ri].drugs[di].forms = t.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+  } else if (tact === 'sev-field') {
+    const si = +t.dataset.si, ci = +t.dataset.col
+    if (!sev[si]) return
+    sev[si][ci] = t.value
+  } else if (tact === 'non-field') {
+    const ni = +t.dataset.ni, f = t.dataset.field
+    if (!non[ni]) return
+    if (f === 'forms') non[ni].forms = t.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    else non[ni][f] = t.value
+  } else { return }
+  markDirty()
+}
+function handleTopicalAction(act, t) {
+  const ranks = state.data.steroidRanks || (state.data.steroidRanks = [])
+  const sev   = state.data.steroidSeverity || (state.data.steroidSeverity = [])
+  const non   = state.data.steroidNonsteroid || (state.data.steroidNonsteroid = [])
+  const arrSwap = (arr, i, j) => { if (i<0||j<0||i>=arr.length||j>=arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]] }
+  if (act === 'rank-add') ranks.push({ rank:'', name:'', color:'sky', desc:'', drugs:[] })
+  else if (act === 'rank-del') { ranks.splice(+t.dataset.ri, 1) }
+  else if (act === 'rank-up')  arrSwap(ranks, +t.dataset.ri, +t.dataset.ri-1)
+  else if (act === 'rank-down') arrSwap(ranks, +t.dataset.ri, +t.dataset.ri+1)
+  else if (act === 'drug-add') { const r = ranks[+t.dataset.ri]; if (r) r.drugs.push({ generic:'', forms:[] }) }
+  else if (act === 'drug-del') { const r = ranks[+t.dataset.ri]; if (r) r.drugs.splice(+t.dataset.di, 1) }
+  else if (act === 'drug-up')  { const r = ranks[+t.dataset.ri]; if (r) arrSwap(r.drugs, +t.dataset.di, +t.dataset.di-1) }
+  else if (act === 'drug-down'){ const r = ranks[+t.dataset.ri]; if (r) arrSwap(r.drugs, +t.dataset.di, +t.dataset.di+1) }
+  else if (act === 'sev-add') sev.push(['', '', ''])
+  else if (act === 'sev-del') sev.splice(+t.dataset.si, 1)
+  else if (act === 'sev-up')  arrSwap(sev, +t.dataset.si, +t.dataset.si-1)
+  else if (act === 'sev-down') arrSwap(sev, +t.dataset.si, +t.dataset.si+1)
+  else if (act === 'non-add') non.push({ generic:'', cls:'', strength:'', forms:[] })
+  else if (act === 'non-del') non.splice(+t.dataset.ni, 1)
+  else if (act === 'non-up')  arrSwap(non, +t.dataset.ni, +t.dataset.ni-1)
+  else if (act === 'non-down') arrSwap(non, +t.dataset.ni, +t.dataset.ni+1)
+  else return
+  markDirty(); render()
+}
 
 function applyBind(bind, value, inputType) {
   const parseListPipe = v => v.split('|').map(s => s.trim()).filter(Boolean)

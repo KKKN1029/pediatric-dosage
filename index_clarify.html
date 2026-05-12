@@ -4,17 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Pocket Wiki</title>
+  <!-- HTML 自体は常にネットワークから取得 (raw.githack も同じヘッダを返す) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
-  <link rel="manifest" href="manifest.json" />
-  <!-- iPhone ホーム画面アイコン (180x180) -->
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+  <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
+  <link rel="manifest" href="manifest.json?v=51" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=51" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=51" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=51" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=51" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=51" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -25,16 +29,44 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v49 / steroid-editable</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v51 / cache-bust</div>
 <script>
-// 古い service worker を強制的に登録解除してキャッシュを破棄（一時的・キャッシュ問題対策）
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    Promise.all(regs.map(r => r.unregister())).then(() => {
-      if ('caches' in window) caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k))))
-    })
-  })
-}
+// ============================================================
+// バージョン管理 / cache busting
+// リリース時に BUILD_VERSION を 1 つ上げるだけで、PWA・SW・CDN の
+// 古いキャッシュをユーザー操作なしで強制更新する。
+//   1. HTML 自体: meta cache-control + raw.githack の no-cache でブラウザに保留させない
+//   2. Service Worker: ?v=NN 付きで登録 → activate 時に他バージョン cache を全削除
+//   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
+//      1度だけリロードして新コードを確実に読み込む
+// ============================================================
+const BUILD_VERSION = '51'
+;(async () => {
+  if (!('serviceWorker' in navigator)) return
+  const stored = localStorage.getItem('app_build_version')
+  // 旧バージョン検出: 全 SW を unregister + 全 cache を削除して 1 度だけリロード
+  if (stored && stored !== BUILD_VERSION) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    } catch {}
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+    } catch {}
+    localStorage.setItem('app_build_version', BUILD_VERSION)
+    if (!sessionStorage.getItem('reloaded_' + BUILD_VERSION)) {
+      sessionStorage.setItem('reloaded_' + BUILD_VERSION, '1')
+      location.reload()
+      return
+    }
+  }
+  localStorage.setItem('app_build_version', BUILD_VERSION)
+  // バージョン付き URL で SW 登録 (バージョン変更時はブラウザが SW 自体を更新)
+  navigator.serviceWorker.register('sw.js?v=' + BUILD_VERSION).catch(() => {})
+})()
 </script>
 <script type="module">
 
@@ -652,6 +684,12 @@ function applyMasterData(data) {
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
   if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
+  // ステロイド外用薬データ (Gist 経由の同期)
+  if (typeof STEROID_RANKS !== 'undefined') {
+    if (Array.isArray(data.steroidRanks))      STEROID_RANKS = data.steroidRanks
+    if (Array.isArray(data.steroidSeverity))   STEROID_SEVERITY = data.steroidSeverity
+    if (Array.isArray(data.steroidNonsteroid)) STEROID_NONSTEROID_REFS = data.steroidNonsteroid
+  }
   return true
 }
 
@@ -1306,6 +1344,36 @@ function saveSteroidData() {
   localStorage.setItem('steroid_data', JSON.stringify({
     ranks: STEROID_RANKS, nonsteroid: STEROID_NONSTEROID_REFS, severity: STEROID_SEVERITY
   }))
+  // GitHub Gist にもプッシュ (token + gistId が設定されていれば)
+  pushSteroidToGist().catch(e => console.warn('[Gist push] 失敗:', e?.message || e))
+}
+async function pushSteroidToGist() {
+  let tokenRaw = localStorage.getItem('editor_gh_token')
+  let gistIdRaw = localStorage.getItem('master_gist_id') || localStorage.getItem('editor_gist_id')
+  if (!tokenRaw || !gistIdRaw) return false
+  // editor 側は JSON.stringify で保存しているため、生取得時に "..." 付きで返ることがある
+  let token, gistId
+  try { token = JSON.parse(tokenRaw) } catch { token = tokenRaw }
+  try { gistId = JSON.parse(gistIdRaw) } catch { gistId = gistIdRaw }
+  if (!token || !gistId) return false
+  // 既存 Gist データに steroid* を上書きして PATCH
+  let baseData = {}
+  try { baseData = JSON.parse(localStorage.getItem(GIST_LS_CACHE) || '{}') || {} } catch { baseData = {} }
+  baseData.steroidRanks = STEROID_RANKS
+  baseData.steroidSeverity = STEROID_SEVERITY
+  baseData.steroidNonsteroid = STEROID_NONSTEROID_REFS
+  baseData.updatedAt = new Date().toISOString()
+  const body = JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(baseData, null, 2) } } })
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body
+  })
+  if (!res.ok) throw new Error(`Gist PATCH HTTP ${res.status}`)
+  // ローカルキャッシュも更新 (次回起動時に差分検知が走らないように)
+  LS.set(GIST_LS_CACHE, baseData)
+  localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+  return true
 }
 
 function renderTopicalSteroid() {

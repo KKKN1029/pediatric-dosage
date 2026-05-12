@@ -1,8 +1,10 @@
 {
-  "name": "小児薬用量",
-  "short_name": "小児薬",
+  "name": "Pocket Wiki — 小児薬用量",
+  "short_name": "Pocket Wiki",
   "description": "小児薬用量計算アプリ",
-  "start_url": "./",
+  "id": "/pediatric-dosage-clarify",
+  "start_url": "./index_clarify.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1d4ed8",
   "theme_color": "#2563eb",
