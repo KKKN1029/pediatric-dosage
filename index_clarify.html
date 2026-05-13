@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=55" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=55" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=55" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=55" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=55" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=55" />
+  <link rel="manifest" href="manifest.json?v=56" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=56" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=56" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=56" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=56" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=56" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v55 / merge-then-diff</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v56 / category-sync</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '55'
+const BUILD_VERSION = '56'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -857,10 +857,25 @@ const hideDrug = id => { const h = loadHiddenDrugs(); h.add(id); LS.set('hidden_
 const isBuiltinDrug = id => !!DRUGS.find(d => d.id === id)
 const loadUserCategories = () => { const s = LS.get('user_categories', 'null'); return s === null ? [...CATEGORIES] : s }
 const saveUserCategories = cats => LS.set('user_categories', cats)
-const getCategories = () => loadUserCategories()
+// user_categories (ローカル順) と Gist 由来 CATEGORIES を結合して返す。
+// Gist で新たに追加されたカテゴリがあれば、user 側の末尾に追加することで
+// 編集ツールで追加した新カテゴリがサイドバーに反映されないバグを解消する。
+// ユーザがローカルだけで作ったカテゴリ (Gist に無い) も保持する。
+const getCategories = () => {
+  const user = loadUserCategories()
+  const userSet = new Set(user)
+  const gistOnly = (CATEGORIES || []).filter(c => !userSet.has(c))
+  return gistOnly.length > 0 ? [...user, ...gistOnly] : user
+}
 const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categories', 'null'); return s === null ? [...DISEASE_CATEGORIES] : s }
 const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
-const getDiseaseCategories = () => loadUserDiseaseCategories()
+// 薬剤側と同じく Gist 由来の追加分を末尾にマージする
+const getDiseaseCategories = () => {
+  const user = loadUserDiseaseCategories()
+  const userSet = new Set(user)
+  const gistOnly = (DISEASE_CATEGORIES || []).filter(c => !userSet.has(c))
+  return gistOnly.length > 0 ? [...user, ...gistOnly] : user
+}
 
 // マスターデータのダブルチェック管理
 // 1次 / 2次 の両方の確認が完了するまで未確認タブに表示する。
@@ -4145,8 +4160,11 @@ function renderManageCategories() {
         </div>
       </div>
       <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-        <p class="text-xs text-amber-700">カテゴリを削除してもそのカテゴリの薬剤は残ります。初期化ボタンで標準カテゴリに戻せます。</p>
-        <button id="btn-reset-cats" class="text-xs text-amber-700 border border-amber-300 bg-white px-3 py-1.5 rounded-lg">初期化（標準に戻す）</button>
+        <p class="text-xs text-amber-700">カテゴリを削除してもそのカテゴリの薬剤は残ります。Gist 側で新カテゴリを追加した場合は「Gistと同期」で取り込めます。</p>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-sync-cats" class="text-xs text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg">🔄 Gistと同期</button>
+          <button id="btn-reset-cats" class="text-xs text-amber-700 border border-amber-300 bg-white px-3 py-1.5 rounded-lg">初期化（標準に戻す）</button>
+        </div>
       </div>
     </div>`
 }
@@ -4203,6 +4221,10 @@ function attachManageCategories() {
 
   document.getElementById('btn-reset-cats')?.addEventListener('click', () => {
     if (!confirm('カテゴリを標準に戻しますか？')) return
+    localStorage.removeItem('user_categories'); render()
+  })
+  document.getElementById('btn-sync-cats')?.addEventListener('click', () => {
+    if (!confirm('ローカルのカテゴリ順序をクリアして Gist のカテゴリで上書きしますか？\n(編集ツールで追加したカテゴリも反映されます)')) return
     localStorage.removeItem('user_categories'); render()
   })
 }
