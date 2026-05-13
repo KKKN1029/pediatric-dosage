@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=53" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=53" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=53" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=53" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=53" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=53" />
+  <link rel="manifest" href="manifest.json?v=54" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=54" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=54" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=54" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=54" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=54" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v53 / index-sync</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v54 / gist-merge</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '53'
+const BUILD_VERSION = '54'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -616,6 +616,14 @@ let DRUGS = [
 ]
 
 // ============================================================
+// 埋め込みデータのスナップショット
+//   Gist によって DRUGS / DISEASES が上書きされる前の埋め込み値を保持。
+//   Gist 側で ivDilution など特定フィールドが欠落している場合に、
+//   この埋め込みから id 単位でフォールバック補完する。
+// ============================================================
+const EMBEDDED_DRUGS_BY_ID = new Map(DRUGS.map(d => [d.id, d]))
+
+// ============================================================
 // データアクセス (localStorage)
 // ============================================================
 
@@ -677,8 +685,21 @@ function applyMasterData(data) {
       })
       if (changed) { LS.set('check1', [...s1]); LS.set('check2', [...s2]) }
     }
-    DRUGS = data.drugs
-    try { localStorage.setItem('master_drugs_applied', JSON.stringify(data.drugs)) } catch {}
+    // Gist 値を優先しつつ、ivDilution など Gist に存在しないフィールドは
+    // 埋め込み (EMBEDDED_DRUGS_BY_ID) からフォールバック補完する。
+    // これで「共有用 URL (?gist=) で開いた時に IV 希釈表示が消える」問題を解消。
+    DRUGS = data.drugs.map(d => {
+      const emb = EMBEDDED_DRUGS_BY_ID.get(d.id)
+      if (!emb) return d
+      const merged = {...d}
+      // 個別フィールドの補完 (Gist 側が undefined/null/空配列のときだけ)
+      if (!merged.ivDilution && emb.ivDilution) merged.ivDilution = emb.ivDilution
+      if ((!Array.isArray(merged.formulations) || merged.formulations.length === 0) && Array.isArray(emb.formulations) && emb.formulations.length) {
+        merged.formulations = emb.formulations
+      }
+      return merged
+    })
+    try { localStorage.setItem('master_drugs_applied', JSON.stringify(DRUGS)) } catch {}
   }
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
