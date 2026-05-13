@@ -8,10 +8,12 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=51" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=51" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=51" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=52" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=52" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=52" />
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Excel (xlsx) 読み書き用 -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   html, body { height: 100%; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f8fafc; color: #111827; }
@@ -54,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v51 / cache-bust</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v52 / excel-io</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '51'
+const BUILD_VERSION = '52'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -103,6 +105,7 @@ const ICON = {
   save:      `<svg ${_SVG}><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>`,
   globe:     `<svg ${_SVG}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
   download:  `<svg ${_SVG}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  upload:    `<svg ${_SVG}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
   alert:     `<svg ${_SVG}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
 }
 
@@ -1417,6 +1420,23 @@ function settingsTabHTML() {
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
+        <h3 class="font-bold text-gray-900">📥 Excel 取り込み</h3>
+        <p class="text-xs text-gray-600 leading-relaxed">
+          Excel ファイル (確認シート) を読み込み、<strong>1次/2次 のチェック状態</strong>と
+          <strong>編集されたフィールド</strong> (一般名・略称・商品名・カテゴリ・サブカテゴリ・投与経路・剤形・成人量・注意・副作用・参考文献) を反映します。<br/>
+          ID 列でマッチングします。小児用量 (要約) 列は読み取り専用 (アプリ内の用量編集を使ってください)。
+        </p>
+        <div class="flex gap-2 flex-wrap">
+          <label class="btn-primary inline-flex items-center gap-1.5 cursor-pointer">
+            ${ICON.upload || '📥'} Excel ファイルを選択
+            <input id="excel-import" type="file" accept=".xlsx,.xls" style="display:none" />
+          </label>
+          <button data-act="export-excel" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} Excel をダウンロード</button>
+        </div>
+        <div id="excel-import-result" class="text-xs"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-3">
         <h3 class="font-bold text-gray-900">同僚への共有方法</h3>
         <ol class="text-xs text-gray-700 space-y-2 leading-relaxed list-decimal list-inside">
           <li>下記の「共有用 URL」を同僚に渡してください。</li>
@@ -1644,6 +1664,7 @@ function onClick(e) {
   if (act === 'export-json') {
     downloadJson(GIST_FILENAME, JSON.stringify(state.data, null, 2)); return
   }
+  if (act === 'export-excel') { handleExcelExport(); return }
   if (act === 'copy-share') {
     const url = t.dataset.url
     navigator.clipboard.writeText(url).then(() => showToast('URL をコピーしました', 'ok')).catch(() => showToast('コピーできませんでした', 'err'))
@@ -1912,12 +1933,144 @@ function onChange(e) {
   if (t.id === 'drugs-filter' || t.id === 'diseases-filter') {
     setState({ filter: t.value }); return
   }
+  if (t.id === 'excel-import' && t.files && t.files[0]) {
+    handleExcelImport(t.files[0]).finally(() => { t.value = '' })
+    return
+  }
   // 外用薬タブの <select> (color) は change イベントでフォーカスを失う前に拾う
   if (t.dataset.tact) {
     applyTopicalInput(t)
     return
   }
   // data-bind 経由の更新は input イベントで処理
+}
+
+// ── Excel 取り込み (1次/2次 + 編集された薬剤フィールドを反映) ────────────────
+async function handleExcelImport(file) {
+  const resultEl = document.getElementById('excel-import-result')
+  const set = (cls, msg) => { if (resultEl) { resultEl.className = 'text-xs ' + cls; resultEl.textContent = msg } }
+  if (typeof XLSX === 'undefined') { set('text-red-600', 'SheetJS が読み込まれていません'); return }
+  try {
+    set('text-gray-500', '読込中…')
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const ws = wb.Sheets['薬剤一覧'] || wb.Sheets[wb.SheetNames[0]]
+    if (!ws) throw new Error('シートが見つかりません')
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+    if (rows.length < 2) throw new Error('データ行がありません')
+    const header = rows[0].map(v => String(v || '').trim())
+    const idx = name => header.indexOf(name)
+    const cols = {
+      c1: idx('1次'), c2: idx('2次'), id: idx('ID'),
+      generic: idx('一般名'), abbr: idx('略称'), brand: idx('商品名'),
+      category: idx('カテゴリ'), subcategory: idx('サブカテゴリ'),
+      route: idx('投与経路'), forms: idx('剤形'), adult: idx('成人量'),
+      notes: idx('注意'), side: idx('副作用'), refs: idx('参考文献'),
+    }
+    if (cols.id < 0) throw new Error('ID 列が見つかりません')
+    // 既存のチェック状態を読み込み
+    const c1Set = new Set(JSON.parse(localStorage.getItem('check1') || '[]'))
+    const c2Set = new Set(JSON.parse(localStorage.getItem('check2') || '[]'))
+    const drugsById = new Map(state.data.drugs.map(d => [d.id, d]))
+    const toBool = v => v === true || /^true$/i.test(String(v).trim())
+    const toList = (v, sep) => String(v || '').split(sep).map(s => s.trim()).filter(Boolean)
+    let checksChanged = 0, fieldsChanged = 0, matchedRows = 0, missingIds = []
+
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i]
+      const id = String(r[cols.id] || '').trim()
+      if (!id) continue
+      const drug = drugsById.get(id)
+      if (!drug) { missingIds.push(id); continue }
+      matchedRows++
+      // 1次 / 2次 のチェック状態
+      if (cols.c1 >= 0) {
+        const want = toBool(r[cols.c1])
+        if (want !== c1Set.has(id)) { want ? c1Set.add(id) : c1Set.delete(id); checksChanged++ }
+      }
+      if (cols.c2 >= 0) {
+        const want = toBool(r[cols.c2])
+        if (want !== c2Set.has(id)) { want ? c2Set.add(id) : c2Set.delete(id); checksChanged++ }
+      }
+      // 編集されたフィールドを反映 (空欄は無視せず "空にする" として扱う)
+      const apply = (key, val) => {
+        const cur = drug[key]
+        const curStr = Array.isArray(cur) ? cur.join('|') : String(cur ?? '')
+        const valStr = Array.isArray(val) ? val.join('|') : String(val ?? '')
+        if (curStr !== valStr) { drug[key] = val; fieldsChanged++ }
+      }
+      if (cols.generic     >= 0) apply('genericName',  String(r[cols.generic] || '').trim())
+      if (cols.abbr        >= 0) apply('abbreviation', String(r[cols.abbr]    || '').trim())
+      if (cols.brand       >= 0) apply('brandNames',   toList(r[cols.brand], /\s*\/\s*/))
+      if (cols.category    >= 0) apply('category',     String(r[cols.category]    || '').trim())
+      if (cols.subcategory >= 0) apply('subcategory',  String(r[cols.subcategory] || '').trim())
+      if (cols.route       >= 0) apply('route',        String(r[cols.route]       || '').trim())
+      if (cols.forms       >= 0) apply('formulations', toList(r[cols.forms], /\n+/))
+      if (cols.adult       >= 0) apply('adultDose',    String(r[cols.adult]       || '').trim())
+      if (cols.notes       >= 0) apply('notes',        String(r[cols.notes]       || '').trim())
+      if (cols.side        >= 0) apply('sideEffects',  String(r[cols.side]        || '').trim())
+      if (cols.refs        >= 0) apply('references',   toList(r[cols.refs], /\s*\/\s*/))
+    }
+    // チェック状態を保存
+    localStorage.setItem('check1', JSON.stringify([...c1Set]))
+    localStorage.setItem('check2', JSON.stringify([...c2Set]))
+    // フィールド変更があれば markDirty
+    if (fieldsChanged > 0) markDirty()
+    const missMsg = missingIds.length ? ` / ID 不一致: ${missingIds.length} 件` : ''
+    set('text-emerald-700', `✓ 取り込み完了: ${matchedRows} 行 / 確認状態 ${checksChanged} 件 / フィールド ${fieldsChanged} 件 を更新${missMsg}`)
+    showToast(`Excel 取り込み完了 (${matchedRows} 行)`, 'ok')
+    render()
+  } catch (e) {
+    set('text-red-600', '❌ 取り込み失敗: ' + (e?.message || e))
+    showToast('Excel 取り込み失敗', 'err')
+  }
+}
+
+// ── Excel エクスポート (確認シート形式) ────────────────────────────────────
+function handleExcelExport() {
+  if (typeof XLSX === 'undefined') { showToast('SheetJS が未読込', 'err'); return }
+  const fmtDoses = doses => {
+    if (!Array.isArray(doses)) return ''
+    return doses.map(d => {
+      if (!d || typeof d !== 'object') return ''
+      const unit = d.unit || 'mg'
+      const active = d.activeLabel ? d.activeLabel + ' ' : ''
+      let dose = ''
+      if (d.fixedDose) dose = String(d.fixedDose)
+      else if (d.dosePerKg != null) dose = `${active}${d.dosePerKg} ${unit}/kg/日`
+      else if (d.dosePerKgMin != null && d.dosePerKgMax != null) dose = `${active}${d.dosePerKgMin}〜${d.dosePerKgMax} ${unit}/kg/日`
+      const maxd = d.maxDosePerDay ? ` [最大${d.maxDosePerDay}${unit}/日]` : ''
+      const freq = d.frequency ? ' ' + d.frequency : ''
+      const dur  = d.duration  ? ' ' + d.duration  : ''
+      const notes = d.notes ? ' ※' + d.notes : ''
+      const purposePart = (d.purpose && d.purpose !== '両方') ? '・' + d.purpose : ''
+      return `[${d.ageLabel || ''}${purposePart}] ${dose}${maxd}${freq}${dur}${notes}`
+    }).join('\n')
+  }
+  const c1Set = new Set(JSON.parse(localStorage.getItem('check1') || '[]'))
+  const c2Set = new Set(JSON.parse(localStorage.getItem('check2') || '[]'))
+  const header = ['1次','2次','ID','一般名','略称','商品名','カテゴリ','サブカテゴリ','投与経路','剤形','成人量','小児用量 (要約)','注意','副作用','参考文献']
+  const data = [header]
+  state.data.drugs.forEach(d => {
+    data.push([
+      c1Set.has(d.id), c2Set.has(d.id), d.id || '',
+      d.genericName || '', d.abbreviation || '',
+      Array.isArray(d.brandNames) ? d.brandNames.join(' / ') : '',
+      d.category || '', d.subcategory || '', d.route || '',
+      Array.isArray(d.formulations) ? d.formulations.join('\n') : '',
+      d.adultDose || '', fmtDoses(d.pediatricDoses),
+      d.notes || '', d.sideEffects || '',
+      Array.isArray(d.references) ? d.references.join(' / ') : ''
+    ])
+  })
+  const ws = XLSX.utils.aoa_to_sheet(data)
+  ws['!cols'] = [{wch:6},{wch:6},{wch:18},{wch:32},{wch:12},{wch:24},{wch:18},{wch:18},{wch:14},
+                 {wch:30},{wch:28},{wch:60},{wch:30},{wch:22},{wch:28}]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '薬剤一覧')
+  const filename = `小児薬用量_確認シート_${new Date().toISOString().slice(0,10)}.xlsx`
+  XLSX.writeFile(wb, filename)
+  showToast('Excel をダウンロードしました', 'ok')
 }
 
 function onInput(e) {
