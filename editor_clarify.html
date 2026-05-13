@@ -1196,22 +1196,22 @@ function topicalTabHTML() {
   const ranks = state.data.steroidRanks || []
   const severity = state.data.steroidSeverity || []
   const nonsteroid = state.data.steroidNonsteroid || []
-  const rankColor = c => ({ rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500' })[c] || 'bg-gray-500'
-  const colorOptions = ['rose','orange','amber','sky','emerald'].map(c => `<option value="${c}">${c}</option>`).join('')
+  const rankBadgeBg = c => ({ rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500' })[c] || 'bg-gray-500'
+  const rankBorder  = c => ({ rose:'border-rose-600', orange:'border-orange-500', amber:'border-amber-500', sky:'border-sky-500', emerald:'border-emerald-500' })[c] || 'border-gray-500'
 
   const rankCards = ranks.map((r, ri) => `
-    <div class="card p-4 space-y-3 border-l-4 ${rankColor(r.color)} border-l-current/0">
+    <div class="bg-white rounded-xl border border-gray-200 ${rankBorder(r.color)} border-l-4 shadow-sm p-4 space-y-3">
       <div class="flex items-center gap-2 flex-wrap">
-        <span class="${rankColor(r.color)} text-white text-xs font-bold px-2 py-1 rounded">${esc(r.rank)}</span>
+        <span class="${rankBadgeBg(r.color)} text-white text-xs font-bold px-2 py-1 rounded min-w-[3.5rem] text-center">${esc(r.rank || '—')}</span>
         <input data-tact="rank-field" data-ri="${ri}" data-field="rank" value="${esc(r.rank)}" class="input flex-1 min-w-0" placeholder="例: I 群" style="max-width:120px;" />
         <input data-tact="rank-field" data-ri="${ri}" data-field="name" value="${esc(r.name)}" class="input flex-1" placeholder="例: ストロンゲスト" style="max-width:200px;" />
         <select data-tact="rank-field" data-ri="${ri}" data-field="color" class="input" style="max-width:140px;">
           ${['rose','orange','amber','sky','emerald'].map(c => `<option value="${c}" ${r.color===c?'selected':''}>${c}</option>`).join('')}
         </select>
-        <div class="flex gap-1 ml-auto">
-          <button data-tact="rank-up" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" title="上へ" ${ri===0?'disabled':''}>${ICON.chevUp}</button>
-          <button data-tact="rank-down" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-blue-600 px-2" title="下へ" ${ri===ranks.length-1?'disabled':''}>${ICON.chevDown}</button>
-          <button data-tact="rank-del" data-ri="${ri}" class="btn-ghost text-gray-400 hover:text-red-600 px-2" title="ランク削除">${ICON.x}</button>
+        <div class="flex gap-1 ml-auto items-center">
+          <button data-tact="rank-up" data-ri="${ri}" class="btn-ghost text-gray-500 hover:text-blue-600 px-2 py-1" title="上へ" ${ri===0?'disabled':''}>${ICON.chevUp}</button>
+          <button data-tact="rank-down" data-ri="${ri}" class="btn-ghost text-gray-500 hover:text-blue-600 px-2 py-1" title="下へ" ${ri===ranks.length-1?'disabled':''}>${ICON.chevDown}</button>
+          <button data-tact="rank-del" data-ri="${ri}" class="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded px-2 py-1" title="このランクを削除">${ICON.x} 削除</button>
         </div>
       </div>
       <textarea data-tact="rank-field" data-ri="${ri}" data-field="desc" rows="1" class="input text-xs" placeholder="このランクの説明">${esc(r.desc || '')}</textarea>
@@ -2134,7 +2134,17 @@ function handleTopicalAction(act, t) {
   const non   = state.data.steroidNonsteroid || (state.data.steroidNonsteroid = [])
   const arrSwap = (arr, i, j) => { if (i<0||j<0||i>=arr.length||j>=arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]] }
   if (act === 'rank-add') ranks.push({ rank:'', name:'', color:'sky', desc:'', drugs:[] })
-  else if (act === 'rank-del') { ranks.splice(+t.dataset.ri, 1) }
+  else if (act === 'rank-del') {
+    const ri = +t.dataset.ri
+    const r = ranks[ri]
+    const drugCount = r?.drugs?.length || 0
+    const label = r?.name || r?.rank || `(${ri + 1} 番目のランク)`
+    const msg = drugCount > 0
+      ? `「${label}」を削除します。\n含まれる ${drugCount} 件の薬剤も一緒に削除されます。よろしいですか？`
+      : `「${label}」を削除します。よろしいですか？`
+    if (!confirm(msg)) return
+    ranks.splice(ri, 1)
+  }
   else if (act === 'rank-up')  arrSwap(ranks, +t.dataset.ri, +t.dataset.ri-1)
   else if (act === 'rank-down') arrSwap(ranks, +t.dataset.ri, +t.dataset.ri+1)
   else if (act === 'drug-add') { const r = ranks[+t.dataset.ri]; if (r) r.drugs.push({ generic:'', forms:[] }) }
