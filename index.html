@@ -4,17 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Pocket Wiki</title>
+  <!-- HTML 自体は常にネットワークから取得 (raw.githack も同じヘッダを返す) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
-  <link rel="manifest" href="manifest.json" />
-  <!-- iPhone ホーム画面アイコン (180x180) -->
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+  <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
+  <link rel="manifest" href="manifest.json?v=53" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=53" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=53" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=53" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=53" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=53" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -25,10 +29,44 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v53 / index-sync</div>
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(()=>{})
-}
+// ============================================================
+// バージョン管理 / cache busting
+// リリース時に BUILD_VERSION を 1 つ上げるだけで、PWA・SW・CDN の
+// 古いキャッシュをユーザー操作なしで強制更新する。
+//   1. HTML 自体: meta cache-control + raw.githack の no-cache でブラウザに保留させない
+//   2. Service Worker: ?v=NN 付きで登録 → activate 時に他バージョン cache を全削除
+//   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
+//      1度だけリロードして新コードを確実に読み込む
+// ============================================================
+const BUILD_VERSION = '53'
+;(async () => {
+  if (!('serviceWorker' in navigator)) return
+  const stored = localStorage.getItem('app_build_version')
+  // 旧バージョン検出: 全 SW を unregister + 全 cache を削除して 1 度だけリロード
+  if (stored && stored !== BUILD_VERSION) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    } catch {}
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+    } catch {}
+    localStorage.setItem('app_build_version', BUILD_VERSION)
+    if (!sessionStorage.getItem('reloaded_' + BUILD_VERSION)) {
+      sessionStorage.setItem('reloaded_' + BUILD_VERSION, '1')
+      location.reload()
+      return
+    }
+  }
+  localStorage.setItem('app_build_version', BUILD_VERSION)
+  // バージョン付き URL で SW 登録 (バージョン変更時はブラウザが SW 自体を更新)
+  navigator.serviceWorker.register('sw.js?v=' + BUILD_VERSION).catch(() => {})
+})()
 </script>
 <script type="module">
 
@@ -40,7 +78,7 @@ let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
   '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
-  '制吐薬','整腸薬・止痢薬','便秘治療薬','点眼薬','点鼻薬','その他',
+  '制吐薬','整腸薬・止痢薬','点眼薬','点鼻薬','外用薬','その他',
 ]
 
 // ============================================================
@@ -220,50 +258,74 @@ let DRUGS = [
 
   // ── セフェム系 (注射 第2世代) ──────────────────────────────
   { id:'cefmetazole', genericName:'セフメタゾールナトリウム', abbreviation:'CMZ', brandNames:['セフメタゾン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g・2g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日まで可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:25,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日まで可'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'cefminox', genericName:'セフミノクスナトリウム水和物', abbreviation:'CMNX', brandNames:['メイセリン'], category:'セフェム系', subcategory:'第2世代(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'2,000mg/日 分2 [最大6,000mg/日 分3〜4]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 第3世代) ──────────────────────────────
   { id:'cefotaxime', genericName:'セフォタキシムナトリウム', abbreviation:'CTX', brandNames:['クラフォラン','セフォタックス'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:50,dosePerKgMax:100,frequency:'分3〜4',notes:'化膿性髄膜炎では最大300mg/kg/日まで可'},
-    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    ],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'ceftizoxime', genericName:'セフチゾキシムナトリウム', abbreviation:'CZX', brandNames:['エボセリン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'注射', formulations:['注射用 125mg・250mg'], adultDose:'成人量なし（小児用）',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:70,frequency:'分3〜4'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:20,dosePerKgMax:70,frequency:'分3〜4'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'ceftriaxone', genericName:'セフトリアキソンナトリウム水和物', abbreviation:'CTRX', brandNames:['ロセフィン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分1〜2 [最大4,000mg/日 分2]',
     pediatricDoses:[
       {ageLabel:'新生児（日齢0〜3）',ageMinMonths:0,ageMaxMonths:0.1,purpose:'治療',fixedDose:'1回20mg/kg 1日1回',frequency:'分1',notes:'低出生体重児・新生児。日齢4以降は1日2回（増量）'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,frequency:'分1〜2',notes:'最大120mg/kg/日。重症感染症には1回40mg/kgまで増量し1日2回。高ビリルビン血症のある低出生体重児・新生児には禁忌'},
-    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:['カルシウム含有輸液（リンゲル液・乳酸リンゲル液・ハルトマン液）同一ルートへのCa製剤投与（特に新生児）']}, notes:'高ビリルビン血症のある低出生体重児・新生児には禁忌。', references:['新 小児薬用量 改訂第9版']},
+    ], notes:'高ビリルビン血症のある低出生体重児・新生児には禁忌。',
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:10, infusionTime:'30分以上', incompatible:['カルシウム含有輸液（リンゲル液・乳酸リンゲル液・ハルトマン液）同一ルートへのCa製剤投与（特に新生児）']},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'cefmenoxime', genericName:'セフメノキシム塩酸塩', abbreviation:'CMX', brandNames:['ベストコール'], category:'セフェム系', subcategory:'第3世代(注射)', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'重症例では160mg/kg/日、化膿性髄膜炎では200mg/kg/日まで増量可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'重症例では160mg/kg/日、化膿性髄膜炎では200mg/kg/日まで増量可'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'ceftazidime', genericName:'セフタジジム水和物', abbreviation:'CAZ', brandNames:['モダシン'], category:'セフェム系', subcategory:'第3世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'1回20mg/kg。日齢0〜3は1日2〜3回、日齢4以降は1日3〜4回'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:100,frequency:'分2〜4',notes:'最大150mg/kg/日'},
-    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜30分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    ],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 第4世代) ──────────────────────────────
   { id:'cefpirome', genericName:'セフピロム硫酸塩', abbreviation:'CPR', brandNames:['セフピロム硫酸塩CMX'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'重症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで増量可'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜30分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'重症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで増量可'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'cefozopran', genericName:'セフォゾプラン塩酸塩', abbreviation:'CZOP', brandNames:['ファーストシン'], category:'セフェム系', subcategory:'第4世代(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/バッグ(生食付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:20,dosePerKgMax:80,frequency:'分1〜2',notes:'最大160mg/kg/日。日齢0は1日1〜2回、日齢1〜7は1日2〜3回、日齢8以降は1日3〜4回'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'難治重症感染症: 160mg/kg/日、化膿性髄膜炎: 200mg/kg/日まで（最大4,000mg/日）'},
-    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    ],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (注射 オキサセフェム・配合) ────────────────
   { id:'latamoxef', genericName:'ラタモキセフナトリウム', abbreviation:'LMOX', brandNames:['シオマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'最大150mg/kg/日'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'最大150mg/kg/日'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'flomoxef', genericName:'フロモキセフナトリウム', abbreviation:'FMOX', brandNames:['フルマリン'], category:'セフェム系', subcategory:'オキサセフェム(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
     pediatricDoses:[
       {ageLabel:'新生児',ageMinMonths:0,ageMaxMonths:1,purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜3',notes:'最大150mg/kg/日。低出生体重児では腎が発達段階のため慎重投与'},
       {ageLabel:'1ヶ月以上',ageMinMonths:1,purpose:'治療',dosePerKgMin:60,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日'},
-    ], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    ],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'cefoperazone-sulbactam', genericName:'セフォペラゾン・スルバクタム', abbreviation:'CPZ/SBT', brandNames:['スルペラゾン'], category:'セフェム系', subcategory:'β-ラクタマーゼ阻害薬配合(注射)', route:'静注', formulations:['注射用 0.5g・1g/V','1g/キット(生食100mL付)'], adultDose:'混合物として1,000〜2,000mg/日 分2 [最大4,000mg/日 分2]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'混合物として。最大160mg/kg/日'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分2〜4',notes:'混合物として。最大160mg/kg/日'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
 
   // ── セフェム系 (経口 第1世代) ─────────────────────────────
   { id:'cefalexin', genericName:'セファレキシン', abbreviation:'CEX', brandNames:['ケフレックス','L-ケフレックス'], category:'セフェム系', subcategory:'第1世代(経口)', route:'内服', formulations:['カプセル 250mg','DS 100mg・200mg/g','徐放顆粒 500mg/g'], adultDose:'1,000mg/日 [最大2,000mg/日]',
@@ -285,29 +347,42 @@ let DRUGS = [
 
   // ── モノバクタム系 ────────────────────────────────────────
   { id:'aztreonam', genericName:'アズトレオナム', abbreviation:'AZT', brandNames:['アザクタム'], category:'その他の抗菌薬', subcategory:'モノバクタム系', route:'筋注・静注', formulations:['注射用 0.5g・1g/V'], adultDose:'1,000〜2,000mg/日 分2 [最大4,000mg/日 分2〜4]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日。低出生体重児・新生児には1回20mg/kgを生後3日まで1日2回、4日以降は1日2〜3回'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'20〜60分',incompatible:[]}, references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:40,dosePerKgMax:80,frequency:'分3〜4',notes:'最大150mg/kg/日。低出生体重児・新生児には1回20mg/kgを生後3日まで1日2回、4日以降は1日2〜3回'}],
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
 
   // ── カルバペネム系 ────────────────────────────────────────
   { id:'imipenem-cilastatin', genericName:'イミペネム水和物・シラスタチンナトリウム', abbreviation:'IPM/CS', brandNames:['チエナム'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.5g/V','筋注用 0.5g/V','キット(生食100mL付)'], adultDose:'イミペネムとして 500〜1,000mg/日 分2〜3 [最大2,000mg/日]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:80,maxDosePerDay:2000,frequency:'分3〜4',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意。けいれん・意識障害等の中枢神経症状に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:5,infusionTime:'30〜60分',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:80,maxDosePerDay:2000,frequency:'分3〜4',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意。けいれん・意識障害等の中枢神経症状に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, reconstitutionMlPerGram:20, infusionTime:'30〜60分', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'panipenem-betamipron', genericName:'パニペネム・ベタミプロン', abbreviation:'PAPM/BP', brandNames:['カルベニン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V'], adultDose:'パニペネムとして1,000mg/日 分2 30分以上かけて [最大2,000mg/日 分2]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:2000,frequency:'分3',notes:'30分以上かけて点滴（最大100mg/kg/日）。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:5,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:2000,frequency:'分3',notes:'30分以上かけて点滴（最大100mg/kg/日）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:5, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'meropenem', genericName:'メロペネム水和物', abbreviation:'MEPM', brandNames:['メロペン'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.5g/キット(生食100mL付)'], adultDose:'500〜1,000mg/日 分2〜3 [最大3,000mg/日 分3]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。化膿性髄膜炎では最大120mg/kg/日（6,000mg/日まで）。発熱性好中球減少症では120mg/kg/日（3,000mg/日まで）。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:30,dosePerKgMax:60,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。化膿性髄膜炎では最大120mg/kg/日（6,000mg/日まで）。発熱性好中球減少症では120mg/kg/日（3,000mg/日まで）。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
   { id:'doripenem', genericName:'ドリペネム水和物', abbreviation:'DRPM', brandNames:['フィニバックス'], category:'その他の抗菌薬', subcategory:'カルバペネム系', route:'点滴静注', formulations:['点滴静注用 0.25g・0.5g/V','0.25g/キット(生食100mL付)'], adultDose:'ドリペネムとして500〜1,500mg/日 分2〜3 [最大3,000mg/日 分3]',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], ivDilution:{solvent:'NS/5%DW',maxConcMgPerMl:20,infusionTime:'30分以上',incompatible:[]}, notes:'バルプロ酸の血中濃度を低下させるため併用に注意。', references:['新 小児薬用量 改訂第9版']},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:60,dosePerKgMax:120,maxDosePerDay:3000,frequency:'分3',notes:'30分以上かけて点滴。バルプロ酸投与中の患者に注意'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。',
+    ivDilution:{solvent:'NS/5%DW', maxConcMgPerMl:20, reconstitutionMlPerGram:20, infusionTime:'30分以上', incompatible:[]},
+    references:['新 小児薬用量 改訂第9版']},
+
+  // ── ST合剤 (SMX/TMP) ─────────────────────────────────────
+  { id:'sulfamethoxazole-trimethoprim', genericName:'スルファメトキサゾール・トリメトプリム', abbreviation:'SMX/TMP', brandNames:['バクタ','バクトラミン','バクタミニ'], category:'その他の抗菌薬', subcategory:'ST合剤', route:'内服・点滴静注',
+    formulations:['配合錠 (SMX 400mg + TMP 80mg)','バクタミニ配合錠 (SMX 100mg + TMP 20mg)','配合顆粒 (1g中 SMX 400mg + TMP 80mg)','注射用 5mL/A (SMX 400mg + TMP 80mg)'],
+    adultDose:'TMP として 160〜320mg/日 分2',
+    pediatricDoses:[
+      {ageLabel:'治療 (生後2ヶ月以上)',ageMinMonths:2,purpose:'治療',activeLabel:'TMP として',unit:'mg',dosePerKgMin:8,dosePerKgMax:12,maxDosePerDay:320,frequency:'分2',notes:'TMP として算出。SMX 換算では 40〜60 mg/kg/日 (最大1,600mg/日)。生後2ヶ月未満は原則禁忌'},
+      {ageLabel:'PCP予防',ageMinMonths:2,purpose:'予防',activeLabel:'TMP として',unit:'mg',dosePerKg:5,maxDosePerDay:160,frequency:'分2 週3日',notes:'ニューモシスチス肺炎予防。週3日 (月・水・金など) のみ投与'},
+    ],
+    notes:'生後2ヶ月未満は原則禁忌。葉酸代謝阻害により骨髄抑制リスク。腎機能障害時は減量。注射剤は点滴静注のみ (筋注不可)。',
+    ivDilution:{solvent:'5%DW', maxConcMgPerMl:1, infusionTime:'60〜90分', incompatible:['NS（沈殿形成のリスク）']},
+    references:['新 小児薬用量 改訂第9版']},
+
   { id:'tebipenem-pivoxil', genericName:'テビペネムピボキシル', abbreviation:'TBPM-PI', brandNames:['オラペネム'], category:'その他の抗菌薬', subcategory:'カルバペネム系(経口)', route:'内服', formulations:['小児用細粒 100mg/g'], adultDose:'（成人適応なし）',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:8,frequency:'分2',duration:'7日間以内',notes:'食後投与。最大12mg/kg/日。バルプロ酸投与中の患者に注意。血清中カルニチンを低下させ低血糖をきたすことがある'}], notes:'バルプロ酸の血中濃度を低下させるため併用に注意。経口カルバペネム。', references:['新 小児薬用量 改訂第9版']},
-  // ── ST合剤 ────────────────────────────────────────────────
-  { id:'smx-tmp-v5', genericName:'スルファメトキサゾール・トリメトプリム', abbreviation:'SMX/TMP', brandNames:['バクタ','バクトラミン','バクタミン'], category:'その他の抗菌薬', subcategory:'ST合剤', route:'内服・点静', formulations:['配合顆粒 1g (SMX 400mg+TMP 80mg)','配合錠 1錠 (SMX 400mg+TMP 80mg)','バクタミン配合錠 1錠 (SMX 100mg+TMP 20mg)','注射液 1A (SMX 400mg+TMP 80mg)'], adultDose:'一般感染症: TMP として 8〜12mg/kg/日 分2',
-    pediatricDoses:[
-      {ageLabel:'通常感染症',purpose:'治療',dosePerKgMin:8,dosePerKgMax:12,maxDosePerDay:320,frequency:'分2',unit:'mg',activeLabel:'TMP'},
-      {ageLabel:'重症 (S. maltophilia 等)',purpose:'治療',dosePerKg:20,maxDosePerDay:320,frequency:'分3',unit:'mg',activeLabel:'TMP'},
-      {ageLabel:'UTI 予防',purpose:'予防',dosePerKg:2,maxDosePerDay:160,frequency:'分1',unit:'mg',activeLabel:'TMP'},
-      {ageLabel:'PCP 治療',purpose:'PCP治療',dosePerKgMin:15,dosePerKgMax:20,maxDosePerDay:320,frequency:'分3〜4',duration:'21日間',unit:'mg',activeLabel:'TMP'},
-      {ageLabel:'PCP/トキソプラズマ予防',purpose:'予防',dosePerKgMin:4,dosePerKgMax:8,maxDosePerDay:320,frequency:'分2 (毎日または週3回)',unit:'mg',activeLabel:'TMP'},
-      {ageLabel:'百日咳曝露予防',purpose:'予防',dosePerKg:8,maxDosePerDay:320,frequency:'分2',duration:'14日間',unit:'mg',activeLabel:'TMP'},
-    ], ivDilution:{solvent:'5%DW',maxConcMgPerMl:1,infusionTime:'60〜90分',incompatible:['NS（沈殿形成のリスク）']}, notes:'低出生体重児・新生児に禁忌（高ビリルビン血症）。葉酸代謝阻害により造血器疾患患者には注意。腎機能に応じた投与量調整が必要。スペクトラム: GNR多数・GPC一部 (MRSA含む)・PCP・トキソプラズマ・ノカルジア。', sideEffects:'皮疹 (Stevens-Johnson症候群)、骨髄抑制、高カリウム血症', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   // 抗ヒスタミン薬 (小児の薬の選び方・使い方 第5版)
   { id:'alimemazine-v5', genericName:'アリメマジン', abbreviation:'アリメマジン', brandNames:['アリメジン'], category:'抗アレルギー薬', subcategory:'第1世代抗ヒスタミン薬', route:'内服', formulations:['シロップ 0.05%'], adultDose:'7.5〜10mg/日',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.2,maxDosePerDay:10,frequency:'分3〜4'}], notes:'適応: じんましん・湿疹・皮膚炎、アレルギー性鼻炎、上気道炎に伴う鼻水・咳。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
@@ -368,10 +443,10 @@ let DRUGS = [
   // ステロイド薬 - 経口
   { id:'prednisolone-oral-v5', genericName:'プレドニゾロン (経口)', abbreviation:'プレドニゾロン (経口)', brandNames:['プレドニン','プレドニゾロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['散 1%','錠 1mg・2.5mg・5mg'], adultDose:'60mg/日 まで',
     pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:60,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,frequency:'分3'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'dexamethasone-oral-v5', genericName:'デキサメタゾン (経口)', abbreviation:'デキサメタゾン (経口)', brandNames:['デカドロン','レナデックス','オルガドロン','デキサート'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・注射', formulations:['エリキシル 0.01%','錠 0.5mg・4mg','レナデックス錠 4mg','注射液 1.65mg・3.3mg・6.6mg (オルガドロン・デカドロン・デキサート)'], adultDose:'添付文書参照',
-    pediatricDoses:[{ageLabel:'クループ (単回)',purpose:'クループ',dosePerKg:0.15,frequency:'単回投与',notes:'最大0.6mg/kg/回。経口・非経口いずれも効果は同じ。錠剤は粉砕投与可。'},{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。クループには経口投与が第一選択（非経口と効果同等）。', references:['小児の薬の選び方・使い方 第5版','小児の薬の選び方・使い方 第5版 クループの章'], pending:true},
-  { id:'betamethasone-oral-v5', genericName:'ベタメタゾン (経口)', abbreviation:'ベタメタゾン (経口)', brandNames:['リンデロン','リネステロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・坐剤・注射', formulations:['リンデロンシロップ 0.01%','散 0.1%','リネステロン散 0.1%','坐剤 0.5mg・1.0mg','錠 0.5mg','注射液 2mg・4mg・20mg・100mg (リンデロン注)'], adultDose:'添付文書参照',
-    pediatricDoses:[{ageLabel:'クループ (単回)',purpose:'クループ',dosePerKg:0.15,frequency:'単回投与',notes:'最大0.6mg/kg/回。経口・非経口いずれも効果は同じ。'},{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。クループには経口投与が第一選択（非経口と効果同等）。', references:['小児の薬の選び方・使い方 第5版','小児の薬の選び方・使い方 第5版 クループの章'], pending:true},
+  { id:'dexamethasone-oral-v5', genericName:'デキサメタゾン (経口)', abbreviation:'デキサメタゾン (経口)', brandNames:['デカドロン','レナデックス'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['エリキシル 0.01%','錠 0.5mg・4mg','レナデックス錠 4mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+  { id:'betamethasone-oral-v5', genericName:'ベタメタゾン (経口)', abbreviation:'ベタメタゾン (経口)', brandNames:['リンデロン','リネステロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服・坐剤', formulations:['リンデロンシロップ 0.01%','散 0.1%','坐剤 0.5mg・1.0mg','錠 0.5mg'], adultDose:'添付文書参照',
+    pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.2,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKg:0.05,frequency:'分2'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   // ステロイド薬 - 静注
   { id:'hydrocortisone-iv-v5', genericName:'ヒドロコルチゾン (静注)', abbreviation:'ヒドロコルチゾン', brandNames:['ソル・コーテフ','サクシゾン'], category:'ステロイド薬', subcategory:'静注ステロイド薬', route:'静注', formulations:['注射用 100mg・300mg'], adultDose:'添付文書参照',
     pediatricDoses:[{ageLabel:'2歳未満',ageMaxMonths:24,purpose:'治療',fixedDose:'初回 5mg/kg',frequency:'定期 5mg/kg 6〜8時間ごと'},{ageLabel:'2〜15歳',ageMinMonths:24,ageMaxMonths:180,purpose:'治療',fixedDose:'初回 5〜7mg/kg',frequency:'定期 5〜7mg/kg 6時間ごと'}], notes:'小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
@@ -469,36 +544,6 @@ let DRUGS = [
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:10,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'tannin-albumin-v5', genericName:'タンニン酸アルブミン', abbreviation:'タンニン酸Alb', brandNames:['タンナルビン','タンナルビン (ホエイ)','タンニン酸アルブミン (ニッコー)'], category:'整腸薬・止痢薬', route:'内服', formulations:['末'], adultDose:'3〜4g/日',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:4,frequency:'分3',unit:'g'}], notes:'牛乳アレルギーに禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-
-  // 便秘治療薬 (小児の薬の選び方・使い方 第5版)
-  { id:'maltu-extract-v5', genericName:'マルツエキス', abbreviation:'マルツエキス', brandNames:['マルツエキス'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['分包 9g'], adultDose:'−',
-    pediatricDoses:[{ageLabel:'乳児',ageMaxMonths:12,purpose:'治療',dosePerKg:1,frequency:'1〜3回/日',unit:'g',notes:'1回1g/kg'}], notes:'主に乳児に使用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'lactulose-v5', genericName:'ラクツロース', abbreviation:'ラクツロース', brandNames:['モニラック','ピアーレ','リフォロース'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['シロップ 65%','モニラック原末'], adultDose:'30〜60mL/日',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:2,maxDosePerDay:60,frequency:'分3',unit:'mL',notes:'シロップ65%として。ゼリー製剤は小児便秘に保険適用なし'}], notes:'乳児・幼児に使用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'magnesium-oxide-v5', genericName:'酸化マグネシウム', abbreviation:'酸化Mg', brandNames:['マグミット','重質酸化マグネシウム'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['細粒 83%','錠 200mg・250mg・330mg・500mg'], adultDose:'2g/日',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.05,maxDosePerDay:2,frequency:'分3',unit:'g'}], notes:'腎機能障害患者では高マグネシウム血症に注意。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'macrogol4000-v5', genericName:'マクロゴール4000配合内用薬', abbreviation:'マクロゴール', brandNames:['モビコール'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['配合内用薬 LD (1包=6.8529g)','配合内用薬 HD (1包=13.7058g)'], adultDose:'2〜6包/日',
-    pediatricDoses:[
-      {ageLabel:'2〜7歳未満',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'1包 1日1回から開始 → 1日1〜3回 (最大4包/日、1回最大2包)',notes:'増量は2日以上あけて1包ずつ'},
-      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1包 1日1回から開始 → 1日1〜3回 (最大4包/日、1回最大2包)',notes:'増量は2日以上あけて1包ずつ'},
-      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'2包 1日1回から開始 → 1日1〜3回 (最大6包/日、1回最大4包)',notes:'増量は2日以上あけて2包ずつ'},
-    ], notes:'2歳未満に対する安全性未確立。水に溶かして服用。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'picosulfate-v5', genericName:'ピコスルファートナトリウム水和物', abbreviation:'ピコスルファート', brandNames:['ラキソベロン','スナイリン','シンラック'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['内用液 0.75% (1滴≒0.3mg)','ドライシロップ 1%','錠 2.5mg'], adultDose:'5〜7.5mg/日 (10〜15滴)',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'3〜5mg/日 (5〜10滴)',frequency:'分1',notes:'増量可。ドライシロップDS換算: 0.3〜0.5g/日'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'sennoside-v5', genericName:'センノシド', abbreviation:'センノシド', brandNames:['プルゼニド','センノシド錠'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['錠 12mg'], adultDose:'12〜24mg/日 (最大48mg/日)',
-    pediatricDoses:[{ageLabel:'中学生以上 (12歳以上)',ageMinMonths:144,purpose:'治療',fixedDose:'12mg/日',frequency:'分1',notes:'最大48mg/日'}], notes:'小児に対する安全性未確立（中学生以上に限定使用）。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'bisacodyl-supp-v5', genericName:'ビサコジル (坐剤)', abbreviation:'ビサコジル', brandNames:['テレミンソフト','ピサコジル'], category:'便秘治療薬', subcategory:'刺激性下剤 (坐剤)', route:'坐剤', formulations:['坐剤 2mg','坐剤 10mg'], adultDose:'10〜20mg/回',
-    pediatricDoses:[
-      {ageLabel:'乳幼児',ageMaxMonths:72,purpose:'治療',fixedDose:'2mg/回',frequency:'1〜2回/日'},
-      {ageLabel:'小児 (6歳以上)',ageMinMonths:72,purpose:'治療',fixedDose:'5mg/回',frequency:'1〜2回/日'},
-    ], references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'sodium-bicarbonate-supp-v5', genericName:'炭酸水素ナトリウム坐剤', abbreviation:'炭酸水素Na', brandNames:['新レシカルボン'], category:'便秘治療薬', subcategory:'刺激性下剤 (坐剤)', route:'坐剤', formulations:['坐剤 (1個=重炭酸ナトリウム500mg+無水リン酸二水素ナトリウム680mg)'], adultDose:'1〜2個/回',
-    pediatricDoses:[
-      {ageLabel:'乳幼児',ageMaxMonths:72,purpose:'治療',fixedDose:'1/4個/回',frequency:'必要時'},
-      {ageLabel:'小児 (6歳以上)',ageMinMonths:72,purpose:'治療',fixedDose:'1/2個/回',frequency:'必要時'},
-    ], references:['小児の薬の選び方・使い方 第5版'], pending:true},
-  { id:'glycerin-enema-v5', genericName:'グリセリン浣腸液', abbreviation:'グリセリン浣腸', brandNames:['グリセリン浣腸「オヲタ」','グリセリン浣腸液50%「東豊」'], category:'便秘治療薬', subcategory:'浸透圧性下剤 (浣腸)', route:'浣腸', formulations:['小児用 30mL・60mL・120mL・150mL','液 40mL・60mL・110mL・150mL・500mL'], adultDose:'60〜150mL/回',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:150,frequency:'単回',unit:'mL',notes:'最大150mL/回。体温程度に温めて使用'}], notes:'腸管穿孔・腸閉塞・肛門・直腸疾患には禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
 
   // 抗アレルギー点眼薬 (小児の薬の選び方・使い方 第5版)
   { id:'amlexanox-eye-v5', genericName:'アンレキサノクス点眼', abbreviation:'アンレキサノクス', brandNames:['エリックス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.25%'], adultDose:'1回1〜2滴を1日4回',
@@ -610,12 +655,41 @@ function setGistId(id) {
 
 function applyMasterData(data) {
   if (!data || typeof data !== 'object') return false
-  // Gist のデータをそのまま採用（id ベースの自動同期は行わない。確認/未確認はユーザーが判断する）
-  if (Array.isArray(data.drugs)) DRUGS = data.drugs
+  // Gist や cache 経由で薬剤データが更新された場合、変更された薬剤のダブルチェックを解除する
+  // 比較の基準は前回 applyMasterData した時のスナップショット (master_drugs_applied)
+  if (Array.isArray(data.drugs)) {
+    let lastApplied = []
+    try { lastApplied = JSON.parse(localStorage.getItem('master_drugs_applied') || '[]') } catch {}
+    if (Array.isArray(lastApplied) && lastApplied.length > 0) {
+      const prevById = new Map(lastApplied.map(d => [d.id, JSON.stringify(d)]))
+      const newById = new Map(data.drugs.map(d => [d.id, JSON.stringify(d)]))
+      const s1 = new Set(LS.get('check1', '[]'))
+      const s2 = new Set(LS.get('check2', '[]'))
+      let changed = false
+      new Set([...s1, ...s2]).forEach(id => {
+        const prev = prevById.get(id), nxt = newById.get(id)
+        // 前回適用と今回適用でデータが変わっていれば確認を解除
+        // (前回に存在しなかった id (prev=undefined) は変更ではないので解除しない)
+        if (prev !== undefined && prev !== nxt) {
+          if (s1.delete(id)) changed = true
+          if (s2.delete(id)) changed = true
+        }
+      })
+      if (changed) { LS.set('check1', [...s1]); LS.set('check2', [...s2]) }
+    }
+    DRUGS = data.drugs
+    try { localStorage.setItem('master_drugs_applied', JSON.stringify(data.drugs)) } catch {}
+  }
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
   if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
+  // ステロイド外用薬データ (Gist 経由の同期)
+  if (typeof STEROID_RANKS !== 'undefined') {
+    if (Array.isArray(data.steroidRanks))      STEROID_RANKS = data.steroidRanks
+    if (Array.isArray(data.steroidSeverity))   STEROID_SEVERITY = data.steroidSeverity
+    if (Array.isArray(data.steroidNonsteroid)) STEROID_NONSTEROID_REFS = data.steroidNonsteroid
+  }
   return true
 }
 
@@ -742,7 +816,15 @@ async function openMasterGistDialog() {
 }
 
 const loadEdits = () => LS.get('drug_edits')
-const saveEdit = (id, patch) => { const e = loadEdits(); e[id] = {...(e[id]||{}), ...patch}; LS.set('drug_edits', e) }
+const saveEdit = (id, patch) => {
+  const e = loadEdits(); e[id] = {...(e[id]||{}), ...patch}; LS.set('drug_edits', e)
+  // 編集が入った薬剤はダブルチェックをリセットして未確認に戻す
+  // (ローカル変数として直接 set を扱う — 関数定義順の制約を避ける)
+  try {
+    const s1 = new Set(LS.get('check1', '[]')); if (s1.delete(id)) LS.set('check1', [...s1])
+    const s2 = new Set(LS.get('check2', '[]')); if (s2.delete(id)) LS.set('check2', [...s2])
+  } catch {}
+}
 const loadCustomDrugs = () => LS.get('custom_drugs', '[]')
 const saveCustomDrugs = d => LS.set('custom_drugs', d)
 const loadSets = () => LS.get('drug_sets', '[]')
@@ -759,20 +841,49 @@ const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categor
 const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
 const getDiseaseCategories = () => loadUserDiseaseCategories()
 
-// マスターデータの未確認薬剤管理（pending:true の薬剤をユーザーが確認済みにする）
-const loadConfirmedMaster = () => new Set(LS.get('confirmed_master', '[]'))
-const confirmMasterDrug = id => { const s = loadConfirmedMaster(); s.add(id); LS.set('confirmed_master', [...s]) }
-// マスターデータのうち未確認のもの（confirmed_master に未登録のもの全て）
-function getPendingMasterDrugs() {
-  // pending:true のマスター薬剤のみ未確認タブに表示
-  // (利用者が「確認」ボタンを押すと confirmed_master に入り、未確認タブから消える)
-  const hidden = loadHiddenDrugs()
-  const confirmed = loadConfirmedMaster()
-  return DRUGS.filter(d => d.pending === true && !hidden.has(d.id) && !confirmed.has(d.id))
+// マスターデータのダブルチェック管理
+// 1次 / 2次 の両方の確認が完了するまで未確認タブに表示する。
+const loadCheck1 = () => new Set(LS.get('check1', '[]'))
+const loadCheck2 = () => new Set(LS.get('check2', '[]'))
+const saveCheck1 = s => LS.set('check1', [...s])
+const saveCheck2 = s => LS.set('check2', [...s])
+const isCheck1 = id => loadCheck1().has(id)
+const isCheck2 = id => loadCheck2().has(id)
+const isFullyChecked = id => isCheck1(id) && isCheck2(id)
+const toggleCheck = (id, level) => {
+  const set = level === 1 ? loadCheck1() : loadCheck2()
+  set.has(id) ? set.delete(id) : set.add(id)
+  ;(level === 1 ? saveCheck1 : saveCheck2)(set)
 }
-// カスタム＋マスター両方の未確認薬剤を返す
+// 旧 confirmed_master からの一度きりの移行: 旧データは「1次のみ確認済み」として扱う
+;(() => {
+  const old = LS.get('confirmed_master', null)
+  if (Array.isArray(old) && old.length > 0) {
+    const s1 = loadCheck1()
+    old.forEach(id => s1.add(id))
+    saveCheck1(s1)
+    LS.set('confirmed_master', [])
+  }
+})()
+// 互換用 (古いコードパスから呼ばれる可能性に備えて残す)
+const loadConfirmedMaster = () => new Set([...loadCheck1()].filter(id => isCheck2(id)))
+const confirmMasterDrug = id => { /* 後方互換ダミー: 新しいフローでは使わない */ }
+// マスターデータのうち未確認のもの (1次・2次の両方が完了していない全薬剤)
+function getPendingMasterDrugs() {
+  const hidden = loadHiddenDrugs()
+  return DRUGS.filter(d => !hidden.has(d.id) && !isFullyChecked(d.id))
+}
+// 全薬剤の未確認版を返す: pending custom drafts + master + custom_drugs (登録済み)
+// すべて id で dedupe し、hidden と fully checked を除外する。
 function getAllPendingDrugs() {
-  return [...loadPendingDrugs(), ...getPendingMasterDrugs()]
+  const hidden = loadHiddenDrugs()
+  const seen = new Set()
+  const result = []
+  const push = d => { if (!hidden.has(d.id) && !isFullyChecked(d.id) && !seen.has(d.id)) { result.push(d); seen.add(d.id) } }
+  loadPendingDrugs().forEach(push)
+  DRUGS.forEach(push)
+  loadCustomDrugs().forEach(push)
+  return result
 }
 
 function deleteDrug(id) {
@@ -791,17 +902,40 @@ function getAllDrugs() {
   const edits = loadEdits()
   const hidden = loadHiddenDrugs()
   // 全マスター薬剤を表示（pending フラグは未確認タブのマーカーとしてだけ使用）
+  // 編集マージ後も master の ivDilution は必ず保持する（ローカル編集で消えてしまう不具合への対策）
   return [
     ...DRUGS.filter(d => !hidden.has(d.id))
-             .map(d => edits[d.id] ? {...d,...edits[d.id]} : d),
+             .map(d => {
+               if (!edits[d.id]) return d
+               const merged = {...d, ...edits[d.id]}
+               if (d.ivDilution && !merged.ivDilution) merged.ivDilution = d.ivDilution
+               return merged
+             }),
     ...loadCustomDrugs().filter(d => !hidden.has(d.id)),
   ]
 }
-function getDrugById(id) { return getAllDrugs().find(d => d.id === id) }
-function getDrugsByCategory(cat) { return getAllDrugs().filter(d => d.category === cat) }
+function getDrugById(id) {
+  // 通常の薬剤 (マスター + カスタム) → カスタム pending → マスター pending（hidden は除外）
+  const found = getAllDrugs().find(d => d.id === id)
+             || loadPendingDrugs().find(d => d.id === id)
+             || DRUGS.find(d => d.id === id && d.pending === true && !loadHiddenDrugs().has(d.id))
+  if (!found) return null
+  // ivDilution が欠落している場合は、master から id / abbreviation / genericName で照合してフォールバック
+  if (!found.ivDilution) {
+    const master = DRUGS.find(d => d.id === id)
+                || DRUGS.find(d => found.abbreviation && d.abbreviation === found.abbreviation)
+                || DRUGS.find(d => found.genericName && d.genericName === found.genericName)
+    if (master?.ivDilution) return {...found, ivDilution: master.ivDilution}
+  }
+  return found
+}
+// 完全確認済み (1次・2次両方) の薬剤のみを返す
+// 未確認の薬剤は通常カテゴリ・お気に入り・検索結果から除外し、未確認タブからのみ閲覧できる
+function getVerifiedDrugs() { return getAllDrugs().filter(d => isFullyChecked(d.id)) }
+function getDrugsByCategory(cat) { return getVerifiedDrugs().filter(d => d.category === cat) }
 function searchDrugsQ(q) {
   const lq = jpNorm(q)
-  return getAllDrugs().filter(d =>
+  return getVerifiedDrugs().filter(d =>
     jpNorm(d.genericName).includes(lq) ||
     jpNorm(d.abbreviation).includes(lq) ||
     d.brandNames.some(b => jpNorm(b).includes(lq))
@@ -986,7 +1120,6 @@ function calcDoseResult(dose, weight) {
   const unit = dose.unit || 'mg'
   // 力価ラベル (例: "AMPC として") を 1日量・1回量の文頭に付ける
   const activePrefix = dose.activeLabel ? `${dose.activeLabel} ` : ''
-  // g換算フォーマッター (activeLabel + mg のとき: TMP 0.08g など)
   const gFmt = v => parseFloat((v/1000).toFixed(3)) + 'g'
   let text, min, max
   if (dose.dosePerKg) {
@@ -995,9 +1128,10 @@ function calcDoseResult(dose, weight) {
   } else if (dose.dosePerKgMin!=null && dose.dosePerKgMax!=null) {
     const lo=round1(Math.min(dose.dosePerKgMin*weight, dose.maxDosePerDay??Infinity))
     const hi=round1(Math.min(dose.dosePerKgMax*weight, dose.maxDosePerDay??Infinity))
-    text = lo===hi ? `${activePrefix}${lo} ${unit}/日` : `${activePrefix}${lo}〜${hi} ${unit}/日`; min=lo; max=hi
+    text = lo===hi ? `${activePrefix}${lo} ${unit}/日` : `${activePrefix}${lo}〜${hi} ${unit}/日`
+    min=lo; max=hi
   } else return null
-  // g換算を追記 (activeLabel + mg のとき: バクタTMP力価など)
+  // activeLabel (例: TMP力価) のある mg 用量は g 換算も併記
   if (dose.activeLabel && unit === 'mg') {
     const gLo=gFmt(min); const gHi=gFmt(max)
     text += gLo===gHi ? `（${gLo}）` : `（${gLo}〜${gHi}）`
@@ -1120,6 +1254,447 @@ function render() {
   else if (s==='disease-detail') { app.innerHTML=renderDiseaseDetail(getDiseaseById(state.diseaseId)); attachDiseaseDetail() }
   else if (s==='add-disease')    { app.innerHTML=renderAddDisease(); attachAddDisease() }
   else if (s==='manage-disease-categories') { app.innerHTML=renderManageDiseaseCategories(); attachManageDiseaseCategories() }
+  else if (s==='vitalsigns') { app.innerHTML=renderVitalSigns(); attachVitalSigns() }
+  else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
+}
+
+// ── ステロイド外用薬一覧 ───────────────────────────────────────
+// 出典: アトピー性皮膚炎診療ガイドライン 2024 (日皮会誌 2024;134:2741-2843,
+//       アレルギー 2024;73:1025-1125) をもとに作成された協和キリン資料
+//       「アトピー性皮膚炎に対するステロイド外用薬の使い方」(2026年1月作成) より引用
+let STEROID_RANKS = [
+  {
+    rank:'I 群', name:'ストロンゲスト', color:'rose', desc:'最も強力。重症の苔癬化病変・難治例に短期使用',
+    drugs:[
+      { generic:'クロベタゾールプロピオン酸エステル', forms:['軟膏','クリーム','ローション','コムクロ®シャンプー 0.05%'] },
+      { generic:'ジフロラゾン酢酸エステル', forms:['ダイアコート®軟膏 0.05%','ダイアコート®クリーム 0.05%'] },
+    ],
+  },
+  {
+    rank:'II 群', name:'ベリーストロング', color:'orange', desc:'中等症〜重症。重症皮疹の第一選択',
+    drugs:[
+      { generic:'モメタゾンフランカルボン酸エステル', forms:['フルメタ®軟膏','フルメタ®クリーム','フルメタ®ローション'] },
+      { generic:'ベタメタゾン酪酸エステルプロピオン酸エステル', forms:['アンテベート®軟膏 0.05%','アンテベート®クリーム 0.05%','アンテベート®ローション 0.05%'] },
+      { generic:'フルオシノニド', forms:['トプシム®軟膏 0.05%','トプシム®クリーム 0.05%','トプシム®E クリーム 0.05%','トプシム®ローション 0.05%','トプシム®スプレー 0.0143%'] },
+      { generic:'ベタメタゾンジプロピオン酸エステル', forms:['リンデロン®-DP 軟膏','リンデロン®-DP クリーム','リンデロン®-DP ゾル'] },
+      { generic:'ジフルプレドナート', forms:['マイザー®軟膏 0.05%','マイザー®クリーム 0.05%'] },
+      { generic:'アムシノニド', forms:['ビスダーム®軟膏 0.1%','ビスダーム®クリーム 0.1%'] },
+      { generic:'酪酸プロピオン酸ヒドロコルチゾン', forms:['パンデル®軟膏 0.1%','パンデル®クリーム 0.1%','パンデル®ローション 0.1%'] },
+      { generic:'ジフルコルトロン吉草酸エステル', forms:['ネリゾナ®軟膏 0.1%','ネリゾナ®クリーム 0.1%','ネリゾナ®ユニバーサルクリーム 0.1%','ネリゾナ®ソリューション 0.1%'] },
+    ],
+  },
+  {
+    rank:'III 群', name:'ストロング', color:'amber', desc:'中等症の第一選択。広範囲・体幹四肢に多用',
+    drugs:[
+      { generic:'デキサメタゾンプロピオン酸エステル', forms:['メサデルム®軟膏 0.1%','メサデルム®クリーム 0.1%','メサデルム®ローション 0.1%'] },
+      { generic:'デプロドンプロピオン酸エステル', forms:['エクラー®軟膏 0.3%','エクラー®クリーム 0.3%','エクラー®ローション 0.3%'] },
+      { generic:'デキサメタゾン吉草酸エステル', forms:['ボアラ®軟膏 0.12%','ボアラ®クリーム 0.12%'] },
+      { generic:'ベタメタゾン吉草酸エステル', forms:['ベトネベート®軟膏 0.12%','ベトネベート®クリーム 0.12%','リンデロン®-V 軟膏 0.12%','リンデロン®-V クリーム 0.12%','リンデロン®-V ローション'] },
+      { generic:'フルオシノロンアセトニド', forms:['フルコート®軟膏 0.025%','フルコート®クリーム 0.025%','フルコート®外用液 0.01%','フルコート®スプレー 0.007%'] },
+    ],
+  },
+  {
+    rank:'IV 群', name:'ミディアム', color:'sky', desc:'軽症〜中等症。顔面・小児の第一選択',
+    drugs:[
+      { generic:'プレドニゾロン吉草酸エステル酢酸エステル', forms:['リドメックスコーワ軟膏 0.3%','リドメックスコーワクリーム 0.3%','リドメックスコーワローション 0.3%'] },
+      { generic:'トリアムシノロンアセトニド', forms:['レダコート®軟膏 0.1%','レダコート®クリーム 0.1%'] },
+      { generic:'アルクロメタゾンプロピオン酸エステル', forms:['アルメタ軟膏'] },
+      { generic:'クロベタゾン酪酸エステル', forms:['クロベタゾン酪酸エステル軟膏'] },
+      { generic:'フルドロキシコルチド', forms:['テクスメテン®軟膏 0.1%','テクスメテン®ユニバーサルクリーム 0.1%'] },
+      { generic:'ヒドロコルチゾン酪酸エステル', forms:['ロコイド®軟膏 0.1%','ロコイド®クリーム 0.1%'] },
+      { generic:'デキサメタゾン', forms:['グリメサゾン®軟膏','オイラゾン®クリーム 0.05%','オイラゾン®クリーム 0.1%'] },
+    ],
+  },
+  {
+    rank:'V 群', name:'ウィーク', color:'emerald', desc:'軽症〜軽微。乾燥・軽度紅斑',
+    drugs:[
+      { generic:'プレドニゾロン', forms:['プレドニゾロン軟膏','プレドニゾロンクリーム'] },
+    ],
+  },
+]
+let STEROID_NONSTEROID_REFS = [
+  { generic:'タクロリムス', cls:'カルシニューリン阻害薬', strength:'ストロングクラス（III群）相当', forms:['プロトピック®軟膏 0.1%','プロトピック®軟膏 0.03% 小児用'] },
+  { generic:'デルゴシチニブ', cls:'JAK 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['コレクチム®軟膏 0.5%','コレクチム®軟膏 0.25%'] },
+  { generic:'ジファミラスト', cls:'PDE4 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['モイゼルト®軟膏 1%','モイゼルト®軟膏 0.3%'] },
+  { generic:'タピナロフ', cls:'治療用 AhR 調節薬', strength:'—', forms:['ブイタマー®クリーム 1%'] },
+]
+const STEROID_ABSORPTION = [
+  ['頭皮','3.5'], ['前頭','6.0'], ['下顎','13.0'], ['腋窩','3.6'], ['背面','1.7'],
+  ['前腕（外側）','1.1'], ['前腕（内側）','1.0（基準）'], ['手掌','0.83'], ['陰嚢','42.0'],
+  ['足首','0.42'], ['足底','0.14'],
+]
+let STEROID_SEVERITY = [
+  ['重 症','高度の腫脹/浮腫/浸潤ないし苔癬化を伴う紅斑、丘疹の多発、高度の鱗屑、痂皮の付着、小水疱、びらん、多数の搔破痕、痒疹結節などを主体とする','ベリーストロング第一選択。十分な効果が得られない場合はその部位に限定してストロンゲストを使用することもある'],
+  ['中等症','中等度までの紅斑、鱗屑、少数の丘疹、搔破痕などを主体とする','ストロングないしミディアムを第一選択'],
+  ['軽 症','乾燥および軽度の紅斑、鱗屑などを主体とする','ミディアム以下を第一選択'],
+  ['軽 微','炎症症状に乏しく乾燥症状主体','ステロイドを含まない外用薬を選択'],
+]
+// localStorage に保存された編集を起動時に適用する
+;(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('steroid_data') || 'null')
+    if (saved && typeof saved === 'object') {
+      if (Array.isArray(saved.ranks))      STEROID_RANKS = saved.ranks
+      if (Array.isArray(saved.nonsteroid)) STEROID_NONSTEROID_REFS = saved.nonsteroid
+      if (Array.isArray(saved.severity))   STEROID_SEVERITY = saved.severity
+    }
+  } catch {}
+})()
+function saveSteroidData() {
+  localStorage.setItem('steroid_data', JSON.stringify({
+    ranks: STEROID_RANKS, nonsteroid: STEROID_NONSTEROID_REFS, severity: STEROID_SEVERITY
+  }))
+  // GitHub Gist にもプッシュ (token + gistId が設定されていれば)
+  pushSteroidToGist().catch(e => console.warn('[Gist push] 失敗:', e?.message || e))
+}
+async function pushSteroidToGist() {
+  let tokenRaw = localStorage.getItem('editor_gh_token')
+  let gistIdRaw = localStorage.getItem('master_gist_id') || localStorage.getItem('editor_gist_id')
+  if (!tokenRaw || !gistIdRaw) return false
+  // editor 側は JSON.stringify で保存しているため、生取得時に "..." 付きで返ることがある
+  let token, gistId
+  try { token = JSON.parse(tokenRaw) } catch { token = tokenRaw }
+  try { gistId = JSON.parse(gistIdRaw) } catch { gistId = gistIdRaw }
+  if (!token || !gistId) return false
+  // 既存 Gist データに steroid* を上書きして PATCH
+  let baseData = {}
+  try { baseData = JSON.parse(localStorage.getItem(GIST_LS_CACHE) || '{}') || {} } catch { baseData = {} }
+  baseData.steroidRanks = STEROID_RANKS
+  baseData.steroidSeverity = STEROID_SEVERITY
+  baseData.steroidNonsteroid = STEROID_NONSTEROID_REFS
+  baseData.updatedAt = new Date().toISOString()
+  const body = JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(baseData, null, 2) } } })
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body
+  })
+  if (!res.ok) throw new Error(`Gist PATCH HTTP ${res.status}`)
+  // ローカルキャッシュも更新 (次回起動時に差分検知が走らないように)
+  LS.set(GIST_LS_CACHE, baseData)
+  localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+  return true
+}
+
+function renderTopicalSteroid() {
+  const editing = !!state.steroidEditing
+  const cellTh = 'border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-700 bg-gray-50 text-center'
+  const cellTd = 'border border-gray-200 px-2 py-1.5 text-[11px] text-gray-800'
+  const rankColor = c => ({
+    rose:    'bg-rose-50 border-rose-200 text-rose-800',
+    orange:  'bg-orange-50 border-orange-200 text-orange-800',
+    amber:   'bg-amber-50 border-amber-200 text-amber-800',
+    sky:     'bg-sky-50 border-sky-200 text-sky-800',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+  })[c] || 'bg-gray-50 border-gray-200 text-gray-800'
+  const rankBadge = c => ({
+    rose:'bg-rose-600', orange:'bg-orange-500', amber:'bg-amber-500', sky:'bg-sky-500', emerald:'bg-emerald-500'
+  })[c] || 'bg-gray-500'
+
+  const rankCards = STEROID_RANKS.map((r, ri) => {
+    const drugItems = r.drugs.map((d, di) => editing
+      ? `<li class="px-3 py-2 border-b border-gray-100 last:border-0 space-y-1">
+          <div class="flex items-center gap-2">
+            <input data-st-rank="${ri}" data-st-drug="${di}" data-st-field="generic" value="${esc(d.generic)}" class="flex-1 text-sm font-semibold border border-gray-300 rounded px-2 py-1" placeholder="一般名" />
+            <button data-st-act="del-drug" data-st-rank="${ri}" data-st-drug="${di}" class="text-red-500 text-sm px-2" title="削除">✕</button>
+          </div>
+          <textarea data-st-rank="${ri}" data-st-drug="${di}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 leading-relaxed" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
+        </li>`
+      : `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
+          <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
+          <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+        </li>`).join('')
+    return `
+    <div class="rounded-xl border ${rankColor(r.color)} overflow-hidden">
+      <div class="${rankBadge(r.color)} text-white px-3 py-2 flex items-baseline gap-2">
+        <span class="text-xs font-bold opacity-80">${esc(r.rank)}</span>
+        <span class="text-base font-bold">${esc(r.name)}</span>
+      </div>
+      <div class="px-3 py-2 text-[11px] leading-relaxed border-b border-current/10 opacity-80">${editing
+        ? `<input data-st-rank="${ri}" data-st-field="desc" value="${esc(r.desc)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 bg-white/70" placeholder="ランクの説明" />`
+        : esc(r.desc)}</div>
+      <ul class="bg-white">${drugItems}</ul>
+      ${editing ? `<div class="bg-white px-3 py-2 border-t border-gray-100"><button data-st-act="add-drug" data-st-rank="${ri}" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ 薬剤を追加</button></div>` : ''}
+    </div>`}).join('')
+
+  const absRows = STEROID_ABSORPTION.map(([part, val]) => `
+    <tr><td class="${cellTd} text-center font-semibold bg-gray-50">${esc(part)}</td><td class="${cellTd} text-center">${esc(val)}</td></tr>`).join('')
+
+  const sevRows = STEROID_SEVERITY.map((row, si) => editing
+    ? `<tr>
+        <td class="${cellTd} bg-gray-50"><input data-st-sev="${si}" data-st-col="0" value="${esc(row[0])}" class="w-full text-[11px] font-bold border border-gray-300 rounded px-1 py-0.5 text-center" /></td>
+        <td class="${cellTd}"><textarea data-st-sev="${si}" data-st-col="1" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-1 py-0.5 leading-relaxed">${esc(row[1])}</textarea></td>
+        <td class="${cellTd}"><textarea data-st-sev="${si}" data-st-col="2" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-1 py-0.5 leading-relaxed">${esc(row[2])}</textarea></td>
+      </tr>`
+    : `<tr>
+        <td class="${cellTd} text-center font-bold bg-gray-50 whitespace-nowrap">${esc(row[0])}</td>
+        <td class="${cellTd}">${esc(row[1])}</td>
+        <td class="${cellTd}">${esc(row[2])}</td>
+      </tr>`).join('')
+
+  const nonSteroidCards = STEROID_NONSTEROID_REFS.map((d, ni) => editing
+    ? `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1.5">
+        <div class="flex items-center gap-2">
+          <input data-st-non="${ni}" data-st-field="generic" value="${esc(d.generic)}" class="flex-1 text-sm font-bold border border-gray-300 rounded px-2 py-1" placeholder="一般名" />
+          <button data-st-act="del-non" data-st-non="${ni}" class="text-red-500 text-sm px-2">✕</button>
+        </div>
+        <input data-st-non="${ni}" data-st-field="cls" value="${esc(d.cls)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="作用機序 (例: JAK 阻害薬)" />
+        <input data-st-non="${ni}" data-st-field="strength" value="${esc(d.strength)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="強さ (例: ストロングクラス相当)" />
+        <textarea data-st-non="${ni}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
+      </div>`
+    : `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
+          <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
+        </div>
+        <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
+        <div class="text-[11px] text-gray-700">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+      </div>`).join('')
+
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3 sticky top-0 z-10">
+      <div class="flex items-center gap-2">
+        <button id="btn-ts-back" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">‹</button>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-base font-bold text-gray-900 truncate">ステロイド外用薬</h1>
+          <p class="text-xs text-gray-500">5段階のランク表 / 部位別経皮吸収率 / 重症度別の選択</p>
+        </div>
+        ${editing
+          ? `<div class="flex gap-1">
+              <button id="btn-ts-cancel" class="text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg">キャンセル</button>
+              <button id="btn-ts-save" class="text-xs text-white bg-blue-600 hover:bg-blue-500 px-2 py-1 rounded-lg font-medium">保存</button>
+             </div>`
+          : `<button id="btn-ts-edit" class="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.pencil} 編集</button>`}
+      </div>
+    </div>
+    <div class="flex-1 overflow-auto bg-gray-50 p-4 space-y-4">
+      <section class="space-y-3">
+        <h2 class="text-base font-bold text-gray-900 px-1">ステロイド外用薬ランク表（2024年11月現在）</h2>
+        ${rankCards}
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <header class="bg-blue-600 text-white px-3 py-2 text-sm font-bold">皮疹の重症度と外用薬の選択</header>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead><tr><th class="${cellTh}">重症度</th><th class="${cellTh}">皮疹</th><th class="${cellTh}">外用薬の選択</th></tr></thead>
+            <tbody>${sevRows}</tbody>
+          </table>
+        </div>
+        <div class="bg-amber-50 border-t border-amber-200 px-3 py-2 text-xs text-amber-900 font-medium leading-relaxed">
+          ⚠️ <strong>小児では成人の選択基準より 1 ランク下げたものを使用する</strong>（顔面・乳幼児・長期連用部位はさらに弱いランク + タクロリムス等の併用も検討）。
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <header class="bg-blue-600 text-white px-3 py-2 text-sm font-bold">ヒドロコルチゾン部位別経皮吸収率</header>
+        <p class="text-[11px] text-gray-600 px-3 py-1.5 bg-gray-50 border-b border-gray-200">前腕（内側）= 1.0 を基準値とした相対吸収率</p>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead><tr><th class="${cellTh}">部位</th><th class="${cellTh}">吸収率</th></tr></thead>
+            <tbody>${absRows}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-sm font-bold text-purple-900">参考: 非ステロイド系抗炎症外用薬</h2>
+          ${editing ? `<button data-st-act="add-non" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ 追加</button>` : ''}
+        </div>
+        <p class="text-[11px] text-gray-600">タクロリムス軟膏は寛解導入後の維持療法として、また顔面など皮膚萎縮を避けたい部位で活用される。</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${nonSteroidCards}
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <h2 class="text-sm font-bold text-gray-900">外用量の目安 (Finger Tip Unit)</h2>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          口径5mmのチューブから第二指の先端〜第一関節まで押し出した量（約 <strong>0.5g</strong>）が、成人の手2枚分（体表面積の約 <strong>2%</strong>）に対する適量とされる（finger tip unit）。
+        </p>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          通常の成人患者では1日 <strong>5〜10g</strong> の初期外用量で開始し、症状に合わせて漸減する。3ヶ月までの使用では一過性で可逆性の副腎機能抑制は生じうるが、不可逆性の全身的副作用は生じないと考えられる。
+        </p>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          急性増悪時は1日2回（朝・夕：入浴後）を原則とし、炎症が落ち着いたら1日1回外用に減らして寛解導入を目指す。
+        </p>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 class="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5 mb-2">出典</h2>
+        <ol class="text-xs text-gray-700 space-y-1.5 list-decimal list-inside leading-relaxed">
+          <li>アトピー性皮膚炎診療ガイドライン 2024（日皮会誌 2024 ; 134 : 2741-2843, アレルギー 2024 ; 73 : 1025-1125）</li>
+          <li>協和キリン資料「アトピー性皮膚炎に対するステロイド外用薬の使い方」(2026年1月作成)</li>
+          <li>Feldmann RJ, et al : J Invest Dermatol, 48, 181-183, 1967（部位別経皮吸収率）</li>
+          <li>Long CC, et al : Clin Exp Dermatol, 16, 444-447, 1991 / Arch Dermatol, 128, 1129-1130, 1992（finger tip unit）</li>
+          <li>Furue M, et al : Br J Dermatol, 148, 128-133, 2003（ベリーストロング長期使用試験）</li>
+        </ol>
+      </section>
+
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
+        本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。
+      </div>
+    </div>`
+}
+function attachTopicalSteroid() {
+  document.getElementById('btn-ts-back')?.addEventListener('click', () => setState({screen:'list', category:'外用薬', steroidEditing:false}))
+  document.getElementById('btn-ts-edit')?.addEventListener('click', () => setState({steroidEditing:true}))
+  document.getElementById('btn-ts-cancel')?.addEventListener('click', () => {
+    // 編集をキャンセル: localStorage から再読み込み (未保存変更を破棄)
+    try {
+      const saved = JSON.parse(localStorage.getItem('steroid_data') || 'null')
+      if (saved) {
+        if (Array.isArray(saved.ranks))      STEROID_RANKS = saved.ranks
+        if (Array.isArray(saved.nonsteroid)) STEROID_NONSTEROID_REFS = saved.nonsteroid
+        if (Array.isArray(saved.severity))   STEROID_SEVERITY = saved.severity
+      }
+    } catch {}
+    setState({steroidEditing:false})
+  })
+  document.getElementById('btn-ts-save')?.addEventListener('click', () => {
+    // 入力中の値を STEROID_RANKS / SEVERITY / NONSTEROID に反映してから保存
+    document.querySelectorAll('[data-st-rank][data-st-drug]').forEach(el => {
+      const ri = +el.dataset.stRank, di = +el.dataset.stDrug, f = el.dataset.stField
+      if (!STEROID_RANKS[ri] || !STEROID_RANKS[ri].drugs[di]) return
+      if (f === 'generic') STEROID_RANKS[ri].drugs[di].generic = el.value
+      if (f === 'forms') STEROID_RANKS[ri].drugs[di].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    })
+    document.querySelectorAll('[data-st-rank][data-st-field="desc"]').forEach(el => {
+      const ri = +el.dataset.stRank
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].desc = el.value
+    })
+    document.querySelectorAll('[data-st-sev]').forEach(el => {
+      const si = +el.dataset.stSev, ci = +el.dataset.stCol
+      if (STEROID_SEVERITY[si]) STEROID_SEVERITY[si][ci] = el.value
+    })
+    document.querySelectorAll('[data-st-non]').forEach(el => {
+      const ni = +el.dataset.stNon, f = el.dataset.stField
+      if (!STEROID_NONSTEROID_REFS[ni] || !f) return
+      if (f === 'forms') STEROID_NONSTEROID_REFS[ni].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+      else STEROID_NONSTEROID_REFS[ni][f] = el.value
+    })
+    saveSteroidData()
+    setState({steroidEditing:false})
+  })
+  // 薬剤・参考非ステロイドの追加/削除 (再描画して入力 UI を更新)
+  document.querySelectorAll('[data-st-act]').forEach(b => b.addEventListener('click', () => {
+    // ボタン押下時、現在の入力中の値を一旦取り込んでから配列を変更する
+    document.querySelectorAll('[data-st-rank][data-st-drug]').forEach(el => {
+      const ri = +el.dataset.stRank, di = +el.dataset.stDrug, f = el.dataset.stField
+      if (!STEROID_RANKS[ri] || !STEROID_RANKS[ri].drugs[di]) return
+      if (f === 'generic') STEROID_RANKS[ri].drugs[di].generic = el.value
+      if (f === 'forms') STEROID_RANKS[ri].drugs[di].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    })
+    document.querySelectorAll('[data-st-non]').forEach(el => {
+      const ni = +el.dataset.stNon, f = el.dataset.stField
+      if (!STEROID_NONSTEROID_REFS[ni] || !f) return
+      if (f === 'forms') STEROID_NONSTEROID_REFS[ni].forms = el.value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+      else STEROID_NONSTEROID_REFS[ni][f] = el.value
+    })
+    const act = b.dataset.stAct
+    if (act === 'add-drug') {
+      const ri = +b.dataset.stRank
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].drugs.push({ generic:'', forms:[] })
+    } else if (act === 'del-drug') {
+      const ri = +b.dataset.stRank, di = +b.dataset.stDrug
+      if (STEROID_RANKS[ri]) STEROID_RANKS[ri].drugs.splice(di, 1)
+    } else if (act === 'add-non') {
+      STEROID_NONSTEROID_REFS.push({ generic:'', cls:'', strength:'', forms:[] })
+    } else if (act === 'del-non') {
+      const ni = +b.dataset.stNon
+      STEROID_NONSTEROID_REFS.splice(ni, 1)
+    }
+    render()
+  }))
+}
+
+// ── 小児バイタルサイン正常範囲 ─────────────────────────────────
+// 出典:
+//  1) Canadian Pediatric Triage and Acuity Scale: Paed. CTAS
+//  2) HOKUTO 内記事 救急外来での小児の評価方法、バイタルサインの正常範囲は？
+//     (大同病院 小児科 久保田悠介先生) の解説引用
+const VITALSIGNS_RR_HR = [
+  // ageLabel, rr2sd, rr1sd, rrNormal, hr2sd, hr1sd, hrNormal
+  ['<3ヶ月',     '10↓ 80↑', '20↓ 70↑', '30〜60', '40↓ 230↑', '65↓ 210↑', '90〜180'],
+  ['3〜6ヶ月',   '10↓ 80↑', '20↓ 70↑', '30〜60', '40↓ 210↑', '63↓ 180↑', '80〜160'],
+  ['6〜12ヶ月',  '10↓ 60↑', '17↓ 55↑', '25〜45', '40↓ 180↑', '60↓ 160↑', '80〜140'],
+  ['1〜3歳',    '10↓ 40↑', '15↓ 35↑', '20〜30', '40↓ 165↑', '58↓ 145↑', '70〜130'],
+  ['3〜6歳',    '8↓ 30↑',  '12↓ 28↑', '16〜24', '40↓ 140↑', '55↓ 125↑', '70〜110'],
+  ['6〜10歳',   '8↓ 25↑',  '10↓ 24↑', '14〜20', '30↓ 120↑', '45↓ 105↑', '60〜90'],
+]
+const VITALSIGNS_SBP = [
+  ['<1ヶ月',    '60 mmHg'],
+  ['1〜12ヶ月', '70 mmHg'],
+  ['1〜3歳',   '70 + 年齢(歳) × 2 mmHg'],
+  ['3〜10歳',  '90 mmHg'],
+]
+
+function renderVitalSigns() {
+  const cellTh = 'border border-gray-200 px-2 py-1.5 text-xs font-semibold text-gray-700 bg-blue-50 text-center'
+  const cellTd = 'border border-gray-200 px-2 py-1.5 text-xs text-gray-800 text-center whitespace-nowrap'
+  const rowsRrHr = VITALSIGNS_RR_HR.map(r => `
+    <tr>
+      <td class="${cellTd} bg-blue-50 font-semibold">${esc(r[0])}</td>
+      <td class="${cellTd}">${esc(r[1])}</td><td class="${cellTd}">${esc(r[2])}</td><td class="${cellTd}">${esc(r[3])}</td>
+      <td class="${cellTd}">${esc(r[4])}</td><td class="${cellTd}">${esc(r[5])}</td><td class="${cellTd}">${esc(r[6])}</td>
+    </tr>`).join('')
+  const rowsSbp = VITALSIGNS_SBP.map(r => `
+    <tr>
+      <td class="${cellTd} bg-blue-50 font-semibold">${esc(r[0])}</td>
+      <td class="${cellTd}">${esc(r[1])}</td>
+    </tr>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-vs-back" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">‹</button>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-base font-bold text-gray-900 truncate">小児のバイタルサイン正常範囲</h1>
+          <p class="text-xs text-gray-500">年齢別の小児バイタルサイン一覧</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-auto bg-gray-50 p-4 space-y-4">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr>
+                <th class="${cellTh}" rowspan="2">年齢</th>
+                <th class="${cellTh}" colspan="3">呼吸数 (回/分)</th>
+                <th class="${cellTh}" colspan="3">心拍数 (回/分)</th>
+              </tr>
+              <tr>
+                <th class="${cellTh}">±2SD</th><th class="${cellTh}">±1SD</th><th class="${cellTh}">正常範囲</th>
+                <th class="${cellTh}">±2SD</th><th class="${cellTh}">±1SD</th><th class="${cellTh}">正常範囲</th>
+              </tr>
+            </thead>
+            <tbody>${rowsRrHr}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr><th class="${cellTh}" colspan="2">収縮期血圧の下限</th></tr>
+          </thead>
+          <tbody>${rowsSbp}</tbody>
+        </table>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 class="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5 mb-2">出典</h2>
+        <ol class="text-xs text-gray-700 space-y-1.5 list-decimal list-inside leading-relaxed">
+          <li>Canadian Pediatric Triage and Acuity Scale: Paed. CTAS</li>
+          <li>HOKUTO 内記事 「救急外来での小児の評価方法、バイタルサインの正常範囲は？」(大同病院 小児科 久保田悠介先生) の解説引用</li>
+        </ol>
+      </div>
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
+        本コンテンツは特定の評価法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で診療を行ってください。
+      </div>
+    </div>`
+}
+function attachVitalSigns() {
+  document.getElementById('btn-vs-back')?.addEventListener('click', () => setState({screen:'list'}))
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -1173,23 +1748,44 @@ function doseCard(dose, weight, compact=false, drug=null) {
         <div class="text-blue-800 font-bold ${compact?'text-base':'text-lg'}">${result.text}</div>
         ${result.perDose||dose.frequency?`<div class="text-blue-600 text-sm mt-0.5">${result.perDose?result.perDose+'　':''}${dose.frequency||''}${dose.duration?'　'+dose.duration:''}</div>`:''}
       </div>`
-  // IV点滴希釈量表示 (drug.ivDilution が設定された薬剤)
+  // 点滴希釈ボックス (注射用抗菌薬など、ivDilution が登録されている薬剤のみ)
   let ivHtml = ''
+  // 注射用製剤判定 (formulations の形状から)
+  const isInjectableDrug = Array.isArray(drug?.formulations) && drug.formulations.length > 0 &&
+    drug.formulations.every(f => /\/V\b|\/バッグ|\/キット|\/アンプル|\/バイアル|注射用|点滴静注用/.test(String(f)))
   if (drug?.ivDilution && result && result.min != null) {
     const iv = drug.ivDilution
     const solventDisp = iv.solvent==='NS' ? '生食' : iv.solvent==='5%DW' ? '5%ブドウ糖液' : iv.solvent==='NS/5%DW' ? '生食 または 5%ブドウ糖液' : iv.solvent
     const freq2 = (() => { const m2=dose.frequency?.match(/分(\d+)/); return m2?parseInt(m2[1]):1 })()
-    const perMin = result.min / freq2; const perMax = result.max / freq2
-    const volMin = Math.max(10, Math.ceil(perMin / iv.maxConcMgPerMl / 10) * 10)
-    const volMax = Math.max(10, Math.ceil(perMax / iv.maxConcMgPerMl / 10) * 10)
+    const perMin = result.min / freq2; const perMax = result.max / freq2  // 1回量 (mg)
+    // 溶解できる最小溶媒量を算出 (reconstitutionMlPerGram 優先、なければ maxConcMgPerMl から逆算)
+    let volMin, volMax, ratioStr = ''
+    if (iv.reconstitutionMlPerGram) {
+      volMin = Math.max(5, Math.ceil(perMin / 1000 * iv.reconstitutionMlPerGram))
+      volMax = Math.max(5, Math.ceil(perMax / 1000 * iv.reconstitutionMlPerGram))
+      ratioStr = `1g/${iv.reconstitutionMlPerGram}mL`
+    } else {
+      volMin = Math.max(10, Math.ceil(perMin / iv.maxConcMgPerMl / 10) * 10)
+      volMax = Math.max(10, Math.ceil(perMax / iv.maxConcMgPerMl / 10) * 10)
+    }
     const volStr = volMin===volMax ? `${volMin}mL` : `${volMin}〜${volMax}mL`
+    const ratioHtml = ratioStr
+      ? `<div class="text-[10px] text-amber-700 mt-1 opacity-80">最小溶解量: ${ratioStr}</div>`
+      : ''
     const incompatHtml = iv.incompatible?.length
       ? `<div class="flex items-start gap-1 text-red-700 font-bold mt-2 text-xs bg-red-50 border border-red-200 rounded px-2 py-1.5"><span>⚠️</span><span>配合禁忌: ${iv.incompatible.map(s=>esc(s)).join('、')}</span></div>`
       : ''
     ivHtml = `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 mt-2">
       <div class="text-xs font-semibold text-amber-700 mb-1">💉 点滴希釈（1回量）</div>
       <div class="text-sm text-amber-900">${esc(solventDisp)} <strong>${volStr}</strong> に溶解、<strong>${esc(iv.infusionTime)}</strong> かけて点滴</div>
+      ${ratioHtml}
       ${incompatHtml}
+    </div>`
+  } else if (isInjectableDrug && result) {
+    // ivDilution が登録されていない注射用製剤: 注意書きを出す（編集や置換で点滴情報が失われた場合のフォールバック）
+    ivHtml = `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 mt-2">
+      <div class="text-xs font-semibold text-amber-700 mb-1">💉 注射用製剤</div>
+      <div class="text-xs text-amber-800">点滴希釈情報が登録されていません。添付文書を確認してください。</div>
     </div>`
   }
   // 製剤量換算 (mg / g / μg ベースの用量に対応)
@@ -1197,7 +1793,8 @@ function doseCard(dose, weight, compact=false, drug=null) {
   const unitMgFactor = (u) => u === 'mg' ? 1 : u === 'g' ? 1000 : (u === 'μg' || u === 'ug') ? 0.001 : null
   const factor = unitMgFactor(unit)
   let formulationsHtml = ''
-  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0) {
+  // 注射用製剤 (ivDilution あり、または formulations が "/V" 終わり等) は V換算が無意味なので非表示にする
+  if (result && drug && factor !== null && Array.isArray(drug.formulations) && drug.formulations.length > 0 && !drug.ivDilution && !isInjectableDrug) {
     // 1日量と1回量の両方を計算 (dose.unit 単位で算出後に mg へ変換)
     const freq = (() => { const m = dose.frequency?.match(/分(\d+)/); return m ? parseInt(m[1]) : null })()
     let dailyMin, dailyMax  // dose.unit 単位
@@ -2030,37 +2627,63 @@ function buildListBodyHTML(query) {
   } else if (isPending) {
     const pendingItems = pending.length===0
       ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-4xl">${ICON.fileEdit}</span><span>未確認の薬剤はありません</span></div>`
-      : pending.map(d => `
-          <li class="border-b border-gray-100">
-            <div class="flex items-start px-4 py-3 gap-3">
+      : pending.map(d => {
+          const c1 = isCheck1(d.id), c2 = isCheck2(d.id)
+          const btnCls = on => `text-[11px] px-2 py-1 rounded-lg font-medium inline-flex items-center justify-center gap-0.5 ${on ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`
+          return `
+          <li class="border-b border-gray-100 flex items-stretch">
+            <button data-drug="${d.id}" class="flex-1 min-w-0 flex items-start px-4 py-3 gap-3 hover:bg-gray-50 active:bg-gray-100 text-left">
               <div class="flex-1 min-w-0">
-                <div class="font-medium text-gray-900 text-sm">${esc(d.genericName)}</div>
-                <div class="text-xs text-gray-500">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).join('・')}</div>
-                <div class="text-xs text-orange-600 mt-0.5">カテゴリ: ${esc(d.category)}</div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-medium text-gray-900 text-sm truncate">${esc(d.genericName)}</span>
+                  <span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded shrink-0">未確認</span>
+                  ${routeBadge(d.route)}
+                </div>
+                <div class="text-xs text-gray-500 truncate">${d.abbreviation?d.abbreviation+'　':''}${(d.brandNames||[]).map(b=>b+'®').join('・')}</div>
+                <div class="text-xs text-orange-600 mt-0.5 truncate">カテゴリ: ${esc(d.category)}</div>
               </div>
-              <div class="flex flex-col gap-1 shrink-0">
-                <button data-confirm-drug="${d.id}" class="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg font-medium inline-flex items-center gap-1">${ICON.check} 確認</button>
-                <button data-del-pending="${d.id}" class="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg">削除</button>
+            </button>
+            <div class="flex flex-col gap-1 shrink-0 px-3 py-3 justify-center">
+              <div class="flex gap-1">
+                <button data-check-drug="${d.id}" data-check-level="1" class="${btnCls(c1)}" title="1次確認">${c1?'☑':'☐'} 1次</button>
+                <button data-check-drug="${d.id}" data-check-level="2" class="${btnCls(c2)}" title="2次確認">${c2?'☑':'☐'} 2次</button>
               </div>
+              <button data-del-pending="${d.id}" class="text-[11px] bg-red-50 text-red-500 px-2 py-1 rounded-lg">削除</button>
             </div>
-          </li>`).join('')
+          </li>`}).join('')
     mainContent = `
-      <div class="px-4 py-2 bg-orange-500 flex items-center justify-between">
+      <div class="px-4 py-2 bg-orange-500 flex items-center justify-between gap-2">
         <h2 class="text-sm font-bold text-white">未確認の薬剤</h2>
-        <span class="text-xs text-white opacity-80">${pending.length}件</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-reset-checks" class="text-[11px] bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg" title="全薬剤の 1次/2次 確認を解除して未確認に戻す">全リセット</button>
+          <span class="text-xs text-white opacity-80">${pending.length}件</span>
+        </div>
       </div>
       <ul class="bg-white">${pendingItems}</ul>`
   } else {
-    let drugs = isFav ? getAllDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
+    let drugs = isFav ? getVerifiedDrugs().filter(d=>state.favorites.has(d.id)) : getDrugsByCategory(state.category)
+    // 外用薬カテゴリでは先頭にステロイド外用薬の特設カードを表示
+    const isTopicalCat = state.category === '外用薬'
+    const topicalCard = isTopicalCat ? `
+      <li class="border-b-2 border-purple-200 bg-purple-50/40">
+        <button data-topical="steroid" class="w-full flex items-center px-4 py-4 hover:bg-purple-100 active:bg-purple-200 text-left gap-3">
+          <span class="text-3xl shrink-0">💊</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-purple-900 text-base">ステロイド外用薬</div>
+            <div class="text-xs text-gray-600 mt-0.5">5段階のランク表 / 部位別吸収率 / 重症度別の選択</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>` : ''
     const items = drugs.length===0
-      ? `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`
+      ? (isTopicalCat ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
         <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.plus} 薬剤追加</button>
       </div>
-      <ul class="bg-white">${items}</ul>`
+      <ul class="bg-white">${topicalCard}${items}</ul>`
   }
 
   return `
@@ -2072,6 +2695,9 @@ function attachListBody() {
   app.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
     state.query = ''
     setState({category:b.dataset.cat})
+  }))
+  app.querySelectorAll('[data-topical]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.topical === 'steroid') setState({screen:'topical-steroid'})
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
@@ -2092,22 +2718,27 @@ function attachListBody() {
   document.getElementById('btn-create-set')?.addEventListener('click', () => {
     setState({screen:'create-set', setDraft:{name:'',drugIds:[]}, setQuery:'', editSetId:null})
   })
-  app.querySelectorAll('[data-confirm-drug]').forEach(b => b.addEventListener('click', () => {
-    const drugId = b.dataset.confirmDrug
-    // マスターデータの薬剤の場合（全てが確認制）
-    if (DRUGS.find(d => d.id === drugId)) {
-      confirmMasterDrug(drugId)
-      render()
-      return
-    }
-    // カスタムpending薬剤の場合
+  document.getElementById('btn-reset-checks')?.addEventListener('click', () => {
+    if (!confirm('全薬剤の 1次/2次 確認を解除して全て未確認に戻します。よろしいですか？')) return
+    saveCheck1(new Set())
+    saveCheck2(new Set())
+    render()
+  })
+  app.querySelectorAll('[data-check-drug]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation()
+    const drugId = b.dataset.checkDrug
+    const level = parseInt(b.dataset.checkLevel)
+    if (level !== 1 && level !== 2) return
+    toggleCheck(drugId, level)
+    // カスタム pending 薬剤も両方チェックされたら custom_drugs に昇格
     const pending = loadPendingDrugs()
-    const drug = pending.find(d => d.id === drugId)
-    if (!drug) return
-    const custom = loadCustomDrugs()
-    custom.push(drug)
-    saveCustomDrugs(custom)
-    savePendingDrugs(pending.filter(d => d.id !== drugId))
+    const customDraft = pending.find(d => d.id === drugId)
+    if (customDraft && isFullyChecked(drugId)) {
+      const custom = loadCustomDrugs()
+      custom.push(customDraft)
+      saveCustomDrugs(custom)
+      savePendingDrugs(pending.filter(d => d.id !== drugId))
+    }
     render()
   }))
   app.querySelectorAll('[data-del-pending]').forEach(b => b.addEventListener('click', () => {
@@ -2204,7 +2835,13 @@ function attachListBody() {
 function renderList() {
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-2 space-y-2">
-      <h1 class="text-lg font-bold text-gray-900">Pocket Wiki</h1>
+      <div class="flex items-center justify-between gap-2">
+        <h1 class="text-lg font-bold text-gray-900">Pocket Wiki</h1>
+        <button id="btn-vitalsigns" class="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-1 rounded-lg" title="小児バイタルサイン正常範囲">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span>バイタル</span>
+        </button>
+      </div>
       <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm">
         <button id="main-tab-drugs" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='drugs'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.medicine}<span class="text-xs leading-none">薬剤</span></button>
         <button id="main-tab-diseases" class="flex-1 py-1.5 font-medium transition-colors flex flex-col items-center gap-0.5 ${state.mainTab==='diseases'?'bg-blue-600 text-white':'text-gray-500 bg-white'}">${ICON.pathogen}<span class="text-xs leading-none">疾患</span></button>
@@ -2234,6 +2871,9 @@ function attachList() {
       }
     })
   }
+  document.getElementById('btn-vitalsigns')?.addEventListener('click', () => {
+    setState({screen:'vitalsigns'})
+  })
   document.getElementById('main-tab-drugs')?.addEventListener('click', () => {
     if (state.mainTab === 'drugs') return
     state.query = ''
@@ -3553,6 +4193,10 @@ function openLightbox(src) {
 }
 
 // ── 起動: Gist キャッシュ適用 → 初回描画 → バックグラウンドで Gist 取得 ──
+// master_drugs_applied 未設定なら現在の DRUGS で初期化 (以後の差分検出の基準にする)
+if (!localStorage.getItem('master_drugs_applied')) {
+  try { localStorage.setItem('master_drugs_applied', JSON.stringify(DRUGS)) } catch {}
+}
 applyCachedMasterIfAny()
 render()
 refreshMasterFromGist().then(changed => { if (changed) render() })
