@@ -8,9 +8,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=56" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=56" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=56" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=57" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=57" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=57" />
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Excel (xlsx) 読み書き用 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -56,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v56 / category-sync</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v57 / check-in-gist</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '56'
+const BUILD_VERSION = '57'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -149,11 +149,18 @@ const checkButtonsHTML = (id, kind) => {
           <button data-act="check-${kind}" data-id="${esc(id)}" data-level="2" class="${cls(c2)}" title="2次確認をトグル">${c2?'☑':'☐'}2次</button>`
 }
 // localStorage に check1 / check2 のトグルを書き込む (メインアプリと共通)
+// + state.data にも同じ配列を反映し markDirty() で「未保存の変更あり」状態にする
+// → ヘッダーの「保存」ボタンを押すと Gist に push され、全端末に同期される
 const toggleCheckLS = (id, level) => {
   const key = level === 1 ? 'check1' : 'check2'
   const set = _loadCheckSet(key)
   set.has(id) ? set.delete(id) : set.add(id)
-  localStorage.setItem(key, JSON.stringify([...set]))
+  const arr = [...set]
+  localStorage.setItem(key, JSON.stringify(arr))
+  if (state.data) {
+    state.data[key] = arr
+    markDirty()
+  }
 }
 
 // 設定情報の保存キー
@@ -307,6 +314,8 @@ function emptyData() {
     steroidRanks: defaultSteroidRanks(),
     steroidSeverity: defaultSteroidSeverity(),
     steroidNonsteroid: defaultSteroidNonsteroid(),
+    check1: [],
+    check2: [],
   }
 }
 // 既定のステロイド外用薬データ (アトピー性皮膚炎診療ガイドライン 2024 より)
@@ -397,6 +406,14 @@ function normalizeData(raw) {
     r.drugs.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
   })
   d.steroidNonsteroid.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
+  // 1次/2次 のチェック状態 (Gist 経由で同期) — localStorage と双方向ミラーリング
+  if (!Array.isArray(d.check1)) d.check1 = []
+  if (!Array.isArray(d.check2)) d.check2 = []
+  // 取り込んだ check1/check2 を localStorage にも書き戻す
+  try {
+    localStorage.setItem('check1', JSON.stringify(d.check1))
+    localStorage.setItem('check2', JSON.stringify(d.check2))
+  } catch {}
   return d
 }
 
