@@ -8,9 +8,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=58" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=58" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=58" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=59" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=59" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=59" />
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Excel (xlsx) 読み書き用 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -56,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v58 / set-brands</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v59 / subcat-iv-edit</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '58'
+const BUILD_VERSION = '59'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -406,6 +406,8 @@ function normalizeData(raw) {
     r.drugs.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
   })
   d.steroidNonsteroid.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
+  // 各薬剤カテゴリ内のサブカテゴリ順序 (Gist 同期)
+  if (!d.subcategoryOrder || typeof d.subcategoryOrder !== 'object') d.subcategoryOrder = {}
   // 1次/2次 のチェック状態 (Gist 経由で同期) — localStorage と双方向ミラーリング
   if (!Array.isArray(d.check1)) d.check1 = []
   if (!Array.isArray(d.check2)) d.check2 = []
@@ -855,6 +857,28 @@ function drugFormHTML(d) {
               </div>
             </details>
           </div>
+        </div>
+      </div>
+
+      <div class="card p-5 space-y-3">
+        <h3 class="section-title">点滴希釈 (ivDilution) <span class="text-xs text-gray-400 font-normal">— 注射用薬剤のみ</span></h3>
+        <p class="text-[11px] text-gray-500 leading-relaxed">設定すると利用者側の用量カードに「💉 点滴希釈」ボックスが表示されます。空欄なら表示されません。</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label class="label">溶媒</label>
+            <select data-bind="drug.ivDilution.solvent" class="input">
+              <option value="" ${!(d.ivDilution?.solvent)?'selected':''}>(指定なし)</option>
+              <option value="NS"      ${d.ivDilution?.solvent==='NS'?'selected':''}>NS (生食)</option>
+              <option value="5%DW"    ${d.ivDilution?.solvent==='5%DW'?'selected':''}>5%DW (5%ブドウ糖)</option>
+              <option value="NS/5%DW" ${d.ivDilution?.solvent==='NS/5%DW'?'selected':''}>NS / 5%DW どちらか</option>
+            </select></div>
+          <div><label class="label">投与時間 (infusionTime)</label>
+            <input data-bind="drug.ivDilution.infusionTime" type="text" value="${esc(d.ivDilution?.infusionTime || '')}" class="input" placeholder="例: 30〜60分, 30分以上" /></div>
+          <div><label class="label">最大濃度 mg/mL (maxConcMgPerMl)</label>
+            <input data-bind="drug.ivDilution.maxConcMgPerMl" type="number" step="0.1" value="${d.ivDilution?.maxConcMgPerMl ?? ''}" class="input" placeholder="例: 20" /></div>
+          <div><label class="label">最小溶解量 mL/g (reconstitutionMlPerGram)</label>
+            <input data-bind="drug.ivDilution.reconstitutionMlPerGram" type="number" step="0.1" value="${d.ivDilution?.reconstitutionMlPerGram ?? ''}" class="input" placeholder="例: 20 → 1g/20mL" /></div>
+          <div class="sm:col-span-2"><label class="label">配合禁忌 incompatible <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
+            <input data-bind="drug.ivDilution.incompatible" type="text" value="${esc((d.ivDilution?.incompatible || []).join(' | '))}" class="input" placeholder="例: カルシウム含有輸液（リンゲル液など） | 同一ルートへのCa製剤" /></div>
         </div>
       </div>
 
@@ -1390,9 +1414,61 @@ function categoriesTabHTML() {
   return `
     <div class="p-4 space-y-3 max-w-2xl mx-auto">
       ${categoryListHTML('drug', '薬剤カテゴリ', state.data.drugCategories)}
+      ${subcategoryOrderHTML()}
       ${categoryListHTML('disease', '疾患カテゴリ', state.data.diseaseCategories)}
     </div>
   `
+}
+
+// 各薬剤カテゴリ内のサブカテゴリ順序を編集する UI
+// state.data.subcategoryOrder = { [カテゴリ名]: [サブ名1, サブ名2, ...] }
+function subcategoryOrderHTML() {
+  if (!state.data.subcategoryOrder || typeof state.data.subcategoryOrder !== 'object') {
+    state.data.subcategoryOrder = {}
+  }
+  const cats = state.data.drugCategories || []
+  // 各カテゴリの実在サブカテゴリ (drugs から自動抽出)
+  const subsByCategory = {}
+  for (const d of state.data.drugs || []) {
+    const c = d.category || ''
+    const s = (d.subcategory || '').trim()
+    if (!c || !s) continue
+    if (!subsByCategory[c]) subsByCategory[c] = new Set()
+    subsByCategory[c].add(s)
+  }
+  const items = cats.map(cat => {
+    const allSubs = [...(subsByCategory[cat] || new Set())]
+    if (allSubs.length === 0) return ''
+    // 既存の順序 + 新出のサブを末尾に
+    const saved = Array.isArray(state.data.subcategoryOrder[cat]) ? state.data.subcategoryOrder[cat] : []
+    const savedSet = new Set(saved)
+    const ordered = [...saved.filter(s => allSubs.includes(s)), ...allSubs.filter(s => !savedSet.has(s))]
+    // ローカルに保存してデータ整合性を保つ
+    state.data.subcategoryOrder[cat] = ordered
+    return `
+      <details class="bg-gray-50 rounded-lg" ${ordered.length <= 1 ? '' : 'open'}>
+        <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-800 select-none">
+          ${esc(cat)} <span class="text-xs text-gray-500 font-normal">(${ordered.length} サブカテゴリ)</span>
+        </summary>
+        <div class="px-3 pb-3 space-y-1.5">
+          ${ordered.map((s, i) => `
+            <div class="flex items-center gap-2 bg-white rounded-md border border-gray-200 px-2.5 py-1.5">
+              <span class="flex-1 text-xs text-gray-800 truncate">${esc(s)}</span>
+              <button data-act="subcat-up" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===0?'disabled':''}>${ICON.chevUp}</button>
+              <button data-act="subcat-down" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===ordered.length-1?'disabled':''}>${ICON.chevDown}</button>
+            </div>`).join('')}
+        </div>
+      </details>`
+  }).filter(Boolean).join('')
+  if (!items) return ''
+  return `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2">
+      <div>
+        <h3 class="font-bold text-gray-900">サブカテゴリの並び順</h3>
+        <p class="text-[11px] text-gray-500 mt-0.5">利用者側で薬剤一覧をサブカテゴリ単位でグループ表示する時の順序です。</p>
+      </div>
+      ${items}
+    </div>`
 }
 
 function categoryListHTML(kind, title, list) {
@@ -1894,6 +1970,15 @@ function onClick(e) {
     const k = t.dataset.kind; const arr = k === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
     arr.push('新カテゴリ'); markDirty(); render(); return
   }
+  if (act === 'subcat-up' || act === 'subcat-down') {
+    const cat = t.dataset.cat; const i = +t.dataset.i
+    if (!state.data.subcategoryOrder) state.data.subcategoryOrder = {}
+    const arr = state.data.subcategoryOrder[cat] || []
+    if (act === 'subcat-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'subcat-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    state.data.subcategoryOrder[cat] = arr
+    markDirty(); render(); return
+  }
   if (act === 'cat-up' || act === 'cat-down' || act === 'cat-del') {
     const k = t.dataset.kind; const i = +t.dataset.i
     const arr = k === 'drug' ? state.data.drugCategories : state.data.diseaseCategories
@@ -2193,6 +2278,29 @@ function applyBind(bind, value, inputType) {
 
   if (root === 'drug' && drug) {
     const f = parts[1]
+    // ivDilution の入れ子フィールド: drug.ivDilution.<sub>
+    if (f === 'ivDilution') {
+      const sub = parts[2]
+      if (!drug.ivDilution || typeof drug.ivDilution !== 'object') drug.ivDilution = {}
+      if (sub === 'incompatible') {
+        drug.ivDilution.incompatible = parseListPipe(value)
+      } else if (sub === 'maxConcMgPerMl' || sub === 'reconstitutionMlPerGram') {
+        const n = value === '' ? '' : +value
+        if (n === '' || Number.isNaN(n)) delete drug.ivDilution[sub]
+        else drug.ivDilution[sub] = n
+      } else {
+        if (value === '') delete drug.ivDilution[sub]
+        else drug.ivDilution[sub] = value
+      }
+      // すべて空になったら ivDilution 自体を削除 (Gist のサイズ節約)
+      const keys = Object.keys(drug.ivDilution)
+      const nonEmpty = keys.some(k => {
+        const v = drug.ivDilution[k]
+        return Array.isArray(v) ? v.length > 0 : (v !== '' && v != null)
+      })
+      if (!nonEmpty) delete drug.ivDilution
+      markDirty(); return
+    }
     if (f === 'brandNames' || f === 'references') drug[f] = parseListPipe(value)
     else drug[f] = value
     markDirty(); return

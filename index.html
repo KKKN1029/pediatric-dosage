@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=58" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=58" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=58" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=58" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=58" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=58" />
+  <link rel="manifest" href="manifest.json?v=59" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=59" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=59" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=59" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=59" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=59" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v58 / set-brands</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v59 / subcat-iv-edit</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '58'
+const BUILD_VERSION = '59'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -622,6 +622,8 @@ let DRUGS = [
 //   この埋め込みから id 単位でフォールバック補完する。
 // ============================================================
 const EMBEDDED_DRUGS_BY_ID = new Map(DRUGS.map(d => [d.id, d]))
+// 各薬剤カテゴリ内のサブカテゴリ並び順 (Gist 由来。data.subcategoryOrder で差し替える)
+let SUBCATEGORY_ORDER = {}
 
 // ============================================================
 // データアクセス (localStorage)
@@ -688,6 +690,10 @@ function applyMasterData(data) {
   // Gist に check1 / check2 が同梱されていれば localStorage に反映 (Gist が正本)
   if (Array.isArray(data.check1)) LS.set('check1', data.check1)
   if (Array.isArray(data.check2)) LS.set('check2', data.check2)
+  // サブカテゴリ並び順 (カテゴリ→[サブ1,サブ2,...] のオブジェクト)
+  if (data.subcategoryOrder && typeof data.subcategoryOrder === 'object') {
+    SUBCATEGORY_ORDER = data.subcategoryOrder
+  }
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
@@ -2180,8 +2186,20 @@ function renderListBySubcategory(items, renderItem) {
     if (!groups.has(key)) { groups.set(key, []); order.push(key) }
     groups.get(key).push(i)
   }
-  // 「__other__」(サブカテゴリなし) は末尾へ
-  const ordered = order.filter(k => k !== '__other__').concat(order.includes('__other__') ? ['__other__'] : [])
+  // state.category に明示的なサブカテゴリ順序が定義されていれば、それを最優先で並べる
+  const explicit = (SUBCATEGORY_ORDER && state.category && SUBCATEGORY_ORDER[state.category]) || []
+  let ordered
+  if (Array.isArray(explicit) && explicit.length > 0) {
+    const existingSubs = new Set(order)
+    const explicitFiltered = explicit.filter(k => existingSubs.has(k))
+    const explicitSet = new Set(explicitFiltered)
+    const rest = order.filter(k => !explicitSet.has(k) && k !== '__other__')
+    ordered = [...explicitFiltered, ...rest]
+    if (order.includes('__other__')) ordered.push('__other__')
+  } else {
+    // 「__other__」(サブカテゴリなし) は末尾へ
+    ordered = order.filter(k => k !== '__other__').concat(order.includes('__other__') ? ['__other__'] : [])
+  }
   return ordered.map(key => {
     const list = groups.get(key)
     const label = key === '__other__' ? 'その他' : key
