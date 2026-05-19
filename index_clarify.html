@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=64" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=64" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=64" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=64" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=64" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=64" />
+  <link rel="manifest" href="manifest.json?v=65" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=65" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=65" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=65" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=65" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=65" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v64 / constipation+merge</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v65 / subsub-3level</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '64'
+const BUILD_VERSION = '65'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2265,34 +2265,53 @@ function renderListBySubcategory(items, renderItem) {
   if (!items || items.length === 0) return ''
   const hasAnySub = items.some(i => i && typeof i.subcategory === 'string' && i.subcategory.trim() !== '')
   if (!hasAnySub) return items.map(renderItem).join('')
-  // 出現順を維持しつつグループ化
-  const order = []
-  const groups = new Map()
+  // ── 1階層目: サブカテゴリでグループ化 ────────────────────────
+  const subOrder = []
+  const subGroups = new Map()
   for (const i of items) {
     const sub = (i && typeof i.subcategory === 'string') ? i.subcategory.trim() : ''
     const key = sub || '__other__'
-    if (!groups.has(key)) { groups.set(key, []); order.push(key) }
-    groups.get(key).push(i)
+    if (!subGroups.has(key)) { subGroups.set(key, []); subOrder.push(key) }
+    subGroups.get(key).push(i)
   }
-  // state.category に明示的なサブカテゴリ順序が定義されていれば、それを最優先で並べる
+  // 明示的なサブカテゴリ順序を優先
   const explicit = (SUBCATEGORY_ORDER && state.category && SUBCATEGORY_ORDER[state.category]) || []
   let ordered
   if (Array.isArray(explicit) && explicit.length > 0) {
-    const existingSubs = new Set(order)
+    const existingSubs = new Set(subOrder)
     const explicitFiltered = explicit.filter(k => existingSubs.has(k))
     const explicitSet = new Set(explicitFiltered)
-    const rest = order.filter(k => !explicitSet.has(k) && k !== '__other__')
+    const rest = subOrder.filter(k => !explicitSet.has(k) && k !== '__other__')
     ordered = [...explicitFiltered, ...rest]
-    if (order.includes('__other__')) ordered.push('__other__')
+    if (subOrder.includes('__other__')) ordered.push('__other__')
   } else {
-    // 「__other__」(サブカテゴリなし) は末尾へ
-    ordered = order.filter(k => k !== '__other__').concat(order.includes('__other__') ? ['__other__'] : [])
+    ordered = subOrder.filter(k => k !== '__other__').concat(subOrder.includes('__other__') ? ['__other__'] : [])
   }
-  return ordered.map(key => {
-    const list = groups.get(key)
-    const label = key === '__other__' ? 'その他' : key
-    const header = `<li class="px-4 py-1.5 text-[11px] font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">${esc(label)} <span class="text-gray-400 font-normal">(${list.length})</span></li>`
-    return header + list.map(renderItem).join('')
+  // ── 2階層目: サブサブカテゴリでさらにグループ化（存在する場合のみ） ──
+  return ordered.map(subKey => {
+    const list = subGroups.get(subKey)
+    const subLabel = subKey === '__other__' ? 'その他' : subKey
+    const subHeader = `<li class="px-4 py-1.5 text-[11px] font-semibold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0">${esc(subLabel)} <span class="text-gray-400 font-normal">(${list.length})</span></li>`
+    const hasAnySubSub = list.some(i => i && typeof i.subsubcategory === 'string' && i.subsubcategory.trim() !== '')
+    if (!hasAnySubSub) {
+      return subHeader + list.map(renderItem).join('')
+    }
+    const ssOrder = []
+    const ssGroups = new Map()
+    for (const i of list) {
+      const ss = (i && typeof i.subsubcategory === 'string') ? i.subsubcategory.trim() : ''
+      const ssKey = ss || '__other__'
+      if (!ssGroups.has(ssKey)) { ssGroups.set(ssKey, []); ssOrder.push(ssKey) }
+      ssGroups.get(ssKey).push(i)
+    }
+    const ssOrdered = ssOrder.filter(k => k !== '__other__').concat(ssOrder.includes('__other__') ? ['__other__'] : [])
+    return subHeader + ssOrdered.map(ssKey => {
+      const ssList = ssGroups.get(ssKey)
+      const ssLabel = ssKey === '__other__' ? '—' : ssKey
+      // インデント + 小さめのフォントで 3 階層目を表現
+      const ssHeader = `<li class="pl-8 pr-4 py-1 text-[10px] font-medium text-gray-400 bg-gray-50/60 border-b border-gray-100">${esc(ssLabel)} <span class="text-gray-300">(${ssList.length})</span></li>`
+      return ssHeader + ssList.map(renderItem).join('')
+    }).join('')
   }).join('')
 }
 
