@@ -8,9 +8,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=60" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=60" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=60" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=61" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=61" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=61" />
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Excel (xlsx) 読み書き用 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -56,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v60 / typical-iv-round</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v61 / dilution-ratio</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '60'
+const BUILD_VERSION = '61'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -873,13 +873,21 @@ function drugFormHTML(d) {
             </select></div>
           <div><label class="label">投与時間 (infusionTime)</label>
             <input data-bind="drug.ivDilution.infusionTime" type="text" value="${esc(d.ivDilution?.infusionTime || '')}" class="input" placeholder="例: 30〜60分, 30分以上" /></div>
-          <div><label class="label">最大濃度 mg/mL (maxConcMgPerMl)</label>
-            <input data-bind="drug.ivDilution.maxConcMgPerMl" type="number" step="0.1" value="${d.ivDilution?.maxConcMgPerMl ?? ''}" class="input" placeholder="例: 20" /></div>
-          <div><label class="label">最小溶解量 mL/g (reconstitutionMlPerGram)</label>
-            <input data-bind="drug.ivDilution.reconstitutionMlPerGram" type="number" step="0.1" value="${d.ivDilution?.reconstitutionMlPerGram ?? ''}" class="input" placeholder="例: 20 → 1g/20mL" /></div>
+          <div class="sm:col-span-2"><label class="label">最小希釈 (dilutionRatio)
+            <span class="text-gray-400 font-normal text-xs">— 文字列で直接入力すると、計算せずそのまま表示</span></label>
+            <input data-bind="drug.ivDilution.dilutionRatio" type="text" value="${esc(d.ivDilution?.dilutionRatio || '')}" class="input" placeholder="例: 1g/20mL, 5mg/mL, 1A/10mL, 100単位/mL" /></div>
           <div class="sm:col-span-2"><label class="label">配合禁忌 incompatible <span class="text-gray-400 font-normal">（複数は | で区切る）</span></label>
             <input data-bind="drug.ivDilution.incompatible" type="text" value="${esc((d.ivDilution?.incompatible || []).join(' | '))}" class="input" placeholder="例: カルシウム含有輸液（リンゲル液など） | 同一ルートへのCa製剤" /></div>
         </div>
+        <details class="text-xs text-gray-500">
+          <summary class="cursor-pointer">旧フィールド (容量自動計算用) — 最小希釈を入れていれば不要</summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            <div><label class="label">最大濃度 mg/mL (maxConcMgPerMl)</label>
+              <input data-bind="drug.ivDilution.maxConcMgPerMl" type="number" step="0.1" value="${d.ivDilution?.maxConcMgPerMl ?? ''}" class="input" placeholder="例: 20" /></div>
+            <div><label class="label">最小溶解量 mL/g (reconstitutionMlPerGram)</label>
+              <input data-bind="drug.ivDilution.reconstitutionMlPerGram" type="number" step="0.1" value="${d.ivDilution?.reconstitutionMlPerGram ?? ''}" class="input" placeholder="例: 20" /></div>
+          </div>
+        </details>
       </div>
 
       <div class="card p-5 space-y-3">

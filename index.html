@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=60" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=60" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=60" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=60" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=60" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=60" />
+  <link rel="manifest" href="manifest.json?v=61" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=61" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=61" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=61" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=61" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=61" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v60 / typical-iv-round</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v61 / dilution-ratio</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '60'
+const BUILD_VERSION = '61'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1801,31 +1801,33 @@ function doseCard(dose, weight, compact=false, drug=null) {
     const solventDisp = iv.solvent==='NS' ? '生食' : iv.solvent==='5%DW' ? '5%ブドウ糖液' : iv.solvent==='NS/5%DW' ? '生食 または 5%ブドウ糖液' : iv.solvent
     const freq2 = (() => { const m2=dose.frequency?.match(/分(\d+)/); return m2?parseInt(m2[1]):1 })()
     const perMin = result.min / freq2; const perMax = result.max / freq2  // 1回量 (mg)
-    // 溶解できる最小溶媒量を算出
-    //   ・1回量 ≤ 1g → 一律 10mL (臨床的に小バッグで十分な範囲)
-    //   ・1回量 > 1g → 必要量を 10mL 刻みで切り上げ
-    //   端数を切ることで「5〜12mL」のような細かい表示を避ける
-    let ratioStr = ''
-    if (iv.reconstitutionMlPerGram) ratioStr = `1g/${iv.reconstitutionMlPerGram}mL`
-    const calcVol = perDoseMg => {
-      if (perDoseMg <= 1000) return 10
-      const required = iv.reconstitutionMlPerGram
-        ? perDoseMg / 1000 * iv.reconstitutionMlPerGram
-        : (iv.maxConcMgPerMl ? perDoseMg / iv.maxConcMgPerMl : 10)
-      return Math.max(10, Math.ceil(required / 10) * 10)
+    // dilutionRatio (例: "1g/20mL", "5mg/mL", "1A/10mL", "100単位/mL") が入っていれば
+    // そのまま表示。空ならば旧来の容量計算 (10mL 刻み切り上げ) で fallback。
+    let mainLine, ratioHtml = ''
+    if (iv.dilutionRatio && String(iv.dilutionRatio).trim()) {
+      mainLine = `${esc(solventDisp)} で <strong>${esc(iv.dilutionRatio)}</strong> に希釈、<strong>${esc(iv.infusionTime)}</strong> かけて点滴`
+    } else {
+      let ratioStr = ''
+      if (iv.reconstitutionMlPerGram) ratioStr = `1g/${iv.reconstitutionMlPerGram}mL`
+      const calcVol = perDoseMg => {
+        if (perDoseMg <= 1000) return 10
+        const required = iv.reconstitutionMlPerGram
+          ? perDoseMg / 1000 * iv.reconstitutionMlPerGram
+          : (iv.maxConcMgPerMl ? perDoseMg / iv.maxConcMgPerMl : 10)
+        return Math.max(10, Math.ceil(required / 10) * 10)
+      }
+      const volMin = calcVol(perMin)
+      const volMax = calcVol(perMax)
+      const volStr = volMin===volMax ? `${volMin}mL` : `${volMin}〜${volMax}mL`
+      mainLine = `${esc(solventDisp)} <strong>${volStr}</strong> に溶解、<strong>${esc(iv.infusionTime)}</strong> かけて点滴`
+      if (ratioStr) ratioHtml = `<div class="text-[10px] text-amber-700 mt-1 opacity-80">最小溶解量: ${ratioStr}</div>`
     }
-    const volMin = calcVol(perMin)
-    const volMax = calcVol(perMax)
-    const volStr = volMin===volMax ? `${volMin}mL` : `${volMin}〜${volMax}mL`
-    const ratioHtml = ratioStr
-      ? `<div class="text-[10px] text-amber-700 mt-1 opacity-80">最小溶解量: ${ratioStr}</div>`
-      : ''
     const incompatHtml = iv.incompatible?.length
       ? `<div class="flex items-start gap-1 text-red-700 font-bold mt-2 text-xs bg-red-50 border border-red-200 rounded px-2 py-1.5"><span>⚠️</span><span>配合禁忌: ${iv.incompatible.map(s=>esc(s)).join('、')}</span></div>`
       : ''
     ivHtml = `<div class="border border-amber-200 bg-amber-50 rounded-lg p-3 mt-2">
-      <div class="text-xs font-semibold text-amber-700 mb-1">💉 点滴希釈（1回量）</div>
-      <div class="text-sm text-amber-900">${esc(solventDisp)} <strong>${volStr}</strong> に溶解、<strong>${esc(iv.infusionTime)}</strong> かけて点滴</div>
+      <div class="text-xs font-semibold text-amber-700 mb-1">💉 点滴希釈</div>
+      <div class="text-sm text-amber-900">${mainLine}</div>
       ${ratioHtml}
       ${incompatHtml}
     </div>`
