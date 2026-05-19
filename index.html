@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=61" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=61" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=61" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=61" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=61" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=61" />
+  <link rel="manifest" href="manifest.json?v=62" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=62" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=62" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=62" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=62" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=62" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v61 / dilution-ratio</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v62 / iv-time-smart</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '61'
+const BUILD_VERSION = '62'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1803,9 +1803,16 @@ function doseCard(dose, weight, compact=false, drug=null) {
     const perMin = result.min / freq2; const perMax = result.max / freq2  // 1回量 (mg)
     // dilutionRatio (例: "1g/20mL", "5mg/mL", "1A/10mL", "100単位/mL") が入っていれば
     // そのまま表示。空ならば旧来の容量計算 (10mL 刻み切り上げ) で fallback。
+    // infusionTime が時間 (分/時間/秒) のときだけ「かけて点滴」を付ける。
+    // 「IV可能」「急速静注可」など時間以外の表記には付けない。
+    const infTime = iv.infusionTime ? String(iv.infusionTime).trim() : ''
+    const isDuration = /分|時間|秒/.test(infTime)
+    const timePart = infTime
+      ? (isDuration ? `<strong>${esc(infTime)}</strong> かけて点滴` : `<strong>${esc(infTime)}</strong>`)
+      : ''
     let mainLine, ratioHtml = ''
     if (iv.dilutionRatio && String(iv.dilutionRatio).trim()) {
-      mainLine = `${esc(solventDisp)} で <strong>${esc(iv.dilutionRatio)}</strong> に希釈、<strong>${esc(iv.infusionTime)}</strong> かけて点滴`
+      mainLine = `${esc(solventDisp)} で <strong>${esc(iv.dilutionRatio)}</strong> に希釈${timePart ? '、' + timePart : ''}`
     } else {
       let ratioStr = ''
       if (iv.reconstitutionMlPerGram) ratioStr = `1g/${iv.reconstitutionMlPerGram}mL`
@@ -1819,7 +1826,7 @@ function doseCard(dose, weight, compact=false, drug=null) {
       const volMin = calcVol(perMin)
       const volMax = calcVol(perMax)
       const volStr = volMin===volMax ? `${volMin}mL` : `${volMin}〜${volMax}mL`
-      mainLine = `${esc(solventDisp)} <strong>${volStr}</strong> に溶解、<strong>${esc(iv.infusionTime)}</strong> かけて点滴`
+      mainLine = `${esc(solventDisp)} <strong>${volStr}</strong> に溶解${timePart ? '、' + timePart : ''}`
       if (ratioStr) ratioHtml = `<div class="text-[10px] text-amber-700 mt-1 opacity-80">最小溶解量: ${ratioStr}</div>`
     }
     const incompatHtml = iv.incompatible?.length
