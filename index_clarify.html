@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=62" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=62" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=62" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=62" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=62" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=62" />
+  <link rel="manifest" href="manifest.json?v=63" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=63" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=63" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=63" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=63" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=63" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v62 / iv-time-smart</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v63 / perdose-range</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '62'
+const BUILD_VERSION = '63'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1166,12 +1166,18 @@ function calcDoseResult(dose, weight) {
     text += gLo===gHi ? `（${gLo}）` : `（${gLo}〜${gHi}）`
   }
   let perDose=null
-  const m=dose.frequency?.match(/分(\d+)/)
+  // "分N" または "分N〜M" を解釈し、可能な分割回数の最小と最大を取得
+  //   1回量の幅 = (1日量min ÷ 分割最大) 〜 (1日量max ÷ 分割最小)
+  const m=dose.frequency?.match(/分(\d+)(?:[〜~](\d+))?/)
+  let nMin = null, nMax = null
   if (m) {
-    const n=parseInt(m[1])
-    let pd = min===max?`1回 ${activePrefix}${round1(min/n)} ${unit}`:`1回 ${activePrefix}${round1(min/n)}〜${round1(max/n)} ${unit}`
+    nMin = parseInt(m[1])
+    nMax = m[2] ? parseInt(m[2]) : nMin
+    const perLo = min / nMax   // 一番小さい 1回量 (大きい分割で割る)
+    const perHi = max / nMin   // 一番大きい 1回量 (小さい分割で割る)
+    let pd = perLo===perHi?`1回 ${activePrefix}${round1(perLo)} ${unit}`:`1回 ${activePrefix}${round1(perLo)}〜${round1(perHi)} ${unit}`
     if (dose.activeLabel && unit === 'mg') {
-      const gLo=gFmt(min/n); const gHi=gFmt(max/n)
+      const gLo=gFmt(perLo); const gHi=gFmt(perHi)
       pd += gLo===gHi ? `（${gLo}）` : `（${gLo}〜${gHi}）`
     }
     perDose = pd
@@ -1181,9 +1187,12 @@ function calcDoseResult(dose, weight) {
   if (dose.dosePerKgTypical != null && dose.dosePerKgTypical !== '' && !dose.dosePerKg) {
     const tv = round1(Math.min(dose.dosePerKgTypical * weight, dose.maxDosePerDay ?? Infinity))
     let typText = `通常 ${activePrefix}${tv} ${unit}/日`
-    if (m) {
-      const n = parseInt(m[1])
-      typText += `（1回 ${round1(tv/n)} ${unit}）`
+    if (nMin != null) {
+      if (nMin === nMax) {
+        typText += `（1回 ${round1(tv/nMin)} ${unit}）`
+      } else {
+        typText += `（1回 ${round1(tv/nMax)}〜${round1(tv/nMin)} ${unit}）`
+      }
     }
     typical = typText
   }
@@ -1799,8 +1808,12 @@ function doseCard(dose, weight, compact=false, drug=null) {
   if (drug?.ivDilution && result && result.min != null) {
     const iv = drug.ivDilution
     const solventDisp = iv.solvent==='NS' ? '生食' : iv.solvent==='5%DW' ? '5%ブドウ糖液' : iv.solvent==='NS/5%DW' ? '生食 または 5%ブドウ糖液' : iv.solvent
-    const freq2 = (() => { const m2=dose.frequency?.match(/分(\d+)/); return m2?parseInt(m2[1]):1 })()
-    const perMin = result.min / freq2; const perMax = result.max / freq2  // 1回量 (mg)
+    // "分N〜M" を解釈: 1回量の最小は dailyMin/M、最大は dailyMax/N
+    const fm = dose.frequency?.match(/分(\d+)(?:[〜~](\d+))?/)
+    const fnMin = fm ? parseInt(fm[1]) : 1
+    const fnMax = fm && fm[2] ? parseInt(fm[2]) : fnMin
+    const perMin = result.min / fnMax   // 1回量 (mg) の下限
+    const perMax = result.max / fnMin   // 1回量 (mg) の上限
     // dilutionRatio (例: "1g/20mL", "5mg/mL", "1A/10mL", "100単位/mL") が入っていれば
     // そのまま表示。空ならば旧来の容量計算 (10mL 刻み切り上げ) で fallback。
     // infusionTime が時間 (分/時間/秒) のときだけ「かけて点滴」を付ける。
