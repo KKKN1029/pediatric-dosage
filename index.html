@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=63" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=63" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=63" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=63" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=63" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=63" />
+  <link rel="manifest" href="manifest.json?v=64" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=64" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=64" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=64" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=64" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=64" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v63 / perdose-range</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v64 / constipation+merge</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '63'
+const BUILD_VERSION = '64'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -78,7 +78,7 @@ let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
   '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
-  '制吐薬','整腸薬・止痢薬','点眼薬','点鼻薬','外用薬','その他',
+  '制吐薬','整腸薬・止痢薬','便秘治療薬','点眼薬','点鼻薬','外用薬','その他',
 ]
 
 // ============================================================
@@ -544,6 +544,53 @@ let DRUGS = [
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:10,frequency:'分3',unit:'g'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'tannin-albumin-v5', genericName:'タンニン酸アルブミン', abbreviation:'タンニン酸Alb', brandNames:['タンナルビン','タンナルビン (ホエイ)','タンニン酸アルブミン (ニッコー)'], category:'整腸薬・止痢薬', route:'内服', formulations:['末'], adultDose:'3〜4g/日',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.05,dosePerKgMax:0.1,maxDosePerDay:4,frequency:'分3',unit:'g'}], notes:'牛乳アレルギーに禁忌。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // 便秘治療薬 (小児の薬の選び方・使い方 第5版 p.158)
+  { id:'maltose-extract-v5', genericName:'マルツエキス', abbreviation:'マルツエキス', brandNames:['マルツエキス'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['分包 9g'], adultDose:'—',
+    pediatricDoses:[{ageLabel:'乳児',ageMinMonths:0,ageMaxMonths:12,purpose:'治療',fixedDose:'1 g/kg/回 1日1〜3回',frequency:'1日1〜3回',notes:'1包9g'}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'lactulose-v5', genericName:'ラクツロース', abbreviation:'ラクツロース', brandNames:['モニラック','ピアーレ','リフォロース'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['シロップ 65%','原末'], adultDose:'30〜60 mL/日',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:2,dosePerKgTypical:1,unit:'mL',frequency:'分3',notes:'ラクツロース・シロップ60%「コーワ」/ ゼリー製剤には小児便秘に保険適用なし'}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'magnesium-oxide-v5', genericName:'酸化マグネシウム', abbreviation:'MgO', brandNames:['マグミット','酸化マグネシウム','重質酸化マグネシウム'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['細粒 83%','末','錠 200mg・250mg・330mg・500mg'], adultDose:'2 g/日',
+    pediatricDoses:[{ageLabel:'幼児以上',ageMinMonths:12,purpose:'治療',dosePerKg:0.05,unit:'g',frequency:'分3',maxDosePerDay:2}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'macrogol-4000-v5', genericName:'マクロゴール4000 (ポリエチレングリコール4000)', abbreviation:'PEG4000', brandNames:['モビコール'], category:'便秘治療薬', subcategory:'浸透圧性下剤', route:'内服', formulations:['配合内用剤LD','配合内用剤HD (LDの2倍量含有)'], adultDose:'LDとして 2〜6包/日',
+    pediatricDoses:[
+      {ageLabel:'2〜7歳未満',ageMinMonths:24,ageMaxMonths:84,purpose:'治療',fixedDose:'LD 1回1包を1日1回から開始 (1日1〜3回)',frequency:'1日1〜3回',notes:'最大1日量4包 (1回量2包) まで。増量は2日以上の間隔をあけ、増量幅は1日量1包まで'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'LD 1回2包を1日1回から開始 (1日1〜3回)',frequency:'1日1〜3回',notes:'最大1日量4包 (1回量2包) まで。増量幅は1日量1包まで'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'LD 1回2包を1日1回から開始 (1日1〜3回)',frequency:'1日1〜3回',notes:'最大1日量6包 (1回量4包) まで。増量幅は1日量2包まで'}
+    ],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'picosulfate-v5', genericName:'ピコスルファートナトリウム', abbreviation:'ピコスルファート', brandNames:['ラキソベロン','スナイリン','シンラック'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['内用液 0.75%','DS 1%','錠 2.5mg','錠 7.5mg'], adultDose:'5〜7.5 mg (10〜15滴・2〜3錠)/回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'3〜5 mg (5〜10滴) (増減)',frequency:'分1'}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'sennoside-v5', genericName:'センノシド', abbreviation:'センノシド', brandNames:['プルゼニド','センノシド'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'内服', formulations:['錠 12mg'], adultDose:'1〜2錠/日 (分1) 最大4錠',
+    pediatricDoses:[{ageLabel:'中学生以上',ageMinMonths:144,purpose:'治療',fixedDose:'1〜2錠/日',frequency:'分1',notes:'最大4錠/日。乳児に対する安全性未確立'}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'bisacodyl-v5', genericName:'ビサコジル', abbreviation:'ビサコジル', brandNames:['テレミンソフト','ビサコジル坐剤'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'坐剤', formulations:['坐薬 2mg','坐薬 10mg'], adultDose:'10〜20 mg/回',
+    pediatricDoses:[
+      {ageLabel:'乳幼児',ageMaxMonths:84,purpose:'治療',fixedDose:'2 mg/回',frequency:'1日1〜2回'},
+      {ageLabel:'小児',ageMinMonths:84,purpose:'治療',fixedDose:'5 mg/回',frequency:'1日1〜2回'}
+    ],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'sodium-bicarbonate-v5', genericName:'炭酸水素ナトリウム', abbreviation:'炭酸水素Na', brandNames:['新レシカルボン'], category:'便秘治療薬', subcategory:'刺激性下剤', route:'坐剤', formulations:['坐剤'], adultDose:'1〜2個/回',
+    pediatricDoses:[
+      {ageLabel:'乳幼児',ageMaxMonths:84,purpose:'治療',fixedDose:'1/4 個/回'},
+      {ageLabel:'小児',ageMinMonths:84,purpose:'治療',fixedDose:'1/2 個/回'}
+    ],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  { id:'glycerin-enema-v5', genericName:'グリセリン浣腸液', abbreviation:'グリセリン', brandNames:['グリセリン浣腸オヲタ','グリセリン浣腸液50%東豊'], category:'便秘治療薬', subcategory:'浣腸液', route:'浣腸', formulations:['小児用 30 mL','小児用 60 mL','小児用 120 mL','小児用 150 mL','50% 40 mL','50% 60 mL','50% 110 mL','50% 150 mL','50% 500 mL'], adultDose:'60〜150 mL/回',
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,unit:'mL',frequency:'1回'}],
+    references:['小児の薬の選び方・使い方 第5版'], pending:true},
 
   // 抗アレルギー点眼薬 (小児の薬の選び方・使い方 第5版)
   { id:'amlexanox-eye-v5', genericName:'アンレキサノクス点眼', abbreviation:'アンレキサノクス', brandNames:['エリックス'], category:'点眼薬', subcategory:'抗アレルギー薬・メディエーター遊離抑制', route:'点眼', formulations:['点眼液 0.25%'], adultDose:'1回1〜2滴を1日4回',

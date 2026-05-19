@@ -8,9 +8,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=63" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=63" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=63" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=64" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=64" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=64" />
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Excel (xlsx) 読み書き用 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -56,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v63 / perdose-range</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v64 / constipation+merge</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '63'
+const BUILD_VERSION = '64'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1520,6 +1520,7 @@ function settingsTabHTML() {
         </div>
         <div class="flex gap-2 flex-wrap pt-2 border-t border-gray-100">
           <button data-act="reload" class="btn-secondary">🔄 Gist から再読込</button>
+          <button data-act="merge-builtin" class="btn-secondary inline-flex items-center gap-1.5" title="ホスト側 (index_clarify.html) の埋め込み DRUGS / DISEASES / CATEGORIES を取り込み、Gist に未登録の項目だけ追加">${ICON.download} 埋め込みから新規追加マージ</button>
           <button data-act="export-json" class="btn-secondary inline-flex items-center gap-1.5">${ICON.download} JSON ダウンロード</button>
           <button data-act="logout" class="btn-danger">設定をクリア</button>
         </div>
@@ -1770,6 +1771,37 @@ function onClick(e) {
   }
   if (act === 'export-json') {
     downloadJson(GIST_FILENAME, JSON.stringify(state.data, null, 2)); return
+  }
+  if (act === 'merge-builtin') {
+    if (!confirm('ホストの index_clarify.html を取得して、Gist に未登録の薬剤/疾患/カテゴリだけを追加します。\n既存データは上書きしません。よろしいですか？')) return
+    setState({ busy:'埋め込みデータを取得中…' })
+    importFromUrl().then(d => {
+      let drugAdd = 0, disAdd = 0, catAdd = 0, diseaseCatAdd = 0
+      const existing = new Set((state.data.drugs || []).map(x => x.id))
+      for (const drug of (d.drugs || [])) {
+        if (!existing.has(drug.id)) { state.data.drugs.push(drug); drugAdd++ }
+      }
+      const exDis = new Set((state.data.diseases || []).map(x => x.id))
+      for (const dis of (d.diseases || [])) {
+        if (!exDis.has(dis.id)) { state.data.diseases.push(dis); disAdd++ }
+      }
+      const exCat = new Set(state.data.drugCategories || [])
+      for (const cat of (d.drugCategories || [])) {
+        if (!exCat.has(cat)) { state.data.drugCategories.push(cat); catAdd++ }
+      }
+      const exDisCat = new Set(state.data.diseaseCategories || [])
+      for (const cat of (d.diseaseCategories || [])) {
+        if (!exDisCat.has(cat)) { state.data.diseaseCategories.push(cat); diseaseCatAdd++ }
+      }
+      const total = drugAdd + disAdd + catAdd + diseaseCatAdd
+      if (total > 0) { markDirty() }
+      setState({ busy:'' })
+      showToast(`マージ完了: 薬剤+${drugAdd} / 疾患+${disAdd} / 薬剤カテゴリ+${catAdd} / 疾患カテゴリ+${diseaseCatAdd}`, total > 0 ? 'ok' : 'info')
+    }).catch(err => {
+      setState({ busy:'' })
+      showToast('取得失敗: ' + err.message, 'err')
+    })
+    return
   }
   if (act === 'export-excel') { handleExcelExport(); return }
   if (act === 'copy-share') {
