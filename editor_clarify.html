@@ -8,9 +8,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=65" />
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=65" />
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=65" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=66" />
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=66" />
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=66" />
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Excel (xlsx) 読み書き用 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -56,10 +56,10 @@
 </style>
 </head>
 <body>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v65 / subsub-3level</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v66 / subsub-order</div>
 <script>
 // バージョン変更検出: 旧 SW を解除して全 cache を削除 (メインアプリと同じ仕組み)
-const BUILD_VERSION = '65'
+const BUILD_VERSION = '66'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -408,6 +408,8 @@ function normalizeData(raw) {
   d.steroidNonsteroid.forEach(x => { if (!Array.isArray(x.forms)) x.forms = [] })
   // 各薬剤カテゴリ内のサブカテゴリ順序 (Gist 同期)
   if (!d.subcategoryOrder || typeof d.subcategoryOrder !== 'object') d.subcategoryOrder = {}
+  // サブサブカテゴリ順序 (Gist 同期)
+  if (!d.subsubcategoryOrder || typeof d.subsubcategoryOrder !== 'object') d.subsubcategoryOrder = {}
   // 1次/2次 のチェック状態 (Gist 経由で同期) — localStorage と双方向ミラーリング
   if (!Array.isArray(d.check1)) d.check1 = []
   if (!Array.isArray(d.check2)) d.check2 = []
@@ -1435,43 +1437,75 @@ function categoriesTabHTML() {
   `
 }
 
-// 各薬剤カテゴリ内のサブカテゴリ順序を編集する UI
-// state.data.subcategoryOrder = { [カテゴリ名]: [サブ名1, サブ名2, ...] }
+// 各薬剤カテゴリ内のサブカテゴリ / サブサブカテゴリ順序を編集する UI
+//   state.data.subcategoryOrder   = { [カテゴリ名]: [サブ名1, サブ名2, ...] }
+//   state.data.subsubcategoryOrder = { [カテゴリ名]: { [サブ名]: [サブサブ名1, サブサブ名2, ...] } }
 function subcategoryOrderHTML() {
   if (!state.data.subcategoryOrder || typeof state.data.subcategoryOrder !== 'object') {
     state.data.subcategoryOrder = {}
   }
+  if (!state.data.subsubcategoryOrder || typeof state.data.subsubcategoryOrder !== 'object') {
+    state.data.subsubcategoryOrder = {}
+  }
   const cats = state.data.drugCategories || []
-  // 各カテゴリの実在サブカテゴリ (drugs から自動抽出)
+  // 各カテゴリ → サブ → サブサブを drugs から自動抽出
+  const tree = {}  // tree[cat][sub] = Set of subsubs
   const subsByCategory = {}
   for (const d of state.data.drugs || []) {
     const c = d.category || ''
     const s = (d.subcategory || '').trim()
+    const ss = (d.subsubcategory || '').trim()
     if (!c || !s) continue
     if (!subsByCategory[c]) subsByCategory[c] = new Set()
     subsByCategory[c].add(s)
+    if (!tree[c]) tree[c] = {}
+    if (!tree[c][s]) tree[c][s] = new Set()
+    if (ss) tree[c][s].add(ss)
   }
   const items = cats.map(cat => {
     const allSubs = [...(subsByCategory[cat] || new Set())]
     if (allSubs.length === 0) return ''
-    // 既存の順序 + 新出のサブを末尾に
     const saved = Array.isArray(state.data.subcategoryOrder[cat]) ? state.data.subcategoryOrder[cat] : []
     const savedSet = new Set(saved)
     const ordered = [...saved.filter(s => allSubs.includes(s)), ...allSubs.filter(s => !savedSet.has(s))]
-    // ローカルに保存してデータ整合性を保つ
     state.data.subcategoryOrder[cat] = ordered
+    if (!state.data.subsubcategoryOrder[cat]) state.data.subsubcategoryOrder[cat] = {}
+
+    const renderSubItem = (s, i) => {
+      const allSubsubs = [...((tree[cat] || {})[s] || new Set())]
+      let subsubBlock = ''
+      if (allSubsubs.length > 0) {
+        const savedSub = Array.isArray(state.data.subsubcategoryOrder[cat][s]) ? state.data.subsubcategoryOrder[cat][s] : []
+        const savedSubSet = new Set(savedSub)
+        const ssOrdered = [...savedSub.filter(x => allSubsubs.includes(x)), ...allSubsubs.filter(x => !savedSubSet.has(x))]
+        state.data.subsubcategoryOrder[cat][s] = ssOrdered
+        subsubBlock = `
+          <div class="ml-5 mt-1 pl-3 border-l-2 border-blue-100 space-y-1">
+            ${ssOrdered.map((ss, j) => `
+              <div class="flex items-center gap-2 bg-blue-50 rounded-md border border-blue-100 px-2 py-1">
+                <span class="flex-1 text-[11px] text-gray-700 truncate">↳ ${esc(ss)}</span>
+                <button data-act="subsubcat-up" data-cat="${esc(cat)}" data-sub="${esc(s)}" data-i="${j}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${j===0?'disabled':''}>${ICON.chevUp}</button>
+                <button data-act="subsubcat-down" data-cat="${esc(cat)}" data-sub="${esc(s)}" data-i="${j}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${j===ssOrdered.length-1?'disabled':''}>${ICON.chevDown}</button>
+              </div>`).join('')}
+          </div>`
+      }
+      return `
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 bg-white rounded-md border border-gray-200 px-2.5 py-1.5">
+            <span class="flex-1 text-xs text-gray-800 truncate">${esc(s)}${allSubsubs.length ? ` <span class="text-gray-400 font-normal">(${allSubsubs.length})</span>` : ''}</span>
+            <button data-act="subcat-up" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===0?'disabled':''}>${ICON.chevUp}</button>
+            <button data-act="subcat-down" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===ordered.length-1?'disabled':''}>${ICON.chevDown}</button>
+          </div>
+          ${subsubBlock}
+        </div>`
+    }
     return `
       <details class="bg-gray-50 rounded-lg" ${ordered.length <= 1 ? '' : 'open'}>
         <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-800 select-none">
           ${esc(cat)} <span class="text-xs text-gray-500 font-normal">(${ordered.length} サブカテゴリ)</span>
         </summary>
-        <div class="px-3 pb-3 space-y-1.5">
-          ${ordered.map((s, i) => `
-            <div class="flex items-center gap-2 bg-white rounded-md border border-gray-200 px-2.5 py-1.5">
-              <span class="flex-1 text-xs text-gray-800 truncate">${esc(s)}</span>
-              <button data-act="subcat-up" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===0?'disabled':''}>${ICON.chevUp}</button>
-              <button data-act="subcat-down" data-cat="${esc(cat)}" data-i="${i}" class="btn-ghost text-gray-400 hover:text-blue-600 px-1.5" ${i===ordered.length-1?'disabled':''}>${ICON.chevDown}</button>
-            </div>`).join('')}
+        <div class="px-3 pb-3 space-y-2">
+          ${ordered.map(renderSubItem).join('')}
         </div>
       </details>`
   }).filter(Boolean).join('')
@@ -1480,7 +1514,7 @@ function subcategoryOrderHTML() {
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2">
       <div>
         <h3 class="font-bold text-gray-900">サブカテゴリの並び順</h3>
-        <p class="text-[11px] text-gray-500 mt-0.5">利用者側で薬剤一覧をサブカテゴリ単位でグループ表示する時の順序です。</p>
+        <p class="text-[11px] text-gray-500 mt-0.5">利用者側で薬剤一覧をグループ表示する時の順序です。サブカテゴリの下にぶら下がる ↳ サブサブカテゴリも個別に並び替えできます。</p>
       </div>
       ${items}
     </div>`
@@ -2024,6 +2058,16 @@ function onClick(e) {
     if (act === 'subcat-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
     if (act === 'subcat-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
     state.data.subcategoryOrder[cat] = arr
+    markDirty(); render(); return
+  }
+  if (act === 'subsubcat-up' || act === 'subsubcat-down') {
+    const cat = t.dataset.cat; const sub = t.dataset.sub; const i = +t.dataset.i
+    if (!state.data.subsubcategoryOrder) state.data.subsubcategoryOrder = {}
+    if (!state.data.subsubcategoryOrder[cat]) state.data.subsubcategoryOrder[cat] = {}
+    const arr = state.data.subsubcategoryOrder[cat][sub] || []
+    if (act === 'subsubcat-up' && i > 0) { [arr[i-1], arr[i]] = [arr[i], arr[i-1]] }
+    if (act === 'subsubcat-down' && i < arr.length - 1) { [arr[i+1], arr[i]] = [arr[i], arr[i+1]] }
+    state.data.subsubcategoryOrder[cat][sub] = arr
     markDirty(); render(); return
   }
   if (act === 'cat-up' || act === 'cat-down' || act === 'cat-del') {

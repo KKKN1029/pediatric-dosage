@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=65" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=65" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=65" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=65" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=65" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=65" />
+  <link rel="manifest" href="manifest.json?v=66" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=66" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=66" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=66" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=66" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=66" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v65 / subsub-3level</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v66 / subsub-order</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '65'
+const BUILD_VERSION = '66'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -671,6 +671,8 @@ let DRUGS = [
 const EMBEDDED_DRUGS_BY_ID = new Map(DRUGS.map(d => [d.id, d]))
 // 各薬剤カテゴリ内のサブカテゴリ並び順 (Gist 由来。data.subcategoryOrder で差し替える)
 let SUBCATEGORY_ORDER = {}
+// サブサブカテゴリ並び順: { [カテゴリ]: { [サブカテゴリ]: [サブサブ1, サブサブ2, ...] } }
+let SUBSUBCATEGORY_ORDER = {}
 
 // ============================================================
 // データアクセス (localStorage)
@@ -740,6 +742,10 @@ function applyMasterData(data) {
   // サブカテゴリ並び順 (カテゴリ→[サブ1,サブ2,...] のオブジェクト)
   if (data.subcategoryOrder && typeof data.subcategoryOrder === 'object') {
     SUBCATEGORY_ORDER = data.subcategoryOrder
+  }
+  // サブサブカテゴリ並び順
+  if (data.subsubcategoryOrder && typeof data.subsubcategoryOrder === 'object') {
+    SUBSUBCATEGORY_ORDER = data.subsubcategoryOrder
   }
   if (Array.isArray(data.diseases)) DISEASES = data.diseases
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
@@ -2304,7 +2310,19 @@ function renderListBySubcategory(items, renderItem) {
       if (!ssGroups.has(ssKey)) { ssGroups.set(ssKey, []); ssOrder.push(ssKey) }
       ssGroups.get(ssKey).push(i)
     }
-    const ssOrdered = ssOrder.filter(k => k !== '__other__').concat(ssOrder.includes('__other__') ? ['__other__'] : [])
+    // 明示的なサブサブカテゴリ順序を優先
+    const ssExplicit = (SUBSUBCATEGORY_ORDER && state.category && SUBSUBCATEGORY_ORDER[state.category] && SUBSUBCATEGORY_ORDER[state.category][subKey]) || []
+    let ssOrdered
+    if (Array.isArray(ssExplicit) && ssExplicit.length > 0) {
+      const existingSet = new Set(ssOrder)
+      const explicitFiltered = ssExplicit.filter(k => existingSet.has(k))
+      const explicitSet2 = new Set(explicitFiltered)
+      const rest = ssOrder.filter(k => !explicitSet2.has(k) && k !== '__other__')
+      ssOrdered = [...explicitFiltered, ...rest]
+      if (ssOrder.includes('__other__')) ssOrdered.push('__other__')
+    } else {
+      ssOrdered = ssOrder.filter(k => k !== '__other__').concat(ssOrder.includes('__other__') ? ['__other__'] : [])
+    }
     return subHeader + ssOrdered.map(ssKey => {
       const ssList = ssGroups.get(ssKey)
       const ssLabel = ssKey === '__other__' ? '—' : ssKey
