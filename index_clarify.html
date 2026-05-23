@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=66" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=66" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=66" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=66" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=66" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=66" />
+  <link rel="manifest" href="manifest.json?v=67" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=67" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=67" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=67" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=67" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=67" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v66 / subsub-order</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v67 / ug-formulation</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '66'
+const BUILD_VERSION = '67'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -433,13 +433,13 @@ let DRUGS = [
   { id:'terbutaline-v5', genericName:'テルブタリン硫酸塩', abbreviation:'テルブタリン', brandNames:['ブリカニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第2世代)', route:'内服', formulations:['シロップ 0.5mg/mL','細粒 1%','錠 2mg'], adultDose:'12mg/日 まで',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.225,maxDosePerDay:12,frequency:'分3'}], notes:'新生児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'clenbuterol-v5', genericName:'クレンブテロール塩酸塩', abbreviation:'クレンブテロール', brandNames:['スピロペント','トニール'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['顆粒 0.002%','錠 10μg'], adultDose:'40μg/日 まで',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'0.6μg/kg/日',frequency:'分2',notes:'最大 40μg/日。4歳以下に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.6,unit:'μg',maxDosePerDay:40,frequency:'分2',notes:'4歳以下に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'tulobuterol-oral-v5', genericName:'ツロブテロール塩酸塩 (経口)', abbreviation:'ツロブテロール (経口)', brandNames:['ベラチン','ホクナリン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['ベラチンDS 0.1%','ホクナリンDS 0.1%','錠 1mg'], adultDose:'2mg/日 まで',
     pediatricDoses:[{ageLabel:'6ヶ月以上',ageMinMonths:6,purpose:'治療',dosePerKg:0.04,maxDosePerDay:2,frequency:'分2'}], notes:'6ヶ月未満に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'fenoterol-v5', genericName:'フェノテロール臭化水素酸塩', abbreviation:'フェノテロール', brandNames:['ベロテック'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 0.05%','DS 0.5% (オーハラ)'], adultDose:'7.5mg/日 まで',
     pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:0.375,maxDosePerDay:7.5,frequency:'分3'}], notes:'吸入薬は小児に使用しない。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
   { id:'procaterol-oral-v5', genericName:'プロカテロール塩酸塩水和物 (経口)', abbreviation:'プロカテロール (経口)', brandNames:['メプチン'], category:'喘息薬', subcategory:'経口β2刺激薬(第3世代)', route:'内服', formulations:['シロップ 5μg/mL','DS 0.005%','顆粒 0.01%','錠 50μg','ミニ錠 25μg'], adultDose:'100μg/日 まで',
-    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',fixedDose:'2.5μg/kg/日',frequency:'分2〜3',notes:'最大 100μg/日。新生児に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
+    pediatricDoses:[{ageLabel:'全年齢',purpose:'治療',dosePerKg:2.5,unit:'μg',maxDosePerDay:100,frequency:'分2〜3',notes:'新生児に対する安全性未確立'}], references:['小児の薬の選び方・使い方 第5版'], pending:true},
   // ステロイド薬 - 経口
   { id:'prednisolone-oral-v5', genericName:'プレドニゾロン (経口)', abbreviation:'プレドニゾロン (経口)', brandNames:['プレドニン','プレドニゾロン'], category:'ステロイド薬', subcategory:'経口ステロイド薬', route:'内服', formulations:['散 1%','錠 1mg・2.5mg・5mg'], adultDose:'60mg/日 まで',
     pediatricDoses:[{ageLabel:'用量① (Nelson 20版)',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,maxDosePerDay:60,frequency:'分2'},{ageLabel:'用量② (喘息GL 2017)',purpose:'治療',dosePerKgMin:0.5,dosePerKgMax:1,frequency:'分3'}], notes:'用量①はNelson小児科学20版、用量②は小児気管支喘息治療・管理ガイドライン2017に拠る。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
@@ -1085,9 +1085,18 @@ function parseFormulation(s) {
   const isLiquid = /シロップ|液|内用液|懸濁液|ドロップ|ドライシロップ|エリキシル|drops?|syrup/i.test(text)
   const isSolid = /細粒|顆粒|散|末|粉|DS|ドライ|ドライシロップ|G\b|granul/i.test(text) && !isLiquid
   // ドライシロップ (DS) は溶解前は固形だが、調剤時は固形として扱う (mg/g 表記が一般的)
+  // X μg/mL (μg は mg に換算: 1μg = 0.001mg)
+  let m = text.match(/(\d+(?:\.\d+)?)\s*(?:μg|µg|ug|mcg)\s*\/\s*ml/i)
+  if (m) return { kind: 'mg_per_mL', value: +m[1]/1000, displayUnit: 'mL', formText: text }
   // X mg/mL
-  let m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*ml/i)
+  m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*ml/i)
   if (m) return { kind: 'mg_per_mL', value: +m[1], displayUnit: 'mL', formText: text }
+  // X μg/g (DS, 細粒)
+  m = text.match(/(\d+(?:\.\d+)?)\s*(?:μg|µg|ug|mcg)\s*\/\s*g/i)
+  if (m) {
+    const ppm0 = text.match(/(\d+(?:\.\d+)?)\s*g\s*\/\s*包/i)
+    return { kind: 'mg_per_g', value: +m[1]/1000, displayUnit: 'g', formText: text, perPacketG: ppm0 ? +ppm0[1] : null }
+  }
   // X mg/g (DS, 細粒)
   m = text.match(/(\d+(?:\.\d+)?)\s*mg\s*\/\s*g/i)
   if (m) {
@@ -1118,6 +1127,11 @@ function parseFormulation(s) {
   }
   // 単位用量 (錠, カプセル, 坐剤, OD錠, チュアブル錠, バッグ, バイアル, アンプル, キット ..)
   // 例: "錠 250mg" / "錠 100/200mg" / "坐剤 100/200/400mg" / "点滴静注液バッグ 300mg"
+  // μg 単位の錠 (例: "錠 10μg", "エアゾール 50μg") を先に判定 (1μg = 0.001mg)
+  m = text.match(/(\d+(?:\.\d+)?)\s*(?:μg|µg|ug|mcg)(?!\s*\/)/i)
+  if (m) {
+    return { kind: 'mg_per_unit', value: +m[1]/1000, displayUnit: guessUnitLabel(text), formText: text }
+  }
   m = text.match(/(\d+(?:\.\d+)?)\s*mg(?!\s*\/)/i)
   if (m) {
     return { kind: 'mg_per_unit', value: +m[1], displayUnit: guessUnitLabel(text), formText: text }
