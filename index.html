@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=67" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=67" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=67" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=67" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=67" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=67" />
+  <link rel="manifest" href="manifest.json?v=68" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=68" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=68" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=68" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=68" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=68" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v67 / ug-formulation</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v68 / peptic-ulcer</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '67'
+const BUILD_VERSION = '68'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -660,6 +660,98 @@ let DRUGS = [
       {ageLabel:'12歳未満',ageMinMonths:36,ageMaxMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に1噴霧を1日1回',frequency:'分1'},
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回各鼻腔に2噴霧を1日1回',frequency:'分1'},
     ], notes:'3歳未満の幼児に対する安全性未確立。', references:['小児の薬の選び方・使い方 第5版'], pending:true},
+
+  // ── 消化器 (消化性潰瘍薬) ────────────────────────────────────────────
+  { id:'famotidine-v10', genericName:'ファモチジン', abbreviation:'ファモチジン', brandNames:['ガスター'],
+    category:'消化器', subcategory:'H2受容体拮抗薬', route:'内服',
+    formulations:['錠 10mg・20mg','D錠 10mg・20mg','散 2%・10%'],
+    adultDose:'20〜40mg/日 分1就寝前 または 分2 朝食後・夕食後または就寝前',
+    pediatricDoses:[
+      {ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,unit:'mg',maxDosePerDay:40,frequency:'分2',
+       notes:'分1 就寝前 または 分2 朝食後・夕食後または就寝前。書籍参考 (1回量): ½歳 4〜8mg / 1歳 5〜10mg / 3歳 6〜13mg / 7½歳 10〜20mg / 12歳 13〜26mg'},
+    ],
+    notes:'H2受容体拮抗薬。胃潰瘍・十二指腸潰瘍・逆流性食道炎・急性胃炎などに使用。PPIに比べピロリ菌検査結果への影響が少なく、保険上の投与日数制限もない。腎機能障害時は減量。',
+    references:['新 小児薬用量 改訂第10版']},
+  { id:'famotidine-iv-v10', genericName:'ファモチジン (注射)', abbreviation:'ファモチジン', brandNames:['ガスター注'],
+    category:'消化器', subcategory:'H2受容体拮抗薬', route:'筋注・静注・点滴静注',
+    formulations:['注 10mg/A (2mL)','注 20mg/A (2mL)'],
+    adultDose:'1回20mg 1日2回 (12時間毎)',
+    pediatricDoses:[
+      {ageLabel:'全年齢',purpose:'治療',dosePerKg:1,unit:'mg',maxDosePerDay:40,frequency:'分2',
+       notes:'1日2回 12時間毎。書籍参考 (1回量): ½歳 4mg / 1歳 5mg / 3歳 6mg / 7½歳 10mg / 12歳 13mg (成人 1回20mg)'},
+    ],
+    ivDilution:{solvent:'NS/5%DW', infusionTime:'IV可能', dilutionRatio:'20mg(2mL)を生食/5%DWで適宜希釈', incompatible:[]},
+    notes:'経口摂取困難時の選択肢。',
+    references:['新 小児薬用量 改訂第10版']},
+
+  { id:'omeprazole-v10', genericName:'オメプラゾール', abbreviation:'オメプラゾール', brandNames:['オメプラール','オメプラゾン'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'内服',
+    formulations:['錠 10mg・20mg'],
+    adultDose:'20mg/日 分1',
+    pediatricDoses:[
+      {ageLabel:'6〜11歳',ageMinMonths:72,ageMaxMonths:144,purpose:'治療',fixedDose:'10mg/日 分1',frequency:'分1',
+       notes:'(成人: 20mg/日 分1)'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'20mg/日 分1',frequency:'分1',
+       notes:'成人量と同じ'},
+    ],
+    notes:'プロトンポンプ阻害薬(PPI)。投与期間: 胃潰瘍・吻合部潰瘍 最大8週間 / 十二指腸潰瘍 最大6週間 / 逆流性食道炎 最大8週間。CYP2C19の影響大・相互作用多い (クロピドグレル併用注意)。後発品多く安価で静注あり。',
+    references:['新 小児薬用量 改訂第10版']},
+  { id:'omeprazole-iv-v10', genericName:'オメプラゾール (静注)', abbreviation:'オメプラゾール', brandNames:['オメプラール注'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'静注・点滴静注',
+    formulations:['注 20mg/V'],
+    adultDose:'1回20mg 1日2回',
+    pediatricDoses:[
+      {ageLabel:'7歳以上 (参考値)',ageMinMonths:84,purpose:'治療',fixedDose:'7½歳: 1回10mg / 12歳: 1回13mg を1日2回',frequency:'分2',
+       notes:'(成人: 1回20mg 1日2回)'},
+    ],
+    ivDilution:{solvent:'NS/5%DW', infusionTime:'30分かけて点滴', dilutionRatio:'20mgを生食/5%DW 100mLに溶解', incompatible:[]},
+    references:['新 小児薬用量 改訂第10版']},
+
+  { id:'lansoprazole-v10', genericName:'ランソプラゾール', abbreviation:'ランソプラゾール', brandNames:['タケプロン'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'内服',
+    formulations:['カプセル 15mg・30mg','OD錠 15mg・30mg'],
+    adultDose:'15〜30mg/日 分1',
+    pediatricDoses:[
+      {ageLabel:'6〜11歳',ageMinMonths:72,ageMaxMonths:144,purpose:'治療',fixedDose:'1回15mgを1日1回',frequency:'分1',
+       notes:'(成人: 15〜30mg/日 分1)'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回30mgを1日1回',frequency:'分1'},
+    ],
+    notes:'PPI。投与期間: 胃潰瘍・吻合部潰瘍 最大8週間 / 十二指腸潰瘍 最大6週間 / 逆流性食道炎 最大8週間。維持療法で効果不十分の場合は1回30mg (通常15mg)。OD錠あり→嚥下困難・小児に有用。CYP2C19の影響大はオメプラゾールと同様。',
+    references:['新 小児薬用量 改訂第10版']},
+  { id:'lansoprazole-iv-v10', genericName:'ランソプラゾール (静注)', abbreviation:'ランソプラゾール', brandNames:['タケプロン注'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'静注・点滴静注',
+    formulations:['注 30mg/V'],
+    adultDose:'1回30mg 1日2回',
+    pediatricDoses:[
+      {ageLabel:'7歳以上 (参考値)',ageMinMonths:84,purpose:'治療',fixedDose:'7½歳: 1回15mg / 12歳: 1回20mg を1日2回',frequency:'分2',
+       notes:'(成人: 1回30mg 1日2回)'},
+    ],
+    ivDilution:{solvent:'NS', infusionTime:'30分かけて点滴', dilutionRatio:'30mgを生食 100mLに溶解', incompatible:[]},
+    references:['新 小児薬用量 改訂第10版']},
+
+  { id:'rabeprazole-v10', genericName:'ラベプラゾールナトリウム', abbreviation:'ラベプラゾール', brandNames:['パリエット'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'内服',
+    formulations:['錠 5mg・10mg・20mg'],
+    adultDose:'10〜20mg/日 分1',
+    pediatricDoses:[
+      {ageLabel:'7歳以上 (参考値)',ageMinMonths:84,purpose:'治療',fixedDose:'10mg/日 分1',frequency:'分1',
+       notes:'(成人: 10〜20mg/日 分1)'},
+    ],
+    notes:'PPI。投与期間: 胃潰瘍・吻合部潰瘍 最大8週間 / 十二指腸潰瘍 最大6週間 / 逆流性食道炎 最大8週間。遺伝子多型の影響が小さく相互作用が少ない→多剤併用時に好適。食後投与可。静注なし。',
+    references:['新 小児薬用量 改訂第10版']},
+
+  { id:'esomeprazole-v10', genericName:'エソメプラゾールマグネシウム', abbreviation:'エソメプラゾール', brandNames:['ネキシウム'],
+    category:'消化器', subcategory:'プロトンポンプ阻害薬 (PPI)', route:'内服',
+    formulations:['カプセル 10mg・20mg','顆粒分包 10mg・20mg'],
+    adultDose:'20mg/日 分1 (非びらん性GERD: 10mg/日 分1)',
+    pediatricDoses:[
+      {ageLabel:'1歳以上・体重20kg未満',ageMinMonths:12,weightMaxKg:20,purpose:'治療',fixedDose:'1回10mgを1日1回',frequency:'分1',
+       notes:'(成人: 20mg/日 分1)'},
+      {ageLabel:'1歳以上・体重20kg以上',ageMinMonths:12,weightMinKg:20,purpose:'治療',fixedDose:'1回10〜20mgを1日1回',frequency:'分1',
+       notes:'(成人: 20mg/日 分1)'},
+    ],
+    notes:'日本で承認された唯一の1歳以上の小児適応を有するPPI (2022年11月承認、2024年6月用量追加)。投与期間: 胃潰瘍・吻合部潰瘍 最大8週間 / 十二指腸潰瘍 最大6週間 / 逆流性食道炎 最大8週間。酸分泌抑制力が最強。H.pylori除菌・重症逆流性食道炎の第一選択。小児顆粒剤・静注あり。オメプラゾールの光学異性体でCYP2C19多型による効果差を改良。',
+    references:['新 小児薬用量 改訂第10版']},
 ]
 
 // ============================================================
