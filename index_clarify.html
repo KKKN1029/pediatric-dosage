@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=68" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=68" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=68" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=68" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=68" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=68" />
+  <link rel="manifest" href="manifest.json?v=69" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=69" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=69" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=69" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=69" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=69" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v68 / peptic-ulcer</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v69 / peptic-ulcer-fix</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '68'
+const BUILD_VERSION = '69'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -667,8 +667,11 @@ let DRUGS = [
     formulations:['錠 10mg・20mg','D錠 10mg・20mg','散 2%・10%'],
     adultDose:'20〜40mg/日 分1就寝前 または 分2 朝食後・夕食後または就寝前',
     pediatricDoses:[
-      {ageLabel:'全年齢',purpose:'治療',dosePerKgMin:1,dosePerKgMax:2,unit:'mg',maxDosePerDay:40,frequency:'分2',
-       notes:'分1 就寝前 または 分2 朝食後・夕食後または就寝前。書籍参考 (1回量): ½歳 4〜8mg / 1歳 5〜10mg / 3歳 6〜13mg / 7½歳 10〜20mg / 12歳 13〜26mg'},
+      {ageLabel:'6ヶ月〜1歳未満',ageMinMonths:6,ageMaxMonths:12,purpose:'治療',fixedDose:'1回4〜8mg',frequency:'分1〜2',notes:'分1 就寝前 または 分2 朝・夕食後または就寝前'},
+      {ageLabel:'1〜3歳未満',ageMinMonths:12,ageMaxMonths:36,purpose:'治療',fixedDose:'1回5〜10mg',frequency:'分1〜2',notes:'分1 就寝前 または 分2 朝・夕食後または就寝前'},
+      {ageLabel:'3〜7歳未満',ageMinMonths:36,ageMaxMonths:84,purpose:'治療',fixedDose:'1回6〜13mg',frequency:'分1〜2',notes:'分1 就寝前 または 分2 朝・夕食後または就寝前'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1回10〜20mg',frequency:'分1〜2',notes:'分1 就寝前 または 分2 朝・夕食後または就寝前'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回13〜26mg',frequency:'分1〜2',notes:'分1 就寝前 または 分2 朝・夕食後または就寝前 (成人: 20〜40mg/日)'},
     ],
     notes:'H2受容体拮抗薬。胃潰瘍・十二指腸潰瘍・逆流性食道炎・急性胃炎などに使用。PPIに比べピロリ菌検査結果への影響が少なく、保険上の投与日数制限もない。腎機能障害時は減量。',
     references:['新 小児薬用量 改訂第10版']},
@@ -677,8 +680,11 @@ let DRUGS = [
     formulations:['注 10mg/A (2mL)','注 20mg/A (2mL)'],
     adultDose:'1回20mg 1日2回 (12時間毎)',
     pediatricDoses:[
-      {ageLabel:'全年齢',purpose:'治療',dosePerKg:1,unit:'mg',maxDosePerDay:40,frequency:'分2',
-       notes:'1日2回 12時間毎。書籍参考 (1回量): ½歳 4mg / 1歳 5mg / 3歳 6mg / 7½歳 10mg / 12歳 13mg (成人 1回20mg)'},
+      {ageLabel:'6ヶ月〜1歳未満',ageMinMonths:6,ageMaxMonths:12,purpose:'治療',fixedDose:'1回4mg',frequency:'分2',notes:'1日2回 12時間毎'},
+      {ageLabel:'1〜3歳未満',ageMinMonths:12,ageMaxMonths:36,purpose:'治療',fixedDose:'1回5mg',frequency:'分2',notes:'1日2回 12時間毎'},
+      {ageLabel:'3〜7歳未満',ageMinMonths:36,ageMaxMonths:84,purpose:'治療',fixedDose:'1回6mg',frequency:'分2',notes:'1日2回 12時間毎'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1回10mg',frequency:'分2',notes:'1日2回 12時間毎'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回13mg',frequency:'分2',notes:'1日2回 12時間毎 (成人: 1回20mg)'},
     ],
     ivDilution:{solvent:'NS/5%DW', infusionTime:'IV可能', dilutionRatio:'20mg(2mL)を生食/5%DWで適宜希釈', incompatible:[]},
     notes:'経口摂取困難時の選択肢。',
@@ -701,8 +707,8 @@ let DRUGS = [
     formulations:['注 20mg/V'],
     adultDose:'1回20mg 1日2回',
     pediatricDoses:[
-      {ageLabel:'7歳以上 (参考値)',ageMinMonths:84,purpose:'治療',fixedDose:'7½歳: 1回10mg / 12歳: 1回13mg を1日2回',frequency:'分2',
-       notes:'(成人: 1回20mg 1日2回)'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1回10mg',frequency:'分2',notes:'1日2回 (成人: 1回20mg)'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回13mg',frequency:'分2',notes:'1日2回 (成人: 1回20mg)'},
     ],
     ivDilution:{solvent:'NS/5%DW', infusionTime:'30分かけて点滴', dilutionRatio:'20mgを生食/5%DW 100mLに溶解', incompatible:[]},
     references:['新 小児薬用量 改訂第10版']},
@@ -723,8 +729,8 @@ let DRUGS = [
     formulations:['注 30mg/V'],
     adultDose:'1回30mg 1日2回',
     pediatricDoses:[
-      {ageLabel:'7歳以上 (参考値)',ageMinMonths:84,purpose:'治療',fixedDose:'7½歳: 1回15mg / 12歳: 1回20mg を1日2回',frequency:'分2',
-       notes:'(成人: 1回30mg 1日2回)'},
+      {ageLabel:'7〜12歳未満',ageMinMonths:84,ageMaxMonths:144,purpose:'治療',fixedDose:'1回15mg',frequency:'分2',notes:'1日2回 (成人: 1回30mg)'},
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1回20mg',frequency:'分2',notes:'1日2回 (成人: 1回30mg)'},
     ],
     ivDilution:{solvent:'NS', infusionTime:'30分かけて点滴', dilutionRatio:'30mgを生食 100mLに溶解', incompatible:[]},
     references:['新 小児薬用量 改訂第10版']},
