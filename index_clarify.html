@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=69" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=69" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=69" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=69" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=69" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=69" />
+  <link rel="manifest" href="manifest.json?v=70" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=70" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=70" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=70" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=70" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=70" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v69 / peptic-ulcer-fix</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v70 / asthma-step</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '69'
+const BUILD_VERSION = '70'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1405,6 +1405,12 @@ let state = {
   setDraft: null,
   setQuery: '',
   editSetId: null,
+  // 喘息 Step 判別ツール (JPGL 2023)
+  asthmaTab: 'assess',            // 'assess' | 'regimen' | 'stepdown'
+  asthmaControlAnswers: {},        // { mildSymptoms:'good'|'fair'|'poor', ... }
+  asthmaAgeInput: '',              // 年齢入力 (歳)
+  asthmaAgeUnit: 'years',          // 'years' | 'months'
+  asthmaStepPick: 2,               // 1..4
 }
 
 function setState(patch) { Object.assign(state, patch); render() }
@@ -1470,6 +1476,7 @@ function render() {
   else if (s==='manage-disease-categories') { app.innerHTML=renderManageDiseaseCategories(); attachManageDiseaseCategories() }
   else if (s==='vitalsigns') { app.innerHTML=renderVitalSigns(); attachVitalSigns() }
   else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
+  else if (s==='asthma-step') { app.innerHTML=renderAsthmaStep(); attachAsthmaStep() }
 }
 
 // ── ステロイド外用薬一覧 ───────────────────────────────────────
@@ -1543,6 +1550,148 @@ let STEROID_SEVERITY = [
   ['軽 症','乾燥および軽度の紅斑、鱗屑などを主体とする','ミディアム以下を第一選択'],
   ['軽 微','炎症症状に乏しく乾燥症状主体','ステロイドを含まない外用薬を選択'],
 ]
+
+// ============================================================
+// JPGL 2023 (小児気管支喘息治療・管理ガイドライン) 参照データ
+//   表5-2 保険適用のある吸入ステロイド薬
+//   表5-5 重症度評価と治療ステップ (長期管理薬未使用)
+//   表5-6 長期管理プラン (5歳以下 / 6〜15歳)
+//   コントロール状態評価 (最近1か月)
+// ============================================================
+const JPGL_2023 = {
+  ageGroups: [
+    { key:'under5', label:'5歳以下', minMonths:0, maxMonths:71 },
+    { key:'6to15',  label:'6〜15歳', minMonths:72, maxMonths:191 },
+  ],
+  // 表5-5: 開始する治療ステップ
+  severityTable: [
+    { level:'間欠型',       step:1, symptoms:'軽い症状（数回/年）短時間作用性β2刺激薬頓用で短期間に改善' },
+    { level:'軽症持続型',   step:2, symptoms:'1回/月以上、時に呼吸困難。日常生活障害は少ない' },
+    { level:'中等症持続型', step:3, symptoms:'1回/週以上、時に中・大発作となり日常生活が障害される' },
+    { level:'重症持続型',   step:4, symptoms:'毎日、週に1〜2回中・大発作となり日常生活が障害される' },
+  ],
+  // コントロール状態評価 (最近1か月)
+  controlItems: [
+    { key:'mildSymptoms', label:'軽微な症状',
+      note:'※運動や大笑い、啼泣後に一過性に認められる咳や喘鳴、夜間の咳込みなど',
+      options:[
+        { verdict:'good', label:'なし' },
+        { verdict:'fair', label:'月1回以上' },
+        { verdict:'poor', label:'週1回以上' },
+      ]},
+    { key:'exacerbation', label:'明らかな急性増悪(発作)',
+      options:[
+        { verdict:'good', label:'なし' },
+        { verdict:'poor', label:'月1回以上' },
+      ]},
+    { key:'dailyLimit', label:'日常生活の制限',
+      note:'※夜間の覚醒、運動ができないなど',
+      options:[
+        { verdict:'good', label:'なし' },
+        { verdict:'fair', label:'軽微にあり' },
+        { verdict:'poor', label:'月1回以上' },
+      ]},
+    { key:'saba', label:'β2刺激薬の使用',
+      options:[
+        { verdict:'good', label:'なし' },
+        { verdict:'fair', label:'月1回以上' },
+        { verdict:'poor', label:'週1回以上' },
+      ]},
+  ],
+  // 判定ロジック (worst 判定)
+  controlVerdict: {
+    good: { label:'良好', color:'emerald',
+      action:'増悪因子への対応・患者教育を実施。3か月以上安定していればステップダウンを検討' },
+    fair: { label:'比較的良好', color:'amber',
+      action:'増悪因子への対応・患者教育を実施し治療継続。改善しない場合は追加治療 or ステップアップを検討' },
+    poor: { label:'不良', color:'rose',
+      action:'増悪因子への対応・患者教育を実施し治療継続。改善しない場合は追加治療 or ステップアップを検討。「不良」の場合は診断の再評価も考慮' },
+  },
+  // 表5-6: 長期管理プラン
+  ltPlan: {
+    under5: {
+      step1: { basic:'長期管理薬なし', add:'LTRA' },
+      step2: { basic:'下記のいずれかを使用: 低用量ICS / LTRA', add:'上記治療薬を併用' },
+      step3: { basic:'中用量ICS', add:'上記にLTRA併用 / 低用量ICS/LABA への変更を考慮' },
+      step4: { basic:'高用量ICS (LTRA併用も可)', add:'中用量ICS/LABA への変更 / ICS のさらなる増量を考慮' },
+    },
+    '6to15': {
+      step1: { basic:'長期管理薬なし', add:'LTRA' },
+      step2: { basic:'下記のいずれかを使用: 低用量ICS / LTRA', add:'上記治療薬を併用' },
+      step3: { basic:'下記のいずれかを使用: 低用量ICS/LABA / 中用量ICS', add:'LTRA or テオフィリン徐放製剤 のいずれかを併用' },
+      step4: { basic:'下記のいずれかを使用: 中用量ICS/LABA / 高用量ICS (LTRA・テオフィリン徐放併用可)',
+               add:'生物学的製剤 / 高用量ICS/LABA / ICS のさらなる増量 / 経口ステロイド薬 を考慮' },
+    },
+  },
+  shortTermAdd:'貼付薬もしくは経口薬の長時間作用性β2刺激薬 数日から2週間以内',
+  // ICS 用量の目安 (μg/日)
+  icsDoseRanges: {
+    'FP':  { name:'フルチカゾンpropionate (FP)',  low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
+    'BDP': { name:'ベクロメタゾン (BDP)',         low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
+    'CIC': { name:'シクレソニド (CIC)',           low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
+    'BUD': { name:'ブデソニド DPI (BUD)',         low:'〜200',  mid:'〜400', high:'〜800' },
+    'BIS': { name:'ブデソニド吸入懸濁液 (BIS)',   low:'〜250',  mid:'〜500', high:'〜1000' },
+  },
+  // ICS/LABA 用量の目安 (μg/日)
+  icsLabaDoseRanges: {
+    'SFC': { name:'FP/SLM (SFC)', low:'100/50',  mid:'200/100', high:'400〜500/100' },
+    'FFC': { name:'FP/FM (FFC)',  low:'100/10 ※エビデンスなし', mid:'200/20', high:'400〜500/20' },
+  },
+  // 具体的な使用例 (表5-6 使用例)
+  regimenExamples: {
+    low: [
+      'SFC 50 (pMDI/アドエア エアゾール) 1回1吸入 1日2回',
+      'FFC 50 (pMDI/フルティフォーム) 1回1吸入 1日2回',
+    ],
+    mid: [
+      'SFC 100 (DPI/アドエア ディスカス) 1回1吸入 1日2回',
+      'FFC 50 (pMDI/フルティフォーム) 1回2吸入 1日2回',
+    ],
+    high: [
+      '中用量ICS/LABA + 中用量ICS',
+      'SFC 250 (DPI) ※小児適応なし 1回1吸入 1日2回',
+      'FFC 125 (pMDI) ※小児適応なし 1回2吸入 1日2回',
+    ],
+  },
+  // 表5-2 に基づく単剤 ICS の具体的使用例 (低/中/高)
+  icsRegimenExamples: {
+    'FP':  { low:'フルタイド エアゾール/ディスカス 50μg 1回1吸入 1日1回 (50μg/日)',
+             mid:'フルタイド エアゾール/ディスカス 50μg 1回1吸入 1日2回 (100μg/日)',
+             high:'フルタイド エアゾール/ディスカス 100μg 1回2吸入 1日2回 (400μg/日) ※保険適用範囲超' },
+    'BDP': { low:'キュバール 50μg 1回1吸入 1日1回 (50μg/日)',
+             mid:'キュバール 50μg 1回1吸入 1日2回 (100μg/日) 〜 最大200μg/日',
+             high:'キュバール 100μg 1回2吸入 1日2回 (400μg/日) ※保険適用範囲超' },
+    'CIC': { low:'オルベスコ 100μg 1回1吸入 1日1回 (最少50μg/日から)',
+             mid:'オルベスコ 100〜200μg 1回1吸入 1日1回',
+             high:'オルベスコ 200μg 1回2吸入 1日1回 (400μg/日) ※小児適応の範囲外' },
+    'BUD': { low:'パルミコート タービュヘイラー 100μg 1回1吸入 1日1回 (最少100μg/日)',
+             mid:'パルミコート タービュヘイラー 100μg 1回2吸入 1日2回 (400μg/日)',
+             high:'パルミコート タービュヘイラー 200μg 1回2吸入 1日2回 (800μg/日)' },
+    'BIS': { low:'パルミコート吸入液 0.25mg (250μg) を1日1〜2回',
+             mid:'パルミコート吸入液 0.25mg を1日2回 or 0.5mg を1日1回 (最大1.0mg/日)',
+             high:'パルミコート吸入液 0.5mg を1日2回 (1000μg/日)' },
+  },
+  // Step down 方法
+  stepDown: [
+    'コントロール良好が3か月以上安定して維持されている場合に検討',
+    'ICS 単剤: 25〜50% 減量、3か月ごとに再評価',
+    'ICS/LABA: ICS単剤 or 低用量ICS/LABA へ切り替え',
+    '最終的にICS中止できるケースもある (小児では成長に伴い寛解する例あり)',
+    '減量後もコントロール良好が持続することを確認してから次の減量へ',
+    '注意: 増悪因子 (アドヒアランス、合併症、環境曝露) を再評価してから減量',
+  ],
+  // 各薬剤 id に対する JPGL 分類 (drug detail で Step 表示に使用)
+  drugJpglRole: {
+    'fluticasone-inhaled-v5':   { role:'ICS',       code:'FP'  },
+    'beclomethasone-inhaled-v5':{ role:'ICS',       code:'BDP' },
+    'ciclesonide-v5':           { role:'ICS',       code:'CIC' },
+    'budesonide-inhaled-v5':    { role:'ICS',       code:'BUD' },  // タービュヘイラー分, 吸入液は BIS 参照
+    'fluticasone-salmeterol-v5':{ role:'ICS/LABA',  code:'SFC' },
+    'salmeterol-v5':            { role:'LABA',      code:'SLM' },
+    'salbutamol-inhaled-v5':    { role:'SABA',      code:'SLB' },
+    'procaterol-inhaled-v5':    { role:'SABA',      code:'PRC' },
+  },
+}
 // localStorage に保存された編集を起動時に適用する
 ;(() => {
   try {
@@ -1911,6 +2060,234 @@ function attachVitalSigns() {
   document.getElementById('btn-vs-back')?.addEventListener('click', () => setState({screen:'list'}))
 }
 
+// ── 喘息治療ステップ判別ツール (JPGL 2023) ─────────────────────
+// 3 タブ: ①症状→Step判定、②年齢+Step→処方例、③Step downガイド
+function asthmaAgeGroupFromInput() {
+  const raw = parseFloat(state.asthmaAgeInput)
+  if (!Number.isFinite(raw) || raw < 0) return null
+  const months = state.asthmaAgeUnit === 'months' ? raw : raw * 12
+  return JPGL_2023.ageGroups.find(g => months >= g.minMonths && months <= g.maxMonths) || null
+}
+function asthmaControlVerdict() {
+  const ans = state.asthmaControlAnswers || {}
+  const keys = JPGL_2023.controlItems.map(i => i.key)
+  const answered = keys.every(k => ans[k])
+  if (!answered) return null
+  const rank = v => v==='poor'?2 : v==='fair'?1 : 0
+  const worst = keys.map(k => rank(ans[k])).reduce((a,b) => Math.max(a,b), 0)
+  return worst === 2 ? 'poor' : worst === 1 ? 'fair' : 'good'
+}
+function renderAsthmaStep() {
+  const tab = state.asthmaTab
+  const tabBtn = (k, label) => `<button data-asthma-tab="${k}" class="flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${tab===k?'border-sky-600 text-sky-700':'border-transparent text-gray-500'}">${label}</button>`
+  let body = ''
+  if (tab === 'assess') body = renderAsthmaAssess()
+  else if (tab === 'regimen') body = renderAsthmaRegimen()
+  else body = renderAsthmaStepDown()
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-asthma-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">🎯 治療ステップ判別ツール</div>
+          <div class="text-xs text-gray-500">JPGL 2023 (小児気管支喘息治療・管理ガイドライン)</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+      <div class="flex mt-3 border-b border-gray-200 -mb-px">
+        ${tabBtn('assess','症状→Step判定')}
+        ${tabBtn('regimen','年齢+Step→処方')}
+        ${tabBtn('stepdown','Step down')}
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50">${body}</div>`
+}
+function renderAsthmaAssess() {
+  const ans = state.asthmaControlAnswers || {}
+  const items = JPGL_2023.controlItems.map(item => {
+    const opts = item.options.map(o => {
+      const active = ans[item.key] === o.verdict
+      const color = active ? (o.verdict==='good'?'bg-emerald-500 text-white border-emerald-500':o.verdict==='fair'?'bg-amber-500 text-white border-amber-500':'bg-rose-500 text-white border-rose-500') : 'bg-white text-gray-700 border-gray-300'
+      return `<button data-asthma-ans="${item.key}" data-verdict="${o.verdict}" class="flex-1 min-w-0 px-2 py-2 text-xs font-medium border rounded-lg ${color}">${esc(o.label)}</button>`
+    }).join('')
+    return `<div class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+      <div class="text-sm font-semibold text-gray-800">${esc(item.label)}</div>
+      ${item.note ? `<div class="text-[11px] text-gray-500">${esc(item.note)}</div>` : ''}
+      <div class="flex gap-2">${opts}</div>
+    </div>`
+  }).join('')
+  const verdict = asthmaControlVerdict()
+  let verdictBox = `<div class="bg-gray-100 rounded-xl p-3 text-xs text-gray-500 text-center">全ての項目を選択するとコントロール状態を判定します</div>`
+  if (verdict) {
+    const v = JPGL_2023.controlVerdict[verdict]
+    const colorMap = { emerald:'bg-emerald-50 border-emerald-300 text-emerald-800', amber:'bg-amber-50 border-amber-300 text-amber-800', rose:'bg-rose-50 border-rose-300 text-rose-800' }
+    const badgeMap = { emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500' }
+    const stepMsg = verdict === 'good'
+      ? '→ 3か月以上の安定を確認し、ステップダウンを検討'
+      : '→ 増悪因子の対応 + 治療継続。改善しなければ Step up を検討'
+    verdictBox = `<div class="rounded-xl border-2 ${colorMap[v.color]} p-4 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="${badgeMap[v.color]} text-white text-xs font-bold px-3 py-1 rounded-full">コントロール ${esc(v.label)}</span>
+      </div>
+      <div class="text-sm leading-relaxed">${esc(v.action)}</div>
+      <div class="text-sm font-semibold pt-1 border-t border-current/20">${esc(stepMsg)}</div>
+    </div>`
+  }
+  const sevRows = JPGL_2023.severityTable.map(r => `<tr>
+    <td class="border border-gray-200 px-2 py-1.5 text-xs font-bold text-center bg-gray-50 whitespace-nowrap">${esc(r.level)}</td>
+    <td class="border border-gray-200 px-2 py-1.5 text-xs text-gray-700">${esc(r.symptoms)}</td>
+    <td class="border border-gray-200 px-2 py-1.5 text-xs font-bold text-center bg-sky-50 text-sky-800 whitespace-nowrap">治療ステップ ${r.step}</td>
+  </tr>`).join('')
+  return `<div class="p-4 space-y-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-3">
+      <div class="text-xs font-bold text-gray-700 mb-2">📊 コントロール状態評価 (最近1か月)</div>
+      <div class="text-[11px] text-gray-500 mb-3">各項目で最も当てはまるものを1つ選択してください</div>
+      <div class="space-y-3">${items}</div>
+    </div>
+    ${verdictBox}
+    <div class="bg-white rounded-xl border border-gray-200 p-3">
+      <div class="text-xs font-bold text-gray-700 mb-2">📋 未治療患者の重症度→開始Step (表5-5)</div>
+      <table class="w-full border-collapse">${sevRows}</table>
+    </div>
+    <button id="btn-asthma-reset" class="w-full py-2 text-xs text-gray-500 border border-gray-300 rounded-lg bg-white">回答をリセット</button>
+    <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 小児気管支喘息治療・管理ガイドライン 2023 (JPGL 2023) 表5-5 / 図5-2 に基づく。本ツールは目安であり、担当医の判断と責任で決定してください。</div>
+  </div>`
+}
+function renderAsthmaRegimen() {
+  const grp = asthmaAgeGroupFromInput()
+  const step = state.asthmaStepPick || 2
+  const groupKey = grp ? grp.key : null
+  const plan = groupKey ? JPGL_2023.ltPlan[groupKey] : null
+  const stepPlan = plan ? plan['step'+step] : null
+  const stepBtn = n => `<button data-asthma-step="${n}" class="flex-1 py-2 text-sm font-bold border rounded-lg ${step===n?'bg-sky-600 text-white border-sky-600':'bg-white text-gray-700 border-gray-300'}">Step ${n}</button>`
+  // ICS 用量表
+  const icsRows = Object.entries(JPGL_2023.icsDoseRanges).map(([code, v]) => `
+    <tr>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${esc(v.name)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===1||step===2?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
+    </tr>`).join('')
+  const labaRows = Object.entries(JPGL_2023.icsLabaDoseRanges).map(([code, v]) => `
+    <tr>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${esc(v.name)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===2?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
+    </tr>`).join('')
+  // Step 別使用例
+  const doseLevel = step === 1 || step === 2 ? 'low' : step === 3 ? 'mid' : 'high'
+  const examples = JPGL_2023.regimenExamples[doseLevel] || []
+  const exampleList = examples.length ? `<ul class="space-y-1">${examples.map(e => `<li class="text-xs text-gray-700 flex gap-2"><span class="text-sky-500 shrink-0">▸</span><span>${esc(e)}</span></li>`).join('')}</ul>` : ''
+  // 単剤 ICS の使用例
+  const icsExamples = Object.entries(JPGL_2023.icsRegimenExamples).map(([code, r]) => `
+    <div class="bg-white rounded-lg border border-gray-200 p-2">
+      <div class="text-[11px] font-bold text-gray-700 mb-1">${esc(JPGL_2023.icsDoseRanges[code]?.name || code)}</div>
+      <div class="text-[11px] text-gray-800 leading-relaxed">${esc(r[doseLevel])}</div>
+    </div>`).join('')
+  const planBox = stepPlan ? `
+    <div class="rounded-xl border-2 border-sky-300 bg-sky-50 p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <span class="bg-sky-600 text-white text-xs font-bold px-3 py-1 rounded-full">${esc(grp.label)} × 治療ステップ ${step}</span>
+      </div>
+      <div>
+        <div class="text-xs font-bold text-sky-800 mb-1">基本治療</div>
+        <div class="text-sm text-gray-800 leading-relaxed bg-white rounded p-2">${esc(stepPlan.basic)}</div>
+      </div>
+      <div>
+        <div class="text-xs font-bold text-sky-800 mb-1">追加治療</div>
+        <div class="text-sm text-gray-800 leading-relaxed bg-white rounded p-2">${esc(stepPlan.add)}</div>
+      </div>
+      <div>
+        <div class="text-xs font-bold text-sky-800 mb-1">短期追加治療</div>
+        <div class="text-xs text-gray-700 leading-relaxed bg-white rounded p-2">${esc(JPGL_2023.shortTermAdd)}</div>
+      </div>
+    </div>` : `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">年齢を入力すると 5歳以下 or 6〜15歳 の該当プランを表示します</div>`
+  return `<div class="p-4 space-y-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+      <div class="text-xs font-bold text-gray-700">👶 年齢 (JPGL 対象は 15歳以下)</div>
+      <div class="flex gap-2">
+        <input id="asthma-age" type="number" inputmode="decimal" value="${esc(state.asthmaAgeInput)}" placeholder="例: 5" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        <div class="flex rounded-lg overflow-hidden border border-gray-300 text-xs">
+          ${['years','months'].map(u => `<button data-asthma-unit="${u}" class="px-3 ${state.asthmaAgeUnit===u?'bg-sky-600 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
+        </div>
+      </div>
+      ${grp ? `<div class="text-[11px] text-sky-700 font-medium">→ ${esc(grp.label)} のプランを表示</div>` : `<div class="text-[11px] text-gray-500">年齢を入力してください</div>`}
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+      <div class="text-xs font-bold text-gray-700">🎯 治療ステップ選択</div>
+      <div class="flex gap-2">${[1,2,3,4].map(stepBtn).join('')}</div>
+    </div>
+    ${planBox}
+    <div class="bg-white rounded-xl border border-gray-200 p-3">
+      <div class="text-xs font-bold text-gray-700 mb-2">💊 ICS 単剤の使用例 (${step===1||step===2?'低':step===3?'中':'高'}用量)</div>
+      <div class="grid grid-cols-1 gap-2">${icsExamples}</div>
+    </div>
+    ${exampleList ? `<div class="bg-white rounded-xl border border-gray-200 p-3">
+      <div class="text-xs font-bold text-gray-700 mb-2">💊 ICS/LABA 配合剤の使用例 (${step===1||step===2?'低':step===3?'中':'高'}用量)</div>
+      ${exampleList}
+    </div>` : ''}
+    <div class="bg-white rounded-xl border border-gray-200 p-3 overflow-x-auto">
+      <div class="text-xs font-bold text-gray-700 mb-2">📋 ICS 用量目安 (μg/日)</div>
+      <table class="w-full border-collapse min-w-[400px]">
+        <thead><tr>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-gray-100"></th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-emerald-100">低用量</th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-amber-100">中用量</th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-rose-100">高用量</th>
+        </tr></thead>
+        <tbody>${icsRows}</tbody>
+      </table>
+      <div class="text-xs font-bold text-gray-700 mt-3 mb-2">📋 ICS/LABA 用量目安 (μg/日)</div>
+      <table class="w-full border-collapse min-w-[400px]">
+        <thead><tr>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-gray-100"></th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-emerald-100">低用量</th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-amber-100">中用量</th>
+          <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-rose-100">高用量</th>
+        </tr></thead>
+        <tbody>${labaRows}</tbody>
+      </table>
+    </div>
+    <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: JPGL 2023 表5-2 / 表5-6 に基づく。※小児保険適用範囲を超える用量は臨床判断で。</div>
+  </div>`
+}
+function renderAsthmaStepDown() {
+  const items = JPGL_2023.stepDown.map(t => `<li class="flex gap-2 text-sm text-gray-800 leading-relaxed"><span class="text-emerald-500 shrink-0 mt-0.5">✓</span><span>${esc(t)}</span></li>`).join('')
+  return `<div class="p-4 space-y-4">
+    <div class="bg-white rounded-xl border-2 border-emerald-300 p-4 space-y-3">
+      <div class="flex items-center gap-2">
+        <span class="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full">📉 Step down (減量) の考え方</span>
+      </div>
+      <ul class="space-y-2">${items}</ul>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="text-xs font-bold text-gray-700 mb-2">🔄 増悪因子の再評価 (減量前チェック)</div>
+      <ul class="text-sm text-gray-700 space-y-1 leading-relaxed">
+        <li>▸ 服薬・吸入アドヒアランス</li>
+        <li>▸ 合併症 (アレルギー性鼻炎、副鼻腔炎など)</li>
+        <li>▸ 環境曝露 (ダニ、受動喫煙、ペット、季節性アレルゲン)</li>
+        <li>▸ 副作用 (嗄声、口腔カンジダ、身長抑制など)</li>
+        <li>▸ 吸入手技の再確認</li>
+      </ul>
+    </div>
+    <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: JPGL 2023 図5-2「コントロール状態と増悪因子の評価に基づく長期管理の進め方」</div>
+  </div>`
+}
+function attachAsthmaStep() {
+  document.getElementById('btn-asthma-back')?.addEventListener('click', () => setState({screen:'list'}))
+  app.querySelectorAll('[data-asthma-tab]').forEach(b => b.addEventListener('click', () => setState({asthmaTab:b.dataset.asthmaTab})))
+  app.querySelectorAll('[data-asthma-ans]').forEach(b => b.addEventListener('click', () => {
+    const next = {...(state.asthmaControlAnswers||{}), [b.dataset.asthmaAns]:b.dataset.verdict}
+    setState({asthmaControlAnswers: next})
+  }))
+  document.getElementById('btn-asthma-reset')?.addEventListener('click', () => setState({asthmaControlAnswers:{}}))
+  app.querySelectorAll('[data-asthma-step]').forEach(b => b.addEventListener('click', () => setState({asthmaStepPick: parseInt(b.dataset.asthmaStep, 10)})))
+  app.querySelectorAll('[data-asthma-unit]').forEach(b => b.addEventListener('click', () => setState({asthmaAgeUnit:b.dataset.asthmaUnit})))
+  const ageInput = document.getElementById('asthma-age')
+  if (ageInput) ageInput.addEventListener('input', e => { state.asthmaAgeInput = e.target.value; render() })
+}
+
 // ── ヘルパー ────────────────────────────────────────────────
 const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
@@ -2245,6 +2622,87 @@ function adultDoseCard(drug, compact=false) {
         <div class="text-orange-900 font-bold ${compact?'text-base':'text-lg'} leading-snug">${text}</div>
         <div class="text-xs text-orange-600 mt-2 leading-relaxed">入力された年齢がこの薬剤の小児用量設定範囲を超えています。<br/>成人量を参考に、担当医の判断で投与量を決定してください。</div>
       </div>
+    </div>`
+}
+
+// JPGL 2023 の Step 別用量表を、対象吸入薬 (ICS/ICS+LABA) の詳細画面に表示する
+function asthmaStepSectionForDrug(drug) {
+  if (!drug) return ''
+  const role = JPGL_2023.drugJpglRole[drug.id]
+  if (!role) return ''
+  // 現在の年齢入力から Age Group を決定 (state.age + ageUnit)
+  const ageRaw = parseFloat(state.age)
+  let group = null
+  if (Number.isFinite(ageRaw) && ageRaw >= 0) {
+    const months = state.ageUnit === 'months' ? ageRaw : ageRaw * 12
+    group = JPGL_2023.ageGroups.find(g => months >= g.minMonths && months <= g.maxMonths) || null
+  }
+  const grpLabel = group ? group.label : '年齢未入力 (両年齢群を表示)'
+  const showBoth = !group
+  // ICS 単剤
+  const icsBox = code => {
+    const range = JPGL_2023.icsDoseRanges[code]
+    const example = JPGL_2023.icsRegimenExamples[code]
+    if (!range || !example) return ''
+    const row = (level, label, color) => `
+      <div class="rounded-lg border ${color} p-2 space-y-1">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="text-[11px] font-bold">${label}</span>
+          <span class="text-[11px] font-mono">${esc(range[level])} μg/日</span>
+        </div>
+        <div class="text-[11px] text-gray-800 leading-relaxed">${esc(example[level])}</div>
+      </div>`
+    return `<div class="space-y-2">
+      ${row('low',  '低用量 (Step 1〜2 の候補)', 'border-emerald-300 bg-emerald-50')}
+      ${row('mid',  '中用量 (Step 3 の候補)',   'border-amber-300 bg-amber-50')}
+      ${row('high', '高用量 (Step 4 の候補)',   'border-rose-300 bg-rose-50')}
+    </div>`
+  }
+  // ICS+LABA 用の Step ガイダンス
+  const labaBox = code => {
+    const range = JPGL_2023.icsLabaDoseRanges[code]
+    if (!range) return ''
+    const examples = JPGL_2023.regimenExamples
+    const row = (level, label, color, exs) => `
+      <div class="rounded-lg border ${color} p-2 space-y-1">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="text-[11px] font-bold">${label}</span>
+          <span class="text-[11px] font-mono">${esc(range[level])} μg/日</span>
+        </div>
+        ${exs.filter(x => x.includes(code === 'SFC' ? 'SFC' : code === 'FFC' ? 'FFC' : code))
+             .map(x => `<div class="text-[11px] text-gray-800 leading-relaxed">${esc(x)}</div>`).join('') || ''}
+      </div>`
+    return `<div class="space-y-2">
+      ${row('low',  '低用量 (Step 3 で選択肢)', 'border-emerald-300 bg-emerald-50', examples.low)}
+      ${row('mid',  '中用量 (Step 4 の主軸)',   'border-amber-300 bg-amber-50', examples.mid)}
+      ${row('high', '高用量 (Step 4 追加治療)', 'border-rose-300 bg-rose-50', examples.high)}
+    </div>`
+  }
+  let body = ''
+  if (role.role === 'ICS') {
+    body = icsBox(role.code)
+  } else if (role.role === 'ICS/LABA') {
+    body = labaBox(role.code)
+  } else if (role.role === 'LABA') {
+    body = `<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 leading-relaxed">
+      LABA 単剤は原則ICS併用が必要です。JPGL 2023 では ICS/LABA 配合剤としての使用が推奨されます (5歳以下 Step 3〜、6-15歳 Step 3〜)。
+    </div>`
+  } else if (role.role === 'SABA') {
+    body = `<div class="bg-sky-50 border border-sky-200 rounded-lg p-3 text-xs text-sky-800 leading-relaxed">
+      SABA は発作時・運動誘発予防の頓用が原則。全 Step 共通で使用可 (β2刺激薬の使用頻度がコントロール状態評価の指標)。
+    </div>`
+  }
+  const stepLinkBtn = `<button data-goto-asthma-tool class="text-[11px] bg-sky-100 hover:bg-sky-200 text-sky-700 font-medium px-2 py-1 rounded">🎯 Step判別ツールを開く</button>`
+  return `
+    <div class="bg-white rounded-xl shadow-sm border-2 border-sky-300 overflow-hidden mb-3">
+      <div class="bg-sky-50 border-b border-sky-200 px-4 py-2 flex items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-bold text-sky-900">🎯 JPGL 2023 治療ステップ別 用量ガイド</div>
+          <div class="text-[11px] text-sky-700 mt-0.5">${esc(role.role)} / 対象: ${esc(grpLabel)}${showBoth?' — 5歳以下/6〜15歳共通の目安表':''}</div>
+        </div>
+        ${stepLinkBtn}
+      </div>
+      <div class="px-3 py-3">${body}</div>
     </div>`
 }
 
@@ -2953,15 +3411,28 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>` : ''
+    // 喘息薬カテゴリでは先頭に JPGL 2023 治療ステップ判別ツールの特設カードを表示
+    const isAsthmaCat = state.category === '喘息薬'
+    const asthmaCard = isAsthmaCat ? `
+      <li class="border-b-2 border-sky-200 bg-sky-50/40">
+        <button data-tool="asthma-step" class="w-full flex items-center px-4 py-4 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
+          <span class="text-3xl shrink-0">🎯</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sky-900 text-base">治療ステップ判別ツール</div>
+            <div class="text-xs text-gray-600 mt-0.5">JPGL 2023: 症状→Step判定 / 年齢+Step→処方例 / Step down方法</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>` : ''
     const items = drugs.length===0
-      ? (isTopicalCat ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
+      ? ((isTopicalCat || isAsthmaCat) ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
         <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.plus} 薬剤追加</button>
       </div>
-      <ul class="bg-white">${topicalCard}${items}</ul>`
+      <ul class="bg-white">${topicalCard}${asthmaCard}${items}</ul>`
   }
 
   return `
@@ -2976,6 +3447,9 @@ function attachListBody() {
   }))
   app.querySelectorAll('[data-topical]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.topical === 'steroid') setState({screen:'topical-steroid'})
+  }))
+  app.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.tool === 'asthma-step') setState({screen:'asthma-step'})
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
@@ -3195,6 +3669,7 @@ function renderDetail(drug) {
           <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
         </div>
         ${dosesHTML(drug, weight)}
+        ${asthmaStepSectionForDrug(drug)}
         <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>
       </div>
     </div>`
@@ -3380,11 +3855,13 @@ function updateDetailDoseResults() {
       <button id="btn-edit-doses" class="flex items-center gap-1.5 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-lg">✏️ 投与量を編集</button>
     </div>
     ${dosesHTML(drug, weight)}
+    ${asthmaStepSectionForDrug(drug)}
     <div class="bg-gray-100 rounded-xl p-4"><p class="text-xs text-gray-500 leading-relaxed">本コンテンツは特定の治療法を推奨するものではありません。最新の情報を確認の上、担当医の判断と責任で用法・用量を決定してください。</p></div>`
   document.getElementById('btn-edit-doses')?.addEventListener('click', () => {
     const drug = getDrugById(state.drugId)
     setState({editMode:true, editDoses:dosesToEditForm(drug.pediatricDoses||[]), tab:'calc'})
   })
+  el.querySelector('[data-goto-asthma-tool]')?.addEventListener('click', () => setState({screen:'asthma-step', asthmaTab:'regimen', asthmaAgeInput:state.age||'', asthmaAgeUnit:state.ageUnit||'years'}))
 }
 
 function attachDetail() {
@@ -3413,6 +3890,8 @@ function attachDetail() {
     const d = getDrugById(state.drugId)
     setState({editMode:true, editDoses:dosesToEditForm(d?.pediatricDoses||[]), tab:'calc'})
   })
+  // 吸入ICS詳細内の「Step判別ツールを開く」ボタン
+  app.querySelector('[data-goto-asthma-tool]')?.addEventListener('click', () => setState({screen:'asthma-step', asthmaTab:'regimen', asthmaAgeInput:state.age||'', asthmaAgeUnit:state.ageUnit||'years'}))
 
   // calcタブ：投与量編集 キャンセル / 保存
   document.getElementById('btn-cancel-edit')?.addEventListener('click', () => setState({editMode:false,editDraft:null,editDoses:[]}))
