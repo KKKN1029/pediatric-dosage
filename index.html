@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=71" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=71" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=71" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=71" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=71" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=71" />
+  <link rel="manifest" href="manifest.json?v=72" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=72" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=72" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=72" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=72" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=72" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v71 / gist-proxy</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v72 / ics-laba-label</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '71'
+const BUILD_VERSION = '72'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1650,10 +1650,16 @@ const JPGL_2023 = {
     'BUD': { name:'ブデソニド DPI (BUD)',         low:'〜200',  mid:'〜400', high:'〜800' },
     'BIS': { name:'ブデソニド吸入懸濁液 (BIS)',   low:'〜250',  mid:'〜500', high:'〜1000' },
   },
-  // ICS/LABA 用量の目安 (μg/日)
+  // ICS/LABA 用量の目安 (μg/日) — 表記: ICS成分 μg / LABA成分 μg
   icsLabaDoseRanges: {
-    'SFC': { name:'FP/SLM (SFC)', low:'100/50',  mid:'200/100', high:'400〜500/100' },
-    'FFC': { name:'FP/FM (FFC)',  low:'100/10 ※エビデンスなし', mid:'200/20', high:'400〜500/20' },
+    'SFC': { name:'FP/SLM (SFC)', icsLabel:'FP', labaLabel:'SLM',
+             low:'FP 100 / SLM 50',
+             mid:'FP 200 / SLM 100',
+             high:'FP 400〜500 / SLM 100' },
+    'FFC': { name:'FP/FM (FFC)',  icsLabel:'FP', labaLabel:'FM',
+             low:'FP 100 / FM 10 ※エビデンスなし',
+             mid:'FP 200 / FM 20',
+             high:'FP 400〜500 / FM 20' },
   },
   // 具体的な使用例 (表5-6 使用例)
   regimenExamples: {
@@ -2256,7 +2262,8 @@ function renderAsthmaRegimen() {
         </tr></thead>
         <tbody>${icsRows}</tbody>
       </table>
-      <div class="text-xs font-bold text-gray-700 mt-3 mb-2">📋 ICS/LABA 用量目安 (μg/日)</div>
+      <div class="text-xs font-bold text-gray-700 mt-3 mb-1">📋 ICS/LABA 配合剤 用量目安 (μg/日)</div>
+      <div class="text-[10px] text-gray-500 mb-2">※表記: ICS成分 μg / LABA成分 μg (1日総量)</div>
       <table class="w-full border-collapse min-w-[400px]">
         <thead><tr>
           <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-gray-100"></th>
@@ -2267,7 +2274,7 @@ function renderAsthmaRegimen() {
         <tbody>${labaRows}</tbody>
       </table>
     </div>
-    <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: JPGL 2023 表5-2 / 表5-6 に基づく。※小児保険適用範囲を超える用量は臨床判断で。</div>
+    <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: JPGL 2023 表5-2 / 表5-6 に基づく。※小児保険適用範囲を超える用量は臨床判断で。<br>略号: FP=フルチカゾンpropionate, BDP=ベクロメタゾン, CIC=シクレソニド, BUD=ブデソニド (DPI), BIS=ブデソニド吸入懸濁液, SLM=サルメテロール, FM=ホルモテロール, SFC=FP/SLM配合剤(アドエア), FFC=FP/FM配合剤(フルティフォーム)</div>
   </div>`
 }
 function renderAsthmaStepDown() {
