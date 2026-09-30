@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=70" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=70" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=70" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=70" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=70" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=70" />
+  <link rel="manifest" href="manifest.json?v=71" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=71" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=71" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=71" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=71" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=71" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v70 / asthma-step</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v71 / gist-proxy</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '70'
+const BUILD_VERSION = '71'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -880,6 +880,24 @@ function extractGistId(input) {
 // fallback としてのみ使用する。
 async function fetchGistMaster(id) {
   let primaryError = null
+  // --- Strategy 0: localhost 経由なら serve.py の /proxy/gist/{id} を優先 ---
+  //   Claude Preview 等の in-app browser では外部 fetch がブロックされるため、
+  //   同一オリジンの serve.py にプロキシさせて Gist を取得する。
+  //   serve.py が旧版でプロキシ未対応の場合は 404 になり、下の直接 fetch に fallback。
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]') {
+    try {
+      const proxyRes = await fetch(`/proxy/gist/${encodeURIComponent(id)}`, { cache: 'no-cache' })
+      if (proxyRes.ok) {
+        const data = await proxyRes.json()
+        return data
+      }
+      primaryError = `proxy HTTP ${proxyRes.status}`
+      console.warn('[Gist proxy 経由 失敗]', primaryError, '→ 直接fetch にフォールバック')
+    } catch (e) {
+      primaryError = 'proxy: ' + e.message
+      console.warn('[Gist proxy 経由 例外]', e.message, '→ 直接fetch にフォールバック')
+    }
+  }
   // --- Strategy A: メタJSON + raw (推奨) ---
   try {
     const metaRes = await fetch(`https://gist.github.com/${id}.json`, { cache: 'no-cache' })
