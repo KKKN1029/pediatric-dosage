@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=78" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=78" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=78" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=78" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=78" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=78" />
+  <link rel="manifest" href="manifest.json?v=79" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=79" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=79" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=79" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=79" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=79" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v78 / moisturizers</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v79 / moisturizers-standalone</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '78'
+const BUILD_VERSION = '79'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1588,6 +1588,7 @@ function render() {
   else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
   else if (s==='asthma-step') { app.innerHTML=renderAsthmaStep(); attachAsthmaStep() }
   else if (s==='atopy-ftu') { app.innerHTML=renderAtopyFtu(); attachAtopyFtu() }
+  else if (s==='moisturizers') { app.innerHTML=renderMoisturizers(); attachMoisturizers() }
 }
 
 // ── ステロイド外用薬一覧 ───────────────────────────────────────
@@ -1652,59 +1653,111 @@ let STEROID_NONSTEROID_REFS = [
 ]
 // 保湿薬・スキンケア (アトピー性皮膚炎ガイドライン 2024 に基づく主要製剤)
 //   category: 'heparinoid' | 'urea' | 'petrolatum' | 'other'
+//   forms: [{ name, type, sizes, feature, seasons:[spring|summer|autumn|winter], area, oiliness:1-5 }]
 let MOISTURIZERS = [
   // ヘパリン類似物質
-  { generic:'ヘパリン類似物質', category:'heparinoid', cls:'ヘパリノイド',
+  { generic:'ヘパリン類似物質 0.3%', category:'heparinoid', cls:'ヘパリノイド', activeIngredient:'ヘパリン類似物質',
     forms:[
-      'ヒルドイド® ソフト軟膏 0.3% (25g/50g/450g)',
-      'ヒルドイド® クリーム 0.3% (25g/50g/450g)',
-      'ヒルドイド® ローション 0.3% (25g/50g/450g)',
-      'ヒルドイド® フォーム 0.3% (92g/100g)',
-      'ヒルドイド® スプレー 0.3% (100g)',
-      'ビーソフテン® ローション 0.3% / クリーム 0.3% / 油性クリーム 0.3%',
-      'ヘパリン類似物質「日医工」「日本臓器」など各社ジェネリック',
+      { name:'ヒルドイド® ソフト軟膏 0.3%', type:'軟膏', sizes:'25g/50g/450g', feature:'標準の油中水型、密封性中〜高、通年使える万能タイプ', seasons:['spring','autumn','winter'], area:'全身', oiliness:4 },
+      { name:'ヒルドイド® クリーム 0.3%', type:'クリーム', sizes:'25g/50g/450g', feature:'白色クリーム、伸び良く水で洗える、化粧下OK', seasons:['spring','summer','autumn'], area:'顔・広範囲', oiliness:2 },
+      { name:'ヒルドイド® ローション 0.3%', type:'ローション', sizes:'25g/50g/450g', feature:'乳液状、さらっと、髪や毛深い部位に', seasons:['spring','summer'], area:'頭皮・体幹・上肢', oiliness:1 },
+      { name:'ヒルドイド® フォーム 0.3%', type:'フォーム', sizes:'92g/100g', feature:'ムース状、広範囲に短時間で塗布、伸びる', seasons:['spring','summer'], area:'広範囲・小児', oiliness:1 },
+      { name:'ヒルドイド® スプレー 0.3%', type:'スプレー', sizes:'100g', feature:'非接触噴霧、手の届かない部位や患部保護', seasons:['summer'], area:'背中・広範囲', oiliness:1 },
+      { name:'ビーソフテン® ローション 0.3% (GE)', type:'ローション', sizes:'50g/100g', feature:'ヒルドイドローションの後発、指示可', seasons:['spring','summer'], area:'頭皮・体幹', oiliness:1 },
+      { name:'ビーソフテン® 油性クリーム 0.3% (GE)', type:'油性クリーム', sizes:'50g/100g', feature:'油分多め、軟膏とクリームの中間、冬の乾燥に', seasons:['autumn','winter'], area:'全身', oiliness:3 },
     ],
-    notes:'血行促進・抗炎症・保湿の3作用。乾皮症、皮脂欠乏症、進行性指掌角皮症、外傷後の腫脹・瘢痕などに適応。1日1〜数回。皮膚湿潤時は避ける。' },
+    notes:'血行促進・抗炎症・保湿の3作用。乾皮症、皮脂欠乏症、進行性指掌角皮症、外傷後の腫脹・瘢痕などに適応。1日1〜数回。皮膚湿潤時は避ける。小児にも安全。',
+    pros:'刺激少ない・保険適用が広い・小児OK・剤形選択肢多い',
+    cons:'油性度は中程度 (真冬の重症乾燥には軟膏との併用が必要な場合あり)' },
   // 尿素製剤 (20%)
-  { generic:'尿素 20%', category:'urea', cls:'尿素製剤 (高濃度)',
+  { generic:'尿素 20%', category:'urea', cls:'尿素製剤 (高濃度)', activeIngredient:'尿素',
     forms:[
-      'ケラチナミンコーワ® クリーム 20% (25g/60g/150g)',
-      'パスタロン® ソフト軟膏 20% (25g/100g)',
-      'パスタロン® クリーム 20% (25g/60g)',
-      'パスタロン® ローション 20% (100g)',
+      { name:'ケラチナミンコーワ® クリーム 20%', type:'クリーム', sizes:'25g/60g/150g', feature:'尿素の代表格、角質軟化', seasons:['autumn','winter'], area:'手足・体幹', oiliness:2 },
+      { name:'パスタロン® ソフト軟膏 20%', type:'軟膏', sizes:'25g/100g', feature:'軟膏基剤で保湿力強、角化性病変に', seasons:['autumn','winter'], area:'踵・肘・膝', oiliness:4 },
+      { name:'パスタロン® クリーム 20%', type:'クリーム', sizes:'25g/60g', feature:'ソフト軟膏よりべたつき少', seasons:['autumn','winter'], area:'手足・体幹', oiliness:2 },
+      { name:'パスタロン® ローション 20%', type:'ローション', sizes:'100g', feature:'ローション化された高濃度尿素、頭皮OK', seasons:['autumn','winter'], area:'頭皮・広範囲', oiliness:1 },
     ],
-    notes:'角層水分保持能亢進 + 角質溶解。魚鱗癬・掌蹠角化症・老人性乾皮症などに。刺激感/しみるため亀裂・湿潤面や小児顔面には不向き。' },
+    notes:'角層水分保持能亢進 + 角質溶解 (ケラトリシス)。魚鱗癬・掌蹠角化症・老人性乾皮症などに。',
+    pros:'角化・肥厚した皮膚に強力',
+    cons:'刺激感/しみる・亀裂/湿潤面/顔・小児顔面には不向き' },
   // 尿素製剤 (10%)
-  { generic:'尿素 10%', category:'urea', cls:'尿素製剤 (低濃度)',
+  { generic:'尿素 10%', category:'urea', cls:'尿素製剤 (低濃度)', activeIngredient:'尿素',
     forms:[
-      'ウレパール® クリーム 10% (100g)',
-      'ウレパール® ローション 10% (100g)',
-      'パスタロン® ソフト軟膏 10% (25g/100g)',
-      'パスタロン® クリーム 10% (25g)',
+      { name:'ウレパール® クリーム 10%', type:'クリーム', sizes:'100g', feature:'マイルド、広範囲OK', seasons:['spring','autumn','winter'], area:'全身', oiliness:2 },
+      { name:'ウレパール® ローション 10%', type:'ローション', sizes:'100g', feature:'ローション、伸び良、夏でも使いやすい', seasons:['all'], area:'頭皮・広範囲', oiliness:1 },
+      { name:'パスタロン® ソフト軟膏 10%', type:'軟膏', sizes:'25g/100g', feature:'軟膏基剤で保湿力あり', seasons:['autumn','winter'], area:'手足・体幹', oiliness:3 },
+      { name:'パスタロン® クリーム 10%', type:'クリーム', sizes:'25g', feature:'クリーム基剤', seasons:['spring','autumn'], area:'手足', oiliness:2 },
     ],
-    notes:'20%より刺激少なく広範囲・小児にも使いやすい。乾皮症、皮脂欠乏症、進行性指掌角皮症など。' },
+    notes:'20%より刺激少なく広範囲・小児にも使いやすい。乾皮症、皮脂欠乏症、進行性指掌角皮症など。',
+    pros:'20%より刺激少ない・小児・広範囲OK',
+    cons:'重度角化には 20% が必要' },
   // ワセリン系
-  { generic:'白色ワセリン', category:'petrolatum', cls:'ワセリン (基剤)',
+  { generic:'白色ワセリン', category:'petrolatum', cls:'ワセリン (基剤)', activeIngredient:'ワセリン',
     forms:[
-      'プロペト® (50g/100g/500g) — 精製度の高い白色ワセリン',
-      'サンホワイト® P-1 (50g/500g) — 高精製 (刺激最小)',
-      'ワセリンHG (500g)',
-      '白色ワセリン「日興」「ケンエー」など各社',
+      { name:'プロペト®', type:'軟膏', sizes:'50g/100g/500g', feature:'精製度高、刺激少、ステロイド希釈基剤に頻用', seasons:['all'], area:'全身・粘膜近傍', oiliness:5 },
+      { name:'サンホワイト® P-1', type:'軟膏', sizes:'50g/500g', feature:'高精製、刺激最小、眼瞼・唇にも', seasons:['all'], area:'顔・眼瞼・唇・粘膜近傍', oiliness:5 },
+      { name:'ワセリンHG', type:'軟膏', sizes:'500g', feature:'業務用の大容量', seasons:['all'], area:'全身・広範囲', oiliness:5 },
+      { name:'白色ワセリン (各社)', type:'軟膏', sizes:'各社規格', feature:'安価な標準品', seasons:['all'], area:'全身', oiliness:5 },
     ],
-    notes:'皮膚保護・水分蒸散防止。刺激少なく新生児・粘膜近傍にも使用可。ステロイド外用の希釈基剤としても頻用。1日1〜数回。' },
-  { generic:'亜鉛華軟膏', category:'other', cls:'収斂・保護剤',
+    notes:'皮膚保護・水分蒸散防止。刺激最小で新生児・粘膜近傍にも使用可。ステロイド外用の希釈基剤としても頻用。1日1〜数回。',
+    pros:'刺激最小・新生児OK・唇/眼瞼にも使える・冬の重症乾燥に最強',
+    cons:'べたつき最強・光沢・洋服/寝具汚れる' },
+  { generic:'亜鉛華軟膏 20%', category:'other', cls:'収斂・保護剤', activeIngredient:'酸化亜鉛',
     forms:[
-      '亜鉛華軟膏 20% (100g/500g)',
-      '亜鉛華単軟膏「ホエイ」20%',
-      'ボチシート® 20% (患部貼付用シート)',
-      'サトウザルベ® 軟膏 10%・20%',
+      { name:'亜鉛華軟膏 20%', type:'軟膏', sizes:'100g/500g', feature:'標準品、密着性高', seasons:['all'], area:'湿潤面・おむつ部', oiliness:3 },
+      { name:'亜鉛華単軟膏「ホエイ」20%', type:'軟膏', sizes:'100g/500g', feature:'油性基剤単軟膏', seasons:['all'], area:'湿潤面', oiliness:3 },
+      { name:'ボチシート® 20%', type:'貼付シート', sizes:'各種', feature:'シート状、そのまま貼付', seasons:['all'], area:'限局した湿潤面', oiliness:3 },
+      { name:'サトウザルベ® 軟膏 10%/20%', type:'軟膏', sizes:'各種', feature:'低濃度あり、マイルド', seasons:['all'], area:'おむつ部・小児', oiliness:3 },
     ],
-    notes:'滲出液吸収・収斂・保護。おむつ皮膚炎・湿潤面の被覆に頻用。粘度高く落としにくいのでオリーブ油/ベビーオイルで除去。' },
-  { generic:'アズレン', category:'other', cls:'抗炎症・保護剤',
+    notes:'滲出液吸収・収斂・保護。おむつ皮膚炎・湿潤面被覆に頻用。オリーブ油やベビーオイルで除去。',
+    pros:'滲出液吸収・保護力強・おむつ皮膚炎に有効',
+    cons:'粘度高く落としにくい・洋服汚れる' },
+  { generic:'アズレン 0.033%', category:'other', cls:'抗炎症・保護剤', activeIngredient:'アズレンスルホン酸ナトリウム',
     forms:[
-      'アズノール® 軟膏 0.033% (20g)',
+      { name:'アズノール® 軟膏 0.033%', type:'軟膏', sizes:'20g', feature:'淡青色軟膏、皮膚保護', seasons:['all'], area:'湿疹慢性期・びらん', oiliness:3 },
     ],
-    notes:'弱い抗炎症・肉芽形成促進。びらん、潰瘍、湿疹の慢性期、皮膚保護目的に。' },
+    notes:'弱い抗炎症・肉芽形成促進。びらん、潰瘍、湿疹の慢性期、皮膚保護目的に。',
+    pros:'穏やか・小児OK',
+    cons:'保湿力単独では弱め (補助的位置づけ)' },
+]
+// 剤形の使い分け参照 (患者説明用)
+const MOISTURIZER_FORMS = [
+  { type:'軟膏 (Ointment)',      oiliness:5, absorption:2, stickiness:5, washable:1, seasons:['autumn','winter'],
+    goodFor:'重度乾燥・角化・亀裂・冬季', avoid:'夏の広範囲・毛が濃い部位・汗ばむ季節',
+    examples:'プロペト、サンホワイト、亜鉛華軟膏、ヒルドイドソフト軟膏' },
+  { type:'油性クリーム',          oiliness:4, absorption:3, stickiness:4, washable:2, seasons:['autumn','winter'],
+    goodFor:'冬〜春の乾燥、軟膏まで行かない中間', avoid:'夏の広範囲',
+    examples:'ビーソフテン油性クリーム' },
+  { type:'クリーム (Cream)',      oiliness:3, absorption:4, stickiness:3, washable:4, seasons:['spring','autumn','all'],
+    goodFor:'通年・全身・化粧下・顔面', avoid:'重度乾燥時単独では不足',
+    examples:'ヒルドイドクリーム、ケラチナミンコーワ、ウレパールクリーム' },
+  { type:'ローション (Lotion)',   oiliness:2, absorption:5, stickiness:1, washable:5, seasons:['spring','summer'],
+    goodFor:'頭皮・毛の濃い部位・広範囲・夏季', avoid:'乾燥重度時単独では不足',
+    examples:'ヒルドイドローション、ウレパールローション、ビーソフテンローション' },
+  { type:'フォーム (Foam)',        oiliness:2, absorption:5, stickiness:1, washable:5, seasons:['spring','summer'],
+    goodFor:'広範囲・小児で塗布拒否・広範囲を短時間', avoid:'重度乾燥時単独では不足',
+    examples:'ヒルドイドフォーム' },
+  { type:'スプレー (Spray)',       oiliness:2, absorption:5, stickiness:1, washable:5, seasons:['summer'],
+    goodFor:'手の届かない部位・背中・広範囲', avoid:'吸引注意 (顔近くでは避ける)',
+    examples:'ヒルドイドスプレー' },
+  { type:'貼付シート',              oiliness:3, absorption:2, stickiness:5, washable:1, seasons:['all'],
+    goodFor:'限局した滲出面の保護', avoid:'広範囲',
+    examples:'ボチシート' },
+]
+// 季節別のおすすめ
+const SEASONAL_MOISTURIZER_ADVICE = [
+  { key:'spring', icon:'🌸', label:'春 (3〜5月)', color:'pink',
+    tip:'花粉皮膚炎・PM2.5・寒暖差に注意。通年型 (クリーム/ローション) が使いやすい',
+    recommendedTypes:['クリーム','ローション','フォーム'] },
+  { key:'summer', icon:'☀️', label:'夏 (6〜8月)', color:'sky',
+    tip:'汗と汗疹に注意。さっぱり系 (ローション・フォーム・スプレー)。塗布回数は増やす',
+    recommendedTypes:['ローション','フォーム','スプレー'] },
+  { key:'autumn', icon:'🍂', label:'秋 (9〜11月)', color:'amber',
+    tip:'徐々に油性へシフト。乾燥が始まる前の予防塗布が重要',
+    recommendedTypes:['クリーム','油性クリーム','軟膏'] },
+  { key:'winter', icon:'❄️', label:'冬 (12〜2月)', color:'indigo',
+    tip:'密封性の高い軟膏中心。頻回塗布 (1日 3〜4 回)、暖房による乾燥対策',
+    recommendedTypes:['軟膏','油性クリーム'] },
 ]
 const STEROID_ABSORPTION = [
   ['頭皮','3.5'], ['前頭','6.0'], ['下顎','13.0'], ['腋窩','3.6'], ['背面','1.7'],
@@ -2081,38 +2134,6 @@ function renderTopicalSteroid() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           ${nonSteroidCards}
         </div>
-      </section>
-
-      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="text-sm font-bold text-teal-900">💧 保湿薬・スキンケア</h2>
-          <span class="text-[10px] text-gray-500">${MOISTURIZERS.length} 剤</span>
-        </div>
-        <p class="text-[11px] text-gray-600 leading-relaxed">アトピー性皮膚炎の維持療法・寛解期の必須外用。ステロイド外用と併用・混合、あるいはリアクティブ/プロアクティブ療法の下地として使用する。</p>
-        ${(() => {
-          const catLabels = { heparinoid:'ヘパリン類似物質', urea:'尿素製剤', petrolatum:'ワセリン系', other:'その他' }
-          const catColors = { heparinoid:'bg-teal-50 border-teal-200 text-teal-900', urea:'bg-amber-50 border-amber-200 text-amber-900', petrolatum:'bg-sky-50 border-sky-200 text-sky-900', other:'bg-gray-50 border-gray-200 text-gray-900' }
-          const catBadges = { heparinoid:'bg-teal-500', urea:'bg-amber-500', petrolatum:'bg-sky-500', other:'bg-gray-500' }
-          const byCat = {}
-          MOISTURIZERS.forEach(m => { (byCat[m.category] = byCat[m.category] || []).push(m) })
-          return Object.entries(byCat).map(([cat, items]) => `
-            <div class="rounded-lg border ${catColors[cat] || catColors.other} overflow-hidden">
-              <div class="${catBadges[cat] || catBadges.other} text-white text-[11px] font-bold px-3 py-1.5">${esc(catLabels[cat] || cat)}</div>
-              <div class="bg-white divide-y divide-gray-100">
-                ${items.map(m => `
-                  <div class="px-3 py-2.5 space-y-1">
-                    <div class="flex items-baseline gap-2">
-                      <span class="text-sm font-semibold text-gray-900">${esc(m.generic)}</span>
-                      <span class="text-[10px] text-gray-500">${esc(m.cls || '')}</span>
-                    </div>
-                    <ul class="space-y-0.5 pl-1">
-                      ${(m.forms || []).map(f => `<li class="text-[11px] text-gray-700 leading-relaxed flex gap-1"><span class="text-teal-500 shrink-0">▸</span><span>${esc(f)}</span></li>`).join('')}
-                    </ul>
-                    ${m.notes ? `<div class="text-[10px] text-gray-500 leading-relaxed pt-1 border-t border-gray-100">${esc(m.notes)}</div>` : ''}
-                  </div>`).join('')}
-              </div>
-            </div>`).join('')
-        })()}
       </section>
 
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
@@ -2716,6 +2737,133 @@ function attachAtopyFtu() {
   }
   bindNum('atopy-freq', 'atopyFreq')
   bindNum('atopy-days', 'atopyDays')
+}
+
+// ── 保湿薬・スキンケア 独立画面 ─────────────────────────────
+function renderMoisturizers() {
+  const dots = n => '●'.repeat(n) + '○'.repeat(5 - n)
+  const catLabels  = { heparinoid:'ヘパリン類似物質', urea:'尿素製剤', petrolatum:'ワセリン系', other:'その他 (亜鉛華・アズレン)' }
+  const catColors  = { heparinoid:'teal', urea:'amber', petrolatum:'sky', other:'gray' }
+  const seasonColors = { pink:'bg-pink-500 text-white border-pink-300', sky:'bg-sky-500 text-white border-sky-300', amber:'bg-amber-500 text-white border-amber-300', indigo:'bg-indigo-500 text-white border-indigo-300' }
+  const seasonBg   = { pink:'bg-pink-50 border-pink-200', sky:'bg-sky-50 border-sky-200', amber:'bg-amber-50 border-amber-200', indigo:'bg-indigo-50 border-indigo-200' }
+  // ── 季節別カード ──
+  const seasonalCards = SEASONAL_MOISTURIZER_ADVICE.map(s => `
+    <div class="rounded-xl border-2 ${seasonBg[s.color]} p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="${seasonColors[s.color]} text-xs font-bold px-2 py-1 rounded-full">${s.icon} ${esc(s.label)}</span>
+      </div>
+      <div class="text-[11px] text-gray-700 leading-relaxed">${esc(s.tip)}</div>
+      <div class="flex flex-wrap gap-1 pt-1 border-t border-current/20">
+        ${s.recommendedTypes.map(t => `<span class="text-[10px] bg-white border border-gray-200 rounded px-2 py-0.5 text-gray-700">${esc(t)}</span>`).join('')}
+      </div>
+    </div>
+  `).join('')
+  // ── 剤形比較表 ──
+  const cellTh = 'border border-gray-200 px-2 py-1.5 text-[10px] font-bold bg-gray-100 text-gray-700 text-center'
+  const cellTd = 'border border-gray-200 px-2 py-1.5 text-[10px] text-gray-800'
+  const formRows = MOISTURIZER_FORMS.map(f => `
+    <tr>
+      <td class="${cellTd} font-semibold bg-gray-50 whitespace-nowrap">${esc(f.type)}</td>
+      <td class="${cellTd} text-center font-mono text-amber-700">${dots(f.oiliness)}</td>
+      <td class="${cellTd} text-center font-mono text-red-600">${dots(f.stickiness)}</td>
+      <td class="${cellTd} text-center font-mono text-blue-600">${dots(f.washable)}</td>
+      <td class="${cellTd} text-xs">${esc(f.goodFor)}</td>
+    </tr>`).join('')
+  // ── 製剤別詳細 ──
+  const byCat = {}
+  MOISTURIZERS.forEach(m => { (byCat[m.category] = byCat[m.category] || []).push(m) })
+  const catCards = Object.entries(byCat).map(([cat, items]) => {
+    const c = catColors[cat] || 'gray'
+    return `
+      <div class="rounded-xl border border-${c}-200 overflow-hidden">
+        <div class="bg-${c}-500 text-white px-3 py-2 flex items-center gap-2">
+          <span class="text-xs font-bold">${esc(catLabels[cat] || cat)}</span>
+          <span class="text-[10px] opacity-80 ml-auto">${items.length}剤</span>
+        </div>
+        <div class="bg-white divide-y divide-gray-100">
+          ${items.map(m => `
+            <div class="px-3 py-3 space-y-2">
+              <div class="flex items-baseline gap-2 flex-wrap">
+                <span class="text-sm font-bold text-gray-900">${esc(m.generic)}</span>
+                <span class="text-[10px] text-gray-500">${esc(m.cls || '')}</span>
+              </div>
+              ${m.notes ? `<div class="text-[11px] text-gray-600 leading-relaxed bg-gray-50 rounded p-2">${esc(m.notes)}</div>` : ''}
+              <div class="grid grid-cols-2 gap-2">
+                ${m.pros ? `<div class="text-[10px] bg-emerald-50 border border-emerald-200 rounded p-1.5 leading-relaxed"><b class="text-emerald-800">◎ 長所</b><br>${esc(m.pros)}</div>` : ''}
+                ${m.cons ? `<div class="text-[10px] bg-rose-50 border border-rose-200 rounded p-1.5 leading-relaxed"><b class="text-rose-800">△ 短所</b><br>${esc(m.cons)}</div>` : ''}
+              </div>
+              <div class="space-y-1 pt-1">
+                <div class="text-[11px] font-bold text-gray-700">剤形</div>
+                ${(m.forms || []).map(f => {
+                  const seasonBadges = (f.seasons || []).map(s => {
+                    const info = SEASONAL_MOISTURIZER_ADVICE.find(x => x.key === s)
+                    if (!info) return s==='all' ? '<span class="text-[9px] bg-gray-200 text-gray-700 px-1 rounded">通年</span>' : ''
+                    return `<span class="text-[9px] ${seasonColors[info.color]} px-1 rounded">${info.icon}</span>`
+                  }).join('')
+                  return `
+                  <div class="rounded border border-gray-200 p-2 bg-white">
+                    <div class="flex items-baseline gap-2 flex-wrap">
+                      <span class="text-[11px] font-semibold text-gray-800">${esc(f.name)}</span>
+                      <span class="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">${esc(f.type)}</span>
+                      ${seasonBadges}
+                    </div>
+                    <div class="text-[10px] text-gray-500 mt-0.5">規格: ${esc(f.sizes || '—')}</div>
+                    <div class="text-[10px] text-gray-700 mt-1 leading-relaxed">${esc(f.feature || '')}</div>
+                    <div class="text-[10px] text-gray-500 mt-1">推奨部位: ${esc(f.area || '—')}｜油性度 ${dots(f.oiliness || 0)}</div>
+                  </div>`}).join('')}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`
+  }).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-moist-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">💧 保湿薬・スキンケア</div>
+          <div class="text-xs text-gray-500">剤形の使い分け / 季節別 / 製剤特徴比較</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="text-xs font-bold text-gray-700">🗓 季節別のおすすめ剤形</div>
+        <div class="grid grid-cols-2 gap-2">${seasonalCards}</div>
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2 overflow-x-auto">
+        <div class="text-xs font-bold text-gray-700 mb-1">📊 剤形の特性比較</div>
+        <div class="text-[10px] text-gray-500 mb-2">油性度 = 保湿力・密封性 / べたつき / 水洗性 (● 多いほど強い)</div>
+        <table class="w-full border-collapse min-w-[520px]">
+          <thead><tr>
+            <th class="${cellTh}">剤形</th>
+            <th class="${cellTh}">油性度</th>
+            <th class="${cellTh}">べたつき</th>
+            <th class="${cellTh}">水洗性</th>
+            <th class="${cellTh}">推奨シーン</th>
+          </tr></thead>
+          <tbody>${formRows}</tbody>
+        </table>
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700 mb-1">📘 患者への説明ポイント</div>
+        <ul class="space-y-1.5 text-[11px] text-gray-700 leading-relaxed">
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>入浴後 5 分以内の塗布が最も効果的 (皮膚水分保持)</span></li>
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>プロアクティブ療法時はステロイド外用 → 保湿の順で塗る (逆でもOK、混合は薬効低下の懸念あり)</span></li>
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>1回量の目安: 大人 5〜10g、小児 1〜3g (全身)。塗り残しなく光沢が出るまで</span></li>
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>季節に応じて剤形を切り替える (冬→軟膏、夏→ローション/フォーム)</span></li>
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>尿素製剤は亀裂・湿潤面・顔・粘膜近傍を避ける (刺激性)</span></li>
+          <li class="flex gap-2"><span class="text-teal-500 shrink-0">▸</span><span>ワセリンは光沢が出るがそれが効いている証拠。刺激最小で新生児にも使える</span></li>
+        </ul>
+      </section>
+      <div class="text-xs font-bold text-gray-700">🧴 製剤別の詳細</div>
+      ${catCards}
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: アトピー性皮膚炎診療ガイドライン 2024 / 各製剤添付文書。剤形の使い分けは臨床経験に基づく目安。本ツールは目安であり、担当医の判断で選択してください。</div>
+    </div>`
+}
+function attachMoisturizers() {
+  document.getElementById('btn-moist-back')?.addEventListener('click', () => setState({screen:'list', category:'外用薬'}))
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -3842,12 +3990,22 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>
-      <li class="border-b-2 border-purple-200 bg-purple-50/40">
+      <li class="border-b border-purple-200 bg-purple-50/40">
         <button data-tool="atopy-ftu" class="w-full flex items-center px-4 py-4 hover:bg-purple-100 active:bg-purple-200 text-left gap-3">
           <span class="text-3xl shrink-0">🧴</span>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-purple-900 text-base">アトピー塗布量計算 (FTU法)</div>
             <div class="text-xs text-gray-600 mt-0.5">年齢×部位×回数×日数 → 必要量 (g) とチューブ本数を算出</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b-2 border-teal-200 bg-teal-50/40">
+        <button data-tool="moisturizers" class="w-full flex items-center px-4 py-4 hover:bg-teal-100 active:bg-teal-200 text-left gap-3">
+          <span class="text-3xl shrink-0">💧</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-teal-900 text-base">保湿薬・スキンケア</div>
+            <div class="text-xs text-gray-600 mt-0.5">剤形の使い分け / 季節別おすすめ / 製剤別特徴 (ヘパリノイド・尿素・ワセリン他)</div>
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
@@ -3914,6 +4072,8 @@ function attachListBody() {
       setState({screen:'asthma-step', asthmaScrollTo: b.dataset.goto || null})
     } else if (b.dataset.tool === 'atopy-ftu') {
       setState({screen:'atopy-ftu'})
+    } else if (b.dataset.tool === 'moisturizers') {
+      setState({screen:'moisturizers'})
     }
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
