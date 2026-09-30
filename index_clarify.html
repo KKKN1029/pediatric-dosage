@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=76" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=76" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=76" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=76" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=76" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=76" />
+  <link rel="manifest" href="manifest.json?v=77" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=77" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=77" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=77" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=77" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=77" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v76 / asthma-3cards</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v77 / atopy-ftu</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '76'
+const BUILD_VERSION = '77'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1515,6 +1515,12 @@ let state = {
   asthmaAgeInput: '',              // 年齢入力 (歳)
   asthmaAgeUnit: 'years',          // 'years' | 'months'
   asthmaStepPick: 2,               // 1..4
+  asthmaScrollTo: null,            // 'assess'|'regimen'|'stepdown' — カード起点で該当sectionに自動スクロール
+  // アトピー FTU 塗布量計算
+  atopyAgeGroup: '1to2y',
+  atopyAreas: { face:false, arms:false, legs:false, front:false, back:false },
+  atopyFreq: 2,                    // 1日回数
+  atopyDays: 7,                    // 処方日数
 }
 
 function setState(patch) { Object.assign(state, patch); render() }
@@ -1581,6 +1587,7 @@ function render() {
   else if (s==='vitalsigns') { app.innerHTML=renderVitalSigns(); attachVitalSigns() }
   else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
   else if (s==='asthma-step') { app.innerHTML=renderAsthmaStep(); attachAsthmaStep() }
+  else if (s==='atopy-ftu') { app.innerHTML=renderAtopyFtu(); attachAtopyFtu() }
 }
 
 // ── ステロイド外用薬一覧 ───────────────────────────────────────
@@ -1802,6 +1809,44 @@ const JPGL_2023 = {
     'salbutamol-inhaled-v5':    { role:'SABA',      code:'SLB' },
     'procaterol-inhaled-v5':    { role:'SABA',      code:'PRC' },
   },
+}
+
+// ============================================================
+// アトピー性皮膚炎 塗布量計算 (FTU: Fingertip Unit 法)
+//   1 FTU = 大人の人差指の第1関節分の押し出し量 ≒ 0.5 g
+//   1 FTU で 手のひら約2枚分の面積を塗布可
+//   ミッケルソン法・小児皮膚科・アトピー性皮膚炎診療ガイドライン 2024 参考
+// ============================================================
+const ATOPY_FTU = {
+  gramPerFtu: 0.5,
+  // 1回塗布あたりの必要FTU (部位別・年齢別) — 標準的な小児 FTU 表
+  ageGroups: [
+    { key:'3to6mo', label:'3〜6か月',
+      ftu:{face:1,   arms:1,   legs:1.5, front:1,   back:1.5} },
+    { key:'1to2y',  label:'1〜2歳',
+      ftu:{face:1.5, arms:1.5, legs:2,   front:2,   back:3} },
+    { key:'3to5y',  label:'3〜5歳',
+      ftu:{face:1.5, arms:2,   legs:3,   front:3,   back:3.5} },
+    { key:'6to10y', label:'6〜10歳',
+      ftu:{face:2,   arms:2.5, legs:4.5, front:3.5, back:5} },
+    { key:'adult',  label:'成人',
+      ftu:{face:2.5, arms:5,   legs:10,  front:7,   back:7} },
+  ],
+  areas: [
+    { key:'face',  label:'顔・首' },
+    { key:'arms',  label:'上肢（両腕・手）' },
+    { key:'legs',  label:'下肢（両脚・足）' },
+    { key:'front', label:'体幹前面（胸・腹）' },
+    { key:'back',  label:'体幹後面（背中・臀部）' },
+  ],
+  tubeOptions: [5, 10],  // g のチューブ規格
+  notes: [
+    '1 FTU ≒ 0.5 g (5g チューブから大人の人差指の第1関節分)',
+    '1 FTU で手のひら約 2 枚分の面積を塗布可能',
+    '塗布回数は 1日 2 回が標準 (プロアクティブ療法では週2〜3回)',
+    '大量・広範囲・長期使用時は副作用 (皮膚萎縮、毛細血管拡張) に注意',
+    '外用薬の強さは重症度と部位で選択 (顔・陰部は弱め)',
+  ],
 }
 // localStorage に保存された編集を起動時に適用する
 ;(() => {
@@ -2452,6 +2497,137 @@ function attachAsthmaStep() {
       }
     })
   }
+}
+
+// ── アトピー塗布量計算 (FTU法) ─────────────────────────────
+function renderAtopyFtu() {
+  const grp = ATOPY_FTU.ageGroups.find(g => g.key === state.atopyAgeGroup) || ATOPY_FTU.ageGroups[1]
+  const selected = state.atopyAreas || {}
+  const freq = Math.max(0, Number(state.atopyFreq) || 0)
+  const days = Math.max(0, Number(state.atopyDays) || 0)
+  // 選択部位の FTU 合計
+  const totalFtu = ATOPY_FTU.areas.reduce((sum, a) => selected[a.key] ? sum + (grp.ftu[a.key] || 0) : sum, 0)
+  const perApp = totalFtu * ATOPY_FTU.gramPerFtu       // 1回量 (g)
+  const perDay = perApp * freq                          // 1日量 (g)
+  const total  = perDay * days                          // 総量 (g)
+  const areaRows = ATOPY_FTU.areas.map(a => {
+    const ftu = grp.ftu[a.key] || 0
+    const checked = !!selected[a.key]
+    return `
+    <label class="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-purple-50">
+      <input type="checkbox" data-atopy-area="${a.key}" ${checked?'checked':''} class="w-5 h-5 accent-purple-600" />
+      <div class="flex-1">
+        <div class="text-sm font-medium text-gray-800">${esc(a.label)}</div>
+        <div class="text-[11px] text-gray-500">1回 ${ftu} FTU ≒ ${(ftu*0.5).toFixed(2)} g</div>
+      </div>
+      ${checked ? `<span class="text-xs font-mono text-purple-700">+${(ftu*0.5).toFixed(2)}g</span>` : ''}
+    </label>`
+  }).join('')
+  const ageBtns = ATOPY_FTU.ageGroups.map(g => `
+    <button data-atopy-age="${g.key}" class="px-3 py-2 text-xs font-medium border rounded-lg ${state.atopyAgeGroup===g.key?'bg-purple-600 text-white border-purple-600':'bg-white text-gray-700 border-gray-300'}">${esc(g.label)}</button>
+  `).join('')
+  const tubeRows = ATOPY_FTU.tubeOptions.map(size => {
+    const tubes = total > 0 ? Math.ceil(total / size) : 0
+    return `<div class="flex items-baseline justify-between px-3 py-1.5 border-b border-gray-100 last:border-0">
+      <span class="text-xs text-gray-700">${size} g チューブ</span>
+      <span class="text-sm font-bold text-purple-700">${tubes} 本</span>
+    </div>`
+  }).join('')
+  const notesHtml = ATOPY_FTU.notes.map(t => `<li class="flex gap-2 text-[11px] text-gray-600 leading-relaxed"><span class="text-purple-500 shrink-0">▸</span><span>${esc(t)}</span></li>`).join('')
+  const disabledCalc = totalFtu === 0
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-atopy-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">🧴 アトピー塗布量計算 (FTU法)</div>
+          <div class="text-xs text-gray-500">Fingertip Unit: 1 FTU ≒ 0.5 g</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <div class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="text-xs font-bold text-gray-700">👶 年齢群</div>
+        <div class="flex flex-wrap gap-2">${ageBtns}</div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-700">🗺 塗布部位 (複数選択)</div>
+        <div class="bg-white">${areaRows}</div>
+        ${totalFtu > 0 ? `<div class="bg-purple-50 px-3 py-2 border-t border-purple-200 flex items-baseline justify-between">
+          <span class="text-xs font-medium text-purple-700">合計 FTU</span>
+          <span class="text-sm font-bold text-purple-900">${totalFtu} FTU ≒ ${perApp.toFixed(2)} g /回</span>
+        </div>` : ''}
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="text-xs font-bold text-gray-700">⏱ 塗布回数 × 日数</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-500">1日回数</label>
+            <input id="atopy-freq" type="number" min="0" max="10" value="${esc(state.atopyFreq)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-500">処方日数</label>
+            <input id="atopy-days" type="number" min="0" max="365" value="${esc(state.atopyDays)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          </div>
+        </div>
+      </div>
+      <div class="rounded-xl border-2 ${disabledCalc?'border-gray-200 bg-gray-100':'border-purple-400 bg-purple-50'} p-4 space-y-3">
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs font-bold ${disabledCalc?'text-gray-500':'text-purple-800'}">🧮 計算結果</span>
+          ${!disabledCalc ? `<span class="text-[11px] text-purple-600">${esc(grp.label)} / ${freq}回/日 × ${days}日</span>` : ''}
+        </div>
+        ${disabledCalc
+          ? `<div class="text-xs text-gray-500 text-center py-2">塗布部位を1つ以上選択してください</div>`
+          : `<div class="grid grid-cols-3 gap-2">
+              <div class="bg-white rounded-lg p-2 text-center">
+                <div class="text-[10px] text-gray-500">1回量</div>
+                <div class="text-lg font-bold text-purple-800">${perApp.toFixed(2)} g</div>
+                <div class="text-[10px] text-gray-500">(${totalFtu} FTU)</div>
+              </div>
+              <div class="bg-white rounded-lg p-2 text-center">
+                <div class="text-[10px] text-gray-500">1日量</div>
+                <div class="text-lg font-bold text-purple-800">${perDay.toFixed(2)} g</div>
+                <div class="text-[10px] text-gray-500">(×${freq}回)</div>
+              </div>
+              <div class="bg-white rounded-lg p-2 text-center">
+                <div class="text-[10px] text-gray-500">総必要量</div>
+                <div class="text-lg font-bold text-purple-800">${total.toFixed(1)} g</div>
+                <div class="text-[10px] text-gray-500">(×${days}日)</div>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg overflow-hidden border border-purple-200">
+              <div class="px-3 py-1.5 bg-purple-100 text-[11px] font-bold text-purple-800">📦 チューブ本数 (切り上げ)</div>
+              ${tubeRows}
+            </div>`
+        }
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-3">
+        <div class="text-xs font-bold text-gray-700 mb-2">📘 FTU 法メモ</div>
+        <ul class="space-y-1.5">${notesHtml}</ul>
+      </div>
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: Fingertip Unit 法 (Long CC, Finlay AY. 1991) / アトピー性皮膚炎診療ガイドライン 2024。部位別 FTU は小児皮膚科標準値。本ツールは目安であり、担当医の判断で調整してください。</div>
+    </div>`
+}
+function attachAtopyFtu() {
+  document.getElementById('btn-atopy-back')?.addEventListener('click', () => setState({screen:'list'}))
+  app.querySelectorAll('[data-atopy-age]').forEach(b => b.addEventListener('click', () => setState({atopyAgeGroup:b.dataset.atopyAge})))
+  app.querySelectorAll('[data-atopy-area]').forEach(el => el.addEventListener('change', () => {
+    const next = {...(state.atopyAreas||{}), [el.dataset.atopyArea]: el.checked}
+    setState({atopyAreas: next})
+  }))
+  const bindNum = (id, key) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.addEventListener('input', e => {
+      state[key] = e.target.value
+      render()
+      const nx = document.getElementById(id)
+      if (nx) { nx.focus(); try { const p = nx.value.length; nx.setSelectionRange(p, p) } catch {} }
+    })
+  }
+  bindNum('atopy-freq', 'atopyFreq')
+  bindNum('atopy-days', 'atopyDays')
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -3568,12 +3744,22 @@ function buildListBodyHTML(query) {
     // 外用薬カテゴリでは先頭にステロイド外用薬の特設カードを表示
     const isTopicalCat = state.category === '外用薬'
     const topicalCard = isTopicalCat ? `
-      <li class="border-b-2 border-purple-200 bg-purple-50/40">
+      <li class="border-b border-purple-200 bg-purple-50/40">
         <button data-topical="steroid" class="w-full flex items-center px-4 py-4 hover:bg-purple-100 active:bg-purple-200 text-left gap-3">
           <span class="text-3xl shrink-0">💊</span>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-purple-900 text-base">ステロイド外用薬</div>
             <div class="text-xs text-gray-600 mt-0.5">5段階のランク表 / 部位別吸収率 / 重症度別の選択</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b-2 border-purple-200 bg-purple-50/40">
+        <button data-tool="atopy-ftu" class="w-full flex items-center px-4 py-4 hover:bg-purple-100 active:bg-purple-200 text-left gap-3">
+          <span class="text-3xl shrink-0">🧴</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-purple-900 text-base">アトピー塗布量計算 (FTU法)</div>
+            <div class="text-xs text-gray-600 mt-0.5">年齢×部位×回数×日数 → 必要量 (g) とチューブ本数を算出</div>
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
@@ -3638,6 +3824,8 @@ function attachListBody() {
   app.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.tool === 'asthma-step') {
       setState({screen:'asthma-step', asthmaScrollTo: b.dataset.goto || null})
+    } else if (b.dataset.tool === 'atopy-ftu') {
+      setState({screen:'atopy-ftu'})
     }
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
