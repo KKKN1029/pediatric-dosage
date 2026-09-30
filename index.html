@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=77" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=77" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=77" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=77" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=77" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=77" />
+  <link rel="manifest" href="manifest.json?v=78" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=78" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=78" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=78" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=78" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=78" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v77 / atopy-ftu</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v78 / moisturizers</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '77'
+const BUILD_VERSION = '78'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1650,6 +1650,62 @@ let STEROID_NONSTEROID_REFS = [
   { generic:'ジファミラスト', cls:'PDE4 阻害薬', strength:'ミディアム〜ストロングクラス相当', forms:['モイゼルト®軟膏 1%','モイゼルト®軟膏 0.3%'] },
   { generic:'タピナロフ', cls:'治療用 AhR 調節薬', strength:'—', forms:['ブイタマー®クリーム 1%'] },
 ]
+// 保湿薬・スキンケア (アトピー性皮膚炎ガイドライン 2024 に基づく主要製剤)
+//   category: 'heparinoid' | 'urea' | 'petrolatum' | 'other'
+let MOISTURIZERS = [
+  // ヘパリン類似物質
+  { generic:'ヘパリン類似物質', category:'heparinoid', cls:'ヘパリノイド',
+    forms:[
+      'ヒルドイド® ソフト軟膏 0.3% (25g/50g/450g)',
+      'ヒルドイド® クリーム 0.3% (25g/50g/450g)',
+      'ヒルドイド® ローション 0.3% (25g/50g/450g)',
+      'ヒルドイド® フォーム 0.3% (92g/100g)',
+      'ヒルドイド® スプレー 0.3% (100g)',
+      'ビーソフテン® ローション 0.3% / クリーム 0.3% / 油性クリーム 0.3%',
+      'ヘパリン類似物質「日医工」「日本臓器」など各社ジェネリック',
+    ],
+    notes:'血行促進・抗炎症・保湿の3作用。乾皮症、皮脂欠乏症、進行性指掌角皮症、外傷後の腫脹・瘢痕などに適応。1日1〜数回。皮膚湿潤時は避ける。' },
+  // 尿素製剤 (20%)
+  { generic:'尿素 20%', category:'urea', cls:'尿素製剤 (高濃度)',
+    forms:[
+      'ケラチナミンコーワ® クリーム 20% (25g/60g/150g)',
+      'パスタロン® ソフト軟膏 20% (25g/100g)',
+      'パスタロン® クリーム 20% (25g/60g)',
+      'パスタロン® ローション 20% (100g)',
+    ],
+    notes:'角層水分保持能亢進 + 角質溶解。魚鱗癬・掌蹠角化症・老人性乾皮症などに。刺激感/しみるため亀裂・湿潤面や小児顔面には不向き。' },
+  // 尿素製剤 (10%)
+  { generic:'尿素 10%', category:'urea', cls:'尿素製剤 (低濃度)',
+    forms:[
+      'ウレパール® クリーム 10% (100g)',
+      'ウレパール® ローション 10% (100g)',
+      'パスタロン® ソフト軟膏 10% (25g/100g)',
+      'パスタロン® クリーム 10% (25g)',
+    ],
+    notes:'20%より刺激少なく広範囲・小児にも使いやすい。乾皮症、皮脂欠乏症、進行性指掌角皮症など。' },
+  // ワセリン系
+  { generic:'白色ワセリン', category:'petrolatum', cls:'ワセリン (基剤)',
+    forms:[
+      'プロペト® (50g/100g/500g) — 精製度の高い白色ワセリン',
+      'サンホワイト® P-1 (50g/500g) — 高精製 (刺激最小)',
+      'ワセリンHG (500g)',
+      '白色ワセリン「日興」「ケンエー」など各社',
+    ],
+    notes:'皮膚保護・水分蒸散防止。刺激少なく新生児・粘膜近傍にも使用可。ステロイド外用の希釈基剤としても頻用。1日1〜数回。' },
+  { generic:'亜鉛華軟膏', category:'other', cls:'収斂・保護剤',
+    forms:[
+      '亜鉛華軟膏 20% (100g/500g)',
+      '亜鉛華単軟膏「ホエイ」20%',
+      'ボチシート® 20% (患部貼付用シート)',
+      'サトウザルベ® 軟膏 10%・20%',
+    ],
+    notes:'滲出液吸収・収斂・保護。おむつ皮膚炎・湿潤面の被覆に頻用。粘度高く落としにくいのでオリーブ油/ベビーオイルで除去。' },
+  { generic:'アズレン', category:'other', cls:'抗炎症・保護剤',
+    forms:[
+      'アズノール® 軟膏 0.033% (20g)',
+    ],
+    notes:'弱い抗炎症・肉芽形成促進。びらん、潰瘍、湿疹の慢性期、皮膚保護目的に。' },
+]
 const STEROID_ABSORPTION = [
   ['頭皮','3.5'], ['前頭','6.0'], ['下顎','13.0'], ['腋窩','3.6'], ['背面','1.7'],
   ['前腕（外側）','1.1'], ['前腕（内側）','1.0（基準）'], ['手掌','0.83'], ['陰嚢','42.0'],
@@ -2025,6 +2081,38 @@ function renderTopicalSteroid() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           ${nonSteroidCards}
         </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-sm font-bold text-teal-900">💧 保湿薬・スキンケア</h2>
+          <span class="text-[10px] text-gray-500">${MOISTURIZERS.length} 剤</span>
+        </div>
+        <p class="text-[11px] text-gray-600 leading-relaxed">アトピー性皮膚炎の維持療法・寛解期の必須外用。ステロイド外用と併用・混合、あるいはリアクティブ/プロアクティブ療法の下地として使用する。</p>
+        ${(() => {
+          const catLabels = { heparinoid:'ヘパリン類似物質', urea:'尿素製剤', petrolatum:'ワセリン系', other:'その他' }
+          const catColors = { heparinoid:'bg-teal-50 border-teal-200 text-teal-900', urea:'bg-amber-50 border-amber-200 text-amber-900', petrolatum:'bg-sky-50 border-sky-200 text-sky-900', other:'bg-gray-50 border-gray-200 text-gray-900' }
+          const catBadges = { heparinoid:'bg-teal-500', urea:'bg-amber-500', petrolatum:'bg-sky-500', other:'bg-gray-500' }
+          const byCat = {}
+          MOISTURIZERS.forEach(m => { (byCat[m.category] = byCat[m.category] || []).push(m) })
+          return Object.entries(byCat).map(([cat, items]) => `
+            <div class="rounded-lg border ${catColors[cat] || catColors.other} overflow-hidden">
+              <div class="${catBadges[cat] || catBadges.other} text-white text-[11px] font-bold px-3 py-1.5">${esc(catLabels[cat] || cat)}</div>
+              <div class="bg-white divide-y divide-gray-100">
+                ${items.map(m => `
+                  <div class="px-3 py-2.5 space-y-1">
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-sm font-semibold text-gray-900">${esc(m.generic)}</span>
+                      <span class="text-[10px] text-gray-500">${esc(m.cls || '')}</span>
+                    </div>
+                    <ul class="space-y-0.5 pl-1">
+                      ${(m.forms || []).map(f => `<li class="text-[11px] text-gray-700 leading-relaxed flex gap-1"><span class="text-teal-500 shrink-0">▸</span><span>${esc(f)}</span></li>`).join('')}
+                    </ul>
+                    ${m.notes ? `<div class="text-[10px] text-gray-500 leading-relaxed pt-1 border-t border-gray-100">${esc(m.notes)}</div>` : ''}
+                  </div>`).join('')}
+              </div>
+            </div>`).join('')
+        })()}
       </section>
 
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
