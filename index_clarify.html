@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=75" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=75" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=75" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=75" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=75" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=75" />
+  <link rel="manifest" href="manifest.json?v=76" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=76" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=76" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=76" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=76" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=76" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v75 / asthma-single-page</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v76 / asthma-3cards</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '75'
+const BUILD_VERSION = '76'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2422,6 +2422,15 @@ function attachAsthmaStep() {
     const target = document.getElementById('asthma-sec-' + b.dataset.asthmaJump)
     if (target) target.scrollIntoView({behavior:'smooth', block:'start'})
   }))
+  // カード起点で開いたときは該当セクションへ自動スクロール (次回以降 render では実行しない)
+  if (state.asthmaScrollTo) {
+    const targetId = state.asthmaScrollTo
+    state.asthmaScrollTo = null
+    setTimeout(() => {
+      const target = document.getElementById('asthma-sec-' + targetId)
+      if (target) target.scrollIntoView({behavior:'auto', block:'start'})
+    }, 50)
+  }
   app.querySelectorAll('[data-asthma-ans]').forEach(b => b.addEventListener('click', () => {
     const next = {...(state.asthmaControlAnswers||{}), [b.dataset.asthmaAns]:b.dataset.verdict}
     setState({asthmaControlAnswers: next})
@@ -3569,15 +3578,35 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>` : ''
-    // 喘息薬カテゴリでは先頭に JPGL 2023 治療ステップ判別ツールの特設カードを表示
+    // 喘息薬カテゴリでは先頭に JPGL 2023 治療ステップ判別ツールを 3 カード表示
     const isAsthmaCat = state.category === '喘息薬'
     const asthmaCard = isAsthmaCat ? `
-      <li class="border-b-2 border-sky-200 bg-sky-50/40">
-        <button data-tool="asthma-step" class="w-full flex items-center px-4 py-4 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
-          <span class="text-3xl shrink-0">🎯</span>
+      <li class="border-b border-sky-200 bg-sky-50/40">
+        <button data-tool="asthma-step" data-goto="assess" class="w-full flex items-center px-4 py-3.5 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
+          <span class="text-2xl shrink-0">📊</span>
           <div class="flex-1 min-w-0">
-            <div class="font-bold text-sky-900 text-base">治療ステップ判別ツール</div>
-            <div class="text-xs text-gray-600 mt-0.5">JPGL 2023: 症状→Step判定 / 年齢+Step→処方例 / Step down方法</div>
+            <div class="font-bold text-sky-900 text-sm">① 症状 → Step判定</div>
+            <div class="text-[11px] text-gray-600 mt-0.5">コントロール状態 (最近1か月) 評価 → Step up/down 推奨</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b border-sky-200 bg-sky-50/40">
+        <button data-tool="asthma-step" data-goto="regimen" class="w-full flex items-center px-4 py-3.5 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
+          <span class="text-2xl shrink-0">💊</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sky-900 text-sm">② 年齢 + Step → 処方例</div>
+            <div class="text-[11px] text-gray-600 mt-0.5">年齢入力 + Step選択で具体的な吸入薬・用量を表示</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b-2 border-sky-200 bg-sky-50/40">
+        <button data-tool="asthma-step" data-goto="stepdown" class="w-full flex items-center px-4 py-3.5 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
+          <span class="text-2xl shrink-0">📉</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sky-900 text-sm">③ Step down 方法</div>
+            <div class="text-[11px] text-gray-600 mt-0.5">減量手順ガイド + 増悪因子チェックリスト</div>
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
@@ -3607,7 +3636,9 @@ function attachListBody() {
     if (b.dataset.topical === 'steroid') setState({screen:'topical-steroid'})
   }))
   app.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.tool === 'asthma-step') setState({screen:'asthma-step'})
+    if (b.dataset.tool === 'asthma-step') {
+      setState({screen:'asthma-step', asthmaScrollTo: b.dataset.goto || null})
+    }
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
     setState({screen:'detail', drugId:b.dataset.drug, tab:'calc', weight:'', age:'', ageUnit:'years', editMode:false})
