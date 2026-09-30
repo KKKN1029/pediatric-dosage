@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=74" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=74" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=74" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=74" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=74" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=74" />
+  <link rel="manifest" href="manifest.json?v=75" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=75" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=75" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=75" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=75" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=75" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v74 / auto-sync</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v75 / asthma-single-page</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '74'
+const BUILD_VERSION = '75'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2189,12 +2189,15 @@ function asthmaControlVerdict() {
   return worst === 2 ? 'poor' : worst === 1 ? 'fair' : 'good'
 }
 function renderAsthmaStep() {
-  const tab = state.asthmaTab
-  const tabBtn = (k, label) => `<button data-asthma-tab="${k}" class="flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${tab===k?'border-sky-600 text-sky-700':'border-transparent text-gray-500'}">${label}</button>`
-  let body = ''
-  if (tab === 'assess') body = renderAsthmaAssess()
-  else if (tab === 'regimen') body = renderAsthmaRegimen()
-  else body = renderAsthmaStepDown()
+  const sectionHeader = (id, emoji, title, subtitle) => `
+    <div id="asthma-sec-${id}" class="bg-sky-600 text-white px-4 py-2 sticky top-0 z-10 shadow">
+      <div class="flex items-baseline gap-2">
+        <span class="text-lg">${emoji}</span>
+        <div class="font-bold text-sm">${title}</div>
+        <span class="text-[11px] text-sky-100 ml-auto">${subtitle}</span>
+      </div>
+    </div>`
+  const jumpBtn = (id, label) => `<button data-asthma-jump="${id}" class="flex-1 py-1.5 text-[11px] font-medium bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg">${label}</button>`
   return `
     <div class="bg-white border-b border-gray-200 px-4 py-3">
       <div class="flex items-center gap-2">
@@ -2205,13 +2208,20 @@ function renderAsthmaStep() {
         </div>
         <div class="w-8"></div>
       </div>
-      <div class="flex mt-3 border-b border-gray-200 -mb-px">
-        ${tabBtn('assess','症状→Step判定')}
-        ${tabBtn('regimen','年齢+Step→処方')}
-        ${tabBtn('stepdown','Step down')}
+      <div class="flex gap-2 mt-3">
+        ${jumpBtn('assess','① 症状→Step判定')}
+        ${jumpBtn('regimen','② 年齢+Step→処方')}
+        ${jumpBtn('stepdown','③ Step down')}
       </div>
     </div>
-    <div class="flex-1 overflow-y-auto bg-gray-50">${body}</div>`
+    <div class="flex-1 overflow-y-auto bg-gray-50">
+      ${sectionHeader('assess','①','症状→Step判定','コントロール状態評価')}
+      ${renderAsthmaAssess()}
+      ${sectionHeader('regimen','②','年齢+Step→処方','年齢+Stepで具体的な処方例を表示')}
+      ${renderAsthmaRegimen()}
+      ${sectionHeader('stepdown','③','Step down','減量方法のガイド')}
+      ${renderAsthmaStepDown()}
+    </div>`
 }
 function renderAsthmaAssess() {
   const ans = state.asthmaControlAnswers || {}
@@ -2408,6 +2418,10 @@ function renderAsthmaStepDown() {
 function attachAsthmaStep() {
   document.getElementById('btn-asthma-back')?.addEventListener('click', () => setState({screen:'list'}))
   app.querySelectorAll('[data-asthma-tab]').forEach(b => b.addEventListener('click', () => setState({asthmaTab:b.dataset.asthmaTab})))
+  app.querySelectorAll('[data-asthma-jump]').forEach(b => b.addEventListener('click', () => {
+    const target = document.getElementById('asthma-sec-' + b.dataset.asthmaJump)
+    if (target) target.scrollIntoView({behavior:'smooth', block:'start'})
+  }))
   app.querySelectorAll('[data-asthma-ans]').forEach(b => b.addEventListener('click', () => {
     const next = {...(state.asthmaControlAnswers||{}), [b.dataset.asthmaAns]:b.dataset.verdict}
     setState({asthmaControlAnswers: next})
