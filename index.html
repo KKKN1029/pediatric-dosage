@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=72" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=72" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=72" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=72" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=72" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=72" />
+  <link rel="manifest" href="manifest.json?v=73" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=73" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=73" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=73" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=73" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=73" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v72 / ics-laba-label</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v73 / asthma-refine</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '72'
+const BUILD_VERSION = '73'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -77,8 +77,8 @@ const BUILD_VERSION = '72'
 let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
-  '抗真菌薬','抗アレルギー薬','解熱鎮痛薬',
-  '制吐薬','整腸薬・止痢薬','便秘治療薬','点眼薬','点鼻薬','外用薬','その他',
+  '抗真菌薬','抗アレルギー薬','喘息薬','解熱鎮痛薬',
+  '制吐薬','整腸薬・止痢薬','便秘治療薬','消化器','点眼薬','点鼻薬','外用薬','その他',
 ]
 
 // ============================================================
@@ -1027,7 +1027,13 @@ const getCategories = () => {
   const user = loadUserCategories()
   const userSet = new Set(user)
   const gistOnly = (CATEGORIES || []).filter(c => !userSet.has(c))
-  return gistOnly.length > 0 ? [...user, ...gistOnly] : user
+  const merged = gistOnly.length > 0 ? [...user, ...gistOnly] : [...user]
+  // 追加のセーフティネット: DRUGS 側に存在するのにカテゴリリストから漏れているものを末尾に付与する
+  //   (Gist の drugCategories と drugs.category が不整合な場合、
+  //    サイドバーに現れず薬剤にアクセスできなくなる不具合を回避)
+  const mergedSet = new Set(merged)
+  const orphanFromDrugs = [...new Set((DRUGS || []).map(d => d && d.category).filter(c => c && !mergedSet.has(c)))]
+  return orphanFromDrugs.length ? [...merged, ...orphanFromDrugs] : merged
 }
 const loadUserDiseaseCategories = () => { const s = LS.get('user_disease_categories', 'null'); return s === null ? [...DISEASE_CATEGORIES] : s }
 const saveUserDiseaseCategories = cats => LS.set('user_disease_categories', cats)
@@ -1642,24 +1648,25 @@ const JPGL_2023 = {
     },
   },
   shortTermAdd:'貼付薬もしくは経口薬の長時間作用性β2刺激薬 数日から2週間以内',
-  // ICS 用量の目安 (μg/日)
+  // ICS 用量の目安 (μg/日) + 適応年齢 (minAgeMonths / maxAgeMonths, undefined=全年齢)
   icsDoseRanges: {
-    'FP':  { name:'フルチカゾンpropionate (FP)',  low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
-    'BDP': { name:'ベクロメタゾン (BDP)',         low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
-    'CIC': { name:'シクレソニド (CIC)',           low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超' },
-    'BUD': { name:'ブデソニド DPI (BUD)',         low:'〜200',  mid:'〜400', high:'〜800' },
-    'BIS': { name:'ブデソニド吸入懸濁液 (BIS)',   low:'〜250',  mid:'〜500', high:'〜1000' },
+    'FP':  { name:'フルチカゾンpropionate (FP)',  minAgeMonths:0,  low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超', product:'フルタイド' },
+    'BDP': { name:'ベクロメタゾン (BDP)',         minAgeMonths:0,  low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超', product:'キュバール' },
+    'CIC': { name:'シクレソニド (CIC)',           minAgeMonths:72, low:'〜100',  mid:'〜200', high:'〜400 ※小児保険適用範囲超', product:'オルベスコ (6歳以上)' },
+    'BUD': { name:'ブデソニド DPI (BUD)',         minAgeMonths:72, low:'〜200',  mid:'〜400', high:'〜800',                     product:'パルミコート タービュヘイラー (6歳以上)' },
+    'BIS': { name:'ブデソニド吸入懸濁液 (BIS)',   minAgeMonths:0,  low:'〜250',  mid:'〜500', high:'〜1000',                    product:'パルミコート吸入液' },
   },
-  // ICS/LABA 用量の目安 (μg/日) — 表記: ICS成分 μg / LABA成分 μg
+  // ICS/LABA 用量の目安 (μg/日) — ステロイド (ICS) 量のみ表示
+  //   LABA 成分は製剤選択で自動的に決まるため、判断はICS量で行う
   icsLabaDoseRanges: {
-    'SFC': { name:'FP/SLM (SFC)', icsLabel:'FP', labaLabel:'SLM',
-             low:'FP 100 / SLM 50',
-             mid:'FP 200 / SLM 100',
-             high:'FP 400〜500 / SLM 100' },
-    'FFC': { name:'FP/FM (FFC)',  icsLabel:'FP', labaLabel:'FM',
-             low:'FP 100 / FM 10 ※エビデンスなし',
-             mid:'FP 200 / FM 20',
-             high:'FP 400〜500 / FM 20' },
+    'SFC': { name:'アドエア (SFC = FP+SLM)', icsLabel:'FP', labaLabel:'SLM', minAgeMonths:8,
+             low:'FP 100 μg/日',
+             mid:'FP 200 μg/日',
+             high:'FP 400〜500 μg/日' },
+    'FFC': { name:'フルティフォーム (FFC = FP+FM)', icsLabel:'FP', labaLabel:'FM', minAgeMonths:60,
+             low:'FP 100 μg/日 ※エビデンスなし',
+             mid:'FP 200 μg/日',
+             high:'FP 400〜500 μg/日' },
   },
   // 具体的な使用例 (表5-6 使用例)
   regimenExamples: {
@@ -2183,28 +2190,47 @@ function renderAsthmaRegimen() {
   const groupKey = grp ? grp.key : null
   const plan = groupKey ? JPGL_2023.ltPlan[groupKey] : null
   const stepPlan = plan ? plan['step'+step] : null
+  // 現在の年齢を月齢に (未入力なら null)
+  const rawAge = parseFloat(state.asthmaAgeInput)
+  const ageMonths = Number.isFinite(rawAge) && rawAge >= 0
+    ? (state.asthmaAgeUnit === 'months' ? rawAge : rawAge * 12)
+    : null
+  const isApplicable = minMo => ageMonths == null ? true : ageMonths >= (minMo ?? 0)
   const stepBtn = n => `<button data-asthma-step="${n}" class="flex-1 py-2 text-sm font-bold border rounded-lg ${step===n?'bg-sky-600 text-white border-sky-600':'bg-white text-gray-700 border-gray-300'}">Step ${n}</button>`
-  // ICS 用量表
-  const icsRows = Object.entries(JPGL_2023.icsDoseRanges).map(([code, v]) => `
-    <tr>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${esc(v.name)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===1||step===2?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
-    </tr>`).join('')
-  const labaRows = Object.entries(JPGL_2023.icsLabaDoseRanges).map(([code, v]) => `
-    <tr>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${esc(v.name)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===2?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
-      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
-    </tr>`).join('')
+  // ICS 用量表 (年齢適応があれば強調、適応外はグレーアウト)
+  const icsRows = Object.entries(JPGL_2023.icsDoseRanges).map(([code, v]) => {
+    const ok = isApplicable(v.minAgeMonths)
+    const rowCls = ok ? '' : 'opacity-40'
+    const nameCell = ok
+      ? `${esc(v.name)}${ageMonths != null && v.minAgeMonths > 0 ? `<div class="text-[10px] text-gray-500">${esc(v.product||'')}</div>` : ''}`
+      : `<span class="line-through">${esc(v.name)}</span><div class="text-[10px] text-rose-600 font-normal">この年齢では適応外</div>`
+    return `<tr class="${rowCls}">
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${nameCell}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && (step===1||step===2)?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
+    </tr>`}).join('')
+  const labaRows = Object.entries(JPGL_2023.icsLabaDoseRanges).map(([code, v]) => {
+    const ok = isApplicable(v.minAgeMonths)
+    const rowCls = ok ? '' : 'opacity-40'
+    const nameCell = ok
+      ? esc(v.name) + (ageMonths != null && v.minAgeMonths > 0 ? `<div class="text-[10px] text-gray-500">${code==='SFC'?'生後8か月以上':'5歳以上'}</div>` : '')
+      : `<span class="line-through">${esc(v.name)}</span><div class="text-[10px] text-rose-600 font-normal">この年齢では適応外</div>`
+    return `<tr class="${rowCls}">
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] font-semibold bg-gray-50">${nameCell}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && step===2?'bg-emerald-50 font-bold text-emerald-800':''}">${esc(v.low)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && step===3?'bg-amber-50 font-bold text-amber-800':''}">${esc(v.mid)}</td>
+      <td class="border border-gray-200 px-2 py-1.5 text-[11px] text-center ${ok && step===4?'bg-rose-50 font-bold text-rose-800':''}">${esc(v.high)}</td>
+    </tr>`}).join('')
   // Step 別使用例
   const doseLevel = step === 1 || step === 2 ? 'low' : step === 3 ? 'mid' : 'high'
   const examples = JPGL_2023.regimenExamples[doseLevel] || []
   const exampleList = examples.length ? `<ul class="space-y-1">${examples.map(e => `<li class="text-xs text-gray-700 flex gap-2"><span class="text-sky-500 shrink-0">▸</span><span>${esc(e)}</span></li>`).join('')}</ul>` : ''
-  // 単剤 ICS の使用例
-  const icsExamples = Object.entries(JPGL_2023.icsRegimenExamples).map(([code, r]) => `
+  // 単剤 ICS の使用例 (年齢適応外は非表示)
+  const icsExamples = Object.entries(JPGL_2023.icsRegimenExamples).filter(([code]) => {
+    const range = JPGL_2023.icsDoseRanges[code]
+    return isApplicable(range?.minAgeMonths)
+  }).map(([code, r]) => `
     <div class="bg-white rounded-lg border border-gray-200 p-2">
       <div class="text-[11px] font-bold text-gray-700 mb-1">${esc(JPGL_2023.icsDoseRanges[code]?.name || code)}</div>
       <div class="text-[11px] text-gray-800 leading-relaxed">${esc(r[doseLevel])}</div>
@@ -2262,8 +2288,8 @@ function renderAsthmaRegimen() {
         </tr></thead>
         <tbody>${icsRows}</tbody>
       </table>
-      <div class="text-xs font-bold text-gray-700 mt-3 mb-1">📋 ICS/LABA 配合剤 用量目安 (μg/日)</div>
-      <div class="text-[10px] text-gray-500 mb-2">※表記: ICS成分 μg / LABA成分 μg (1日総量)</div>
+      <div class="text-xs font-bold text-gray-700 mt-3 mb-1">📋 ICS/LABA 配合剤 用量目安 (ステロイド量ベース)</div>
+      <div class="text-[10px] text-gray-500 mb-2">※判断はICS(ステロイド)量で行う。LABA量は製剤選択で自動的に決まる</div>
       <table class="w-full border-collapse min-w-[400px]">
         <thead><tr>
           <th class="border border-gray-200 px-2 py-1.5 text-[11px] font-bold bg-gray-100"></th>
@@ -2310,7 +2336,19 @@ function attachAsthmaStep() {
   app.querySelectorAll('[data-asthma-step]').forEach(b => b.addEventListener('click', () => setState({asthmaStepPick: parseInt(b.dataset.asthmaStep, 10)})))
   app.querySelectorAll('[data-asthma-unit]').forEach(b => b.addEventListener('click', () => setState({asthmaAgeUnit:b.dataset.asthmaUnit})))
   const ageInput = document.getElementById('asthma-age')
-  if (ageInput) ageInput.addEventListener('input', e => { state.asthmaAgeInput = e.target.value; render() })
+  if (ageInput) {
+    ageInput.value = state.asthmaAgeInput || ''
+    ageInput.addEventListener('input', e => {
+      state.asthmaAgeInput = e.target.value
+      render()
+      // re-render で input が差し替わるためフォーカス復帰
+      const next = document.getElementById('asthma-age')
+      if (next) {
+        next.focus()
+        try { const p = next.value.length; next.setSelectionRange(p, p) } catch {}
+      }
+    })
+  }
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
@@ -2683,7 +2721,7 @@ function asthmaStepSectionForDrug(drug) {
       ${row('high', '高用量 (Step 4 の候補)',   'border-rose-300 bg-rose-50')}
     </div>`
   }
-  // ICS+LABA 用の Step ガイダンス
+  // ICS+LABA 用の Step ガイダンス — ステロイド (ICS) 量ベース
   const labaBox = code => {
     const range = JPGL_2023.icsLabaDoseRanges[code]
     if (!range) return ''
@@ -2692,12 +2730,13 @@ function asthmaStepSectionForDrug(drug) {
       <div class="rounded-lg border ${color} p-2 space-y-1">
         <div class="flex items-baseline justify-between gap-2">
           <span class="text-[11px] font-bold">${label}</span>
-          <span class="text-[11px] font-mono">${esc(range[level])} μg/日</span>
+          <span class="text-[11px] font-mono">${esc(range[level])}</span>
         </div>
         ${exs.filter(x => x.includes(code === 'SFC' ? 'SFC' : code === 'FFC' ? 'FFC' : code))
              .map(x => `<div class="text-[11px] text-gray-800 leading-relaxed">${esc(x)}</div>`).join('') || ''}
       </div>`
     return `<div class="space-y-2">
+      <div class="text-[10px] text-gray-500 pb-1">※判断はICS(ステロイド)量。LABA量は製剤選択で自動的に決まる</div>
       ${row('low',  '低用量 (Step 3 で選択肢)', 'border-emerald-300 bg-emerald-50', examples.low)}
       ${row('mid',  '中用量 (Step 4 の主軸)',   'border-amber-300 bg-amber-50', examples.mid)}
       ${row('high', '高用量 (Step 4 追加治療)', 'border-rose-300 bg-rose-50', examples.high)}
