@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=73" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=73" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=73" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=73" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=73" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=73" />
+  <link rel="manifest" href="manifest.json?v=74" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=74" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=74" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=74" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=74" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=74" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v73 / asthma-refine</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v74 / auto-sync</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '73'
+const BUILD_VERSION = '74'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -817,16 +817,22 @@ function applyMasterData(data) {
   if (Array.isArray(data.drugs)) {
     // Gist 値を優先しつつ、ivDilution / formulations が Gist 側に欠落していれば
     // 埋め込み (EMBEDDED_DRUGS_BY_ID) からフォールバック補完する。
-    DRUGS = data.drugs.map(d => {
+    const merged = data.drugs.map(d => {
       const emb = EMBEDDED_DRUGS_BY_ID.get(d.id)
       if (!emb) return d
-      const merged = {...d}
-      if (!merged.ivDilution && emb.ivDilution) merged.ivDilution = emb.ivDilution
-      if ((!Array.isArray(merged.formulations) || merged.formulations.length === 0) && Array.isArray(emb.formulations) && emb.formulations.length) {
-        merged.formulations = emb.formulations
+      const m = {...d}
+      if (!m.ivDilution && emb.ivDilution) m.ivDilution = emb.ivDilution
+      if ((!Array.isArray(m.formulations) || m.formulations.length === 0) && Array.isArray(emb.formulations) && emb.formulations.length) {
+        m.formulations = emb.formulations
       }
-      return merged
+      return m
     })
+    // 埋め込みに存在するが Gist に無い薬剤は末尾に追加 (常に見えるように)
+    //   Gist 保存前でも新規追加分をアプリで即時利用できる、
+    //   同時に __syncEmbeddedAdditions__ で編集ツールなしでも Gist へ push する。
+    const gistIds = new Set(merged.map(x => x.id))
+    const embOnly = [...EMBEDDED_DRUGS_BY_ID.values()].filter(x => x && x.id && !gistIds.has(x.id))
+    DRUGS = embOnly.length ? [...merged, ...embOnly] : merged
     try { localStorage.setItem('master_drugs_applied', JSON.stringify(DRUGS)) } catch {}
     // v57 削除: 差分検出による自動リセットは廃止
     //   ・編集ツールでチェックを付けるたびに Gist 上の drug データも変わり、
@@ -958,11 +964,85 @@ async function refreshMasterFromGist() {
     LS.set(GIST_LS_CACHE, data)
     localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
     __lastGistError = ''
+    // 埋め込みで追加された内容 (drugs / drugCategories) を Gist に自動同期
+    //   token (editor_gh_token) が設定されている端末で初回のみ実行される
+    autoSyncEmbeddedAdditions(id, data).catch(e => console.warn('[auto-sync]', e?.message || e))
     return changed
   } catch (e) {
     __lastGistError = e.message
     console.warn('[Gist 同期失敗]', e.message)
     return false
+  }
+}
+
+// ============================================================
+// 埋め込み → Gist 自動同期
+//   ・埋め込み HTML に追加した薬剤/カテゴリを、Gist に無ければ自動的に PATCH
+//   ・PAT (editor_gh_token) が設定された端末でのみ動作
+//   ・保存後、次のセッションからは Gist 側にも入るのでリロードで正常表示
+// ============================================================
+let __autoSyncRunning = false
+async function autoSyncEmbeddedAdditions(gistId, gistData) {
+  if (__autoSyncRunning) return
+  if (!gistId || !gistData) return
+  let tokenRaw = localStorage.getItem('editor_gh_token')
+  if (!tokenRaw) return
+  let token
+  try { token = JSON.parse(tokenRaw) } catch { token = tokenRaw }
+  if (!token || typeof token !== 'string') return
+
+  // 差分検出
+  const gistDrugIds = new Set((gistData.drugs || []).map(x => x && x.id).filter(Boolean))
+  const newDrugs = [...EMBEDDED_DRUGS_BY_ID.entries()]
+    .filter(([id]) => !gistDrugIds.has(id))
+    .map(([, emb]) => emb)
+  const gistCatSet = new Set(gistData.drugCategories || [])
+  // 埋め込み CATEGORIES + 追加された DRUGS のカテゴリ両方をチェック
+  const embCats = new Set(CATEGORIES || [])
+  newDrugs.forEach(d => { if (d && d.category) embCats.add(d.category) })
+  const newCats = [...embCats].filter(c => c && !gistCatSet.has(c))
+
+  if (newDrugs.length === 0 && newCats.length === 0) return
+
+  __autoSyncRunning = true
+  try {
+    const nextData = {...gistData}
+    nextData.drugs = [...(gistData.drugs || []), ...newDrugs]
+    nextData.drugCategories = [...(gistData.drugCategories || []), ...newCats]
+    nextData.updatedAt = new Date().toISOString()
+
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(nextData, null, 2) } }
+      })
+    })
+    if (!res.ok) {
+      console.warn('[Gist auto-sync 失敗]', res.status)
+      return
+    }
+    // キャッシュも更新
+    LS.set(GIST_LS_CACHE, nextData)
+    localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+    // トースト通知
+    try {
+      const msg = document.createElement('div')
+      msg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0369a1;color:white;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:320px;line-height:1.4'
+      msg.textContent = `📦 Gist に同期しました: 薬剤+${newDrugs.length} / カテゴリ+${newCats.length}`
+      document.body.appendChild(msg)
+      setTimeout(() => { msg.style.opacity = '0'; msg.style.transition = 'opacity .3s' }, 3500)
+      setTimeout(() => msg.remove(), 4000)
+    } catch {}
+    console.log(`[Gist auto-sync] +${newDrugs.length} 薬剤 / +${newCats.length} カテゴリ`)
+  } catch (e) {
+    console.warn('[Gist auto-sync 例外]', e.message)
+  } finally {
+    __autoSyncRunning = false
   }
 }
 
