@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=79" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=79" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=79" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=79" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=79" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=79" />
+  <link rel="manifest" href="manifest.json?v=80" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=80" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=80" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=80" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=80" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=80" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v79 / moisturizers-standalone</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v80 / svg-icons</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '79'
+const BUILD_VERSION = '80'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2028,10 +2028,25 @@ function renderTopicalSteroid() {
           </div>
           <textarea data-st-rank="${ri}" data-st-drug="${di}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 leading-relaxed" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
         </li>`
-      : `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
-          <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
-          <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
-        </li>`).join('')
+      : (() => {
+          const forms = d.forms || []
+          const formsHtml = forms.map(f => {
+            const iconType = /ローション/.test(f) ? 'bottle'
+                           : /フォーム/.test(f) ? 'foam'
+                           : /スプレー/.test(f) ? 'spray'
+                           : /シート/.test(f) ? 'sheet'
+                           : 'tube'
+            const svg = drugIcon(iconType, { capColor: brandCapColor(f), size: 32 })
+            return `<div class="flex items-center gap-1.5 py-0.5">
+              <span class="shrink-0">${svg}</span>
+              <span class="text-[11px] text-gray-700 leading-tight">${esc(f)}</span>
+            </div>`
+          }).join('')
+          return `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
+            <div class="text-sm font-semibold text-gray-900 mb-1">${esc(d.generic)}</div>
+            <div class="space-y-0.5">${formsHtml}</div>
+          </li>`
+        })()).join('')
     return `
     <div class="rounded-xl border ${rankColor(r.color)} overflow-hidden">
       <div class="${rankBadge(r.color)} text-white px-3 py-2 flex items-baseline gap-2">
@@ -2070,14 +2085,28 @@ function renderTopicalSteroid() {
         <input data-st-non="${ni}" data-st-field="strength" value="${esc(d.strength)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="強さ (例: ストロングクラス相当)" />
         <textarea data-st-non="${ni}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
       </div>`
-    : `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
-          <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
-        </div>
-        <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
-        <div class="text-[11px] text-gray-700">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
-      </div>`).join('')
+    : (() => {
+        const forms = d.forms || []
+        const formsHtml = forms.map(f => {
+          const iconType = /ローション/.test(f) ? 'bottle'
+                         : /フォーム/.test(f) ? 'foam'
+                         : /クリーム/.test(f) ? 'tube'
+                         : 'tube'
+          const svg = drugIcon(iconType, { capColor: brandCapColor(f), size: 32 })
+          return `<div class="flex items-center gap-1.5 py-0.5">
+            <span class="shrink-0">${svg}</span>
+            <span class="text-[11px] text-gray-700 leading-tight">${esc(f)}</span>
+          </div>`
+        }).join('')
+        return `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-2">
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
+            <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
+          </div>
+          <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
+          <div class="space-y-0.5">${formsHtml}</div>
+        </div>`
+      })()).join('')
 
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3 sticky top-0 z-10">
@@ -2800,16 +2829,20 @@ function renderMoisturizers() {
                     if (!info) return s==='all' ? '<span class="text-[9px] bg-gray-200 text-gray-700 px-1 rounded">通年</span>' : ''
                     return `<span class="text-[9px] ${seasonColors[info.color]} px-1 rounded">${info.icon}</span>`
                   }).join('')
+                  const iconSvg = drugIcon(resolveIconType(f), { capColor: brandCapColor(f.name), size: 44 })
                   return `
-                  <div class="rounded border border-gray-200 p-2 bg-white">
-                    <div class="flex items-baseline gap-2 flex-wrap">
-                      <span class="text-[11px] font-semibold text-gray-800">${esc(f.name)}</span>
-                      <span class="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">${esc(f.type)}</span>
-                      ${seasonBadges}
+                  <div class="rounded border border-gray-200 p-2 bg-white flex gap-2">
+                    <div class="shrink-0 flex items-start pt-0.5">${iconSvg}</div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-baseline gap-2 flex-wrap">
+                        <span class="text-[11px] font-semibold text-gray-800">${esc(f.name)}</span>
+                        <span class="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">${esc(f.type)}</span>
+                        ${seasonBadges}
+                      </div>
+                      <div class="text-[10px] text-gray-500 mt-0.5">規格: ${esc(f.sizes || '—')}</div>
+                      <div class="text-[10px] text-gray-700 mt-1 leading-relaxed">${esc(f.feature || '')}</div>
+                      <div class="text-[10px] text-gray-500 mt-1">推奨部位: ${esc(f.area || '—')}｜油性度 ${dots(f.oiliness || 0)}</div>
                     </div>
-                    <div class="text-[10px] text-gray-500 mt-0.5">規格: ${esc(f.sizes || '—')}</div>
-                    <div class="text-[10px] text-gray-700 mt-1 leading-relaxed">${esc(f.feature || '')}</div>
-                    <div class="text-[10px] text-gray-500 mt-1">推奨部位: ${esc(f.area || '—')}｜油性度 ${dots(f.oiliness || 0)}</div>
                   </div>`}).join('')}
               </div>
             </div>`).join('')}
@@ -2864,6 +2897,137 @@ function renderMoisturizers() {
 }
 function attachMoisturizers() {
   document.getElementById('btn-moist-back')?.addEventListener('click', () => setState({screen:'list', category:'外用薬'}))
+}
+
+// ── 外用薬の剤形イラスト (SVG) ─────────────────────────────
+//   ブランドロゴ・製品写真は使わず、剤形の輪郭 + キャップ色でブランドの識別性を持たせる。
+//   type: tube / bottle / spray / foam / jar / sheet / oil-cream
+//   opts: { capColor, bodyColor, accentColor, size }
+function drugIcon(type, opts) {
+  const { capColor = '#94A3B8', bodyColor = '#FAFAFA', accentColor = null, size = 56 } = opts || {}
+  const stroke = '#555'
+  const capHi  = 'rgba(255,255,255,0.35)'
+  const shadow = 'rgba(0,0,0,0.05)'
+  const label  = accentColor ? `<rect x="14" y="46" width="32" height="18" fill="${accentColor}" opacity="0.85"/>` : ''
+  const svgs = {
+    tube: `<svg viewBox="0 0 60 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="92" width="40" height="5" fill="${stroke}" rx="1"/>
+      <rect x="10" y="90" width="40" height="3" fill="${shadow}"/>
+      <path d="M 18 22 L 12 30 L 12 92 L 48 92 L 48 30 L 42 22 Z" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.2"/>
+      ${label}
+      <rect x="24" y="14" width="12" height="10" fill="${bodyColor}" stroke="${stroke}" stroke-width="1"/>
+      <rect x="20" y="2" width="20" height="14" fill="${capColor}" stroke="${stroke}" stroke-width="1" rx="2"/>
+      <rect x="20" y="5" width="20" height="2.5" fill="${capHi}"/>
+    </svg>`,
+    'oil-cream': `<svg viewBox="0 0 60 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="92" width="40" height="5" fill="${stroke}" rx="1"/>
+      <path d="M 18 22 L 12 30 L 12 92 L 48 92 L 48 30 L 42 22 Z" fill="#FFF9E1" stroke="${stroke}" stroke-width="1.2"/>
+      ${label || `<rect x="14" y="46" width="32" height="18" fill="#FFE082" opacity="0.7"/>`}
+      <rect x="24" y="14" width="12" height="10" fill="#FFF9E1" stroke="${stroke}" stroke-width="1"/>
+      <rect x="20" y="2" width="20" height="14" fill="${capColor}" stroke="${stroke}" stroke-width="1" rx="2"/>
+      <rect x="20" y="5" width="20" height="2.5" fill="${capHi}"/>
+    </svg>`,
+    bottle: `<svg viewBox="0 0 60 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="32" width="40" height="63" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.2" rx="3"/>
+      ${label}
+      <path d="M 22 20 L 22 32 L 38 32 L 38 20 Z" fill="${bodyColor}" stroke="${stroke}" stroke-width="1"/>
+      <rect x="18" y="4" width="24" height="16" fill="${capColor}" stroke="${stroke}" stroke-width="1" rx="2"/>
+      <rect x="18" y="7" width="24" height="2.5" fill="${capHi}"/>
+    </svg>`,
+    spray: `<svg viewBox="0 0 60 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="30" y="0" width="6" height="6" fill="${stroke}"/>
+      <path d="M 32 4 L 48 4 L 48 12 L 32 12 Z" fill="${capColor}" stroke="${stroke}" stroke-width="1"/>
+      <rect x="18" y="12" width="24" height="14" fill="${capColor}" stroke="${stroke}" stroke-width="1" rx="2"/>
+      <rect x="18" y="15" width="24" height="2" fill="${capHi}"/>
+      <rect x="12" y="26" width="36" height="70" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.2" rx="2"/>
+      ${accentColor ? `<rect x="16" y="52" width="28" height="20" fill="${accentColor}" opacity="0.85"/>` : ''}
+    </svg>`,
+    foam: `<svg viewBox="0 0 60 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 12 22 Q 30 -2 48 22 L 48 26 L 12 26 Z" fill="${capColor}" stroke="${stroke}" stroke-width="1"/>
+      <path d="M 12 22 Q 30 2 48 22" fill="${capHi}" opacity="0.5"/>
+      <rect x="12" y="26" width="36" height="70" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.2"/>
+      <rect x="12" y="26" width="36" height="4" fill="${stroke}"/>
+      <rect x="12" y="90" width="36" height="6" fill="${shadow}"/>
+      ${accentColor ? `<rect x="14" y="52" width="32" height="22" fill="${accentColor}" opacity="0.85"/>` : ''}
+    </svg>`,
+    jar: `<svg viewBox="0 0 80 80" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="28" width="60" height="50" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.5" rx="2"/>
+      ${accentColor ? `<rect x="14" y="42" width="52" height="20" fill="${accentColor}" opacity="0.85"/>` : ''}
+      <rect x="8" y="10" width="64" height="22" fill="${capColor}" stroke="${stroke}" stroke-width="1.5" rx="3"/>
+      <rect x="8" y="14" width="64" height="3" fill="${capHi}"/>
+      <line x1="12" y1="24" x2="68" y2="24" stroke="rgba(0,0,0,0.12)" stroke-width="0.6"/>
+      <line x1="12" y1="28" x2="68" y2="28" stroke="rgba(0,0,0,0.12)" stroke-width="0.6"/>
+    </svg>`,
+    sheet: `<svg viewBox="0 0 80 70" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6" y="6" width="68" height="58" fill="${bodyColor}" stroke="${stroke}" stroke-width="1.5" rx="4"/>
+      ${accentColor ? `<rect x="14" y="14" width="52" height="42" fill="${accentColor}" opacity="0.7" rx="2"/>` : ''}
+      <circle cx="14" cy="14" r="1.5" fill="${stroke}"/>
+      <circle cx="66" cy="14" r="1.5" fill="${stroke}"/>
+      <circle cx="14" cy="56" r="1.5" fill="${stroke}"/>
+      <circle cx="66" cy="56" r="1.5" fill="${stroke}"/>
+    </svg>`,
+  }
+  return svgs[type] || svgs.tube
+}
+// 剤形の日本語ラベルから SVG type にマップ (フォールバック用)
+function iconTypeFor(formType) {
+  const map = { '軟膏':'tube', 'クリーム':'tube', '油性クリーム':'oil-cream',
+                'ローション':'bottle', 'フォーム':'foam', 'スプレー':'spray',
+                '貼付シート':'sheet', '瓶':'jar' }
+  return map[formType] || 'tube'
+}
+// 保湿薬・外用薬のブランドキャップ色 (実製品のキャップ・容器色に近づけた識別用)
+const BRAND_CAP_COLORS = {
+  // 保湿薬
+  'ヒルドイド':      '#00A0E9',  // Maruho brand cyan-blue
+  'ビーソフテン':    '#5DADE2',  // Teikoku soft blue
+  'ケラチナミン':    '#2ECC71',  // Kowa green
+  'パスタロン':      '#E67E22',  // Sato orange
+  'ウレパール':      '#3498DB',  // Otsuka blue
+  'プロペト':        '#B0BEC5',  // 白系
+  'サンホワイト':    '#ECEFF1',  // 極白
+  'ワセリンHG':      '#B0BEC5',
+  '白色ワセリン':    '#B0BEC5',
+  'ボチシート':      '#BDBDBD',
+  'サトウザルベ':    '#A1887F',
+  '亜鉛華':          '#8D6E63',  // ベージュ・茶
+  'アズノール':      '#26A69A',  // 淡青緑
+  // 非ステロイド抗炎症外用薬
+  'プロトピック':    '#E91E63',  // pink (Astellas)
+  'コレクチム':      '#FF6B35',  // orange
+  'モイゼルト':      '#9C27B0',  // 紫系
+  'ブイタマー':      '#00BCD4',  // cyan
+  // ステロイド外用薬 (代表的な製品)
+  'デルモベート':    '#FFB300',  // 黄橙 (GSK)
+  'ダイアコート':    '#FBC02D',
+  'アンテベート':    '#FF9800',
+  'マイザー':        '#8BC34A',
+  'フルメタ':        '#4CAF50',
+  'リンデロン-V':    '#D32F2F',  // 赤系
+  'リンデロンVG':    '#D32F2F',
+  'リンデロン-DP':   '#7B1FA2',
+  'ボアラ':          '#F57C00',
+  'メサデルム':      '#0288D1',
+  'アルメタ':        '#66BB6A',
+  'キンダベート':    '#5C6BC0',
+  'ロコイド':        '#FBC02D',
+  'リドメックス':    '#7CB342',
+  'テラ・コートリル':'#E64A19',
+  'コルテス':        '#FDD835',
+  'グリメサゾン':    '#FFA000',
+  'エキザルベ':      '#FF7043',
+}
+function brandCapColor(text) {
+  if (!text) return '#94A3B8'
+  const hit = Object.keys(BRAND_CAP_COLORS).find(b => text.includes(b))
+  return hit ? BRAND_CAP_COLORS[hit] : '#94A3B8'
+}
+// form.name / type から適切な SVG type を決定
+function resolveIconType(form) {
+  const name = form?.name || ''
+  // 瓶製品 (ワセリン系ジャー)
+  if (/(プロペト|サンホワイト|ワセリンHG|白色ワセリン)/.test(name)) return 'jar'
+  return iconTypeFor(form?.type)
 }
 
 // ── ヘルパー ────────────────────────────────────────────────
