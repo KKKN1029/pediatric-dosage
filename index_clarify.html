@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=85" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=85" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=85" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=85" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=85" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=85" />
+  <link rel="manifest" href="manifest.json?v=86" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=86" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=86" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=86" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=86" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=86" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v85 / psl-equiv</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v86 / steroid-equiv-page</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '85'
+const BUILD_VERSION = '86'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1597,6 +1597,7 @@ function render() {
   else if (s==='asthma-attack') { app.innerHTML=renderAsthmaAttack(); attachAsthmaAttack() }
   else if (s==='atopy-ftu') { app.innerHTML=renderAtopyFtu(); attachAtopyFtu() }
   else if (s==='moisturizers') { app.innerHTML=renderMoisturizers(); attachMoisturizers() }
+  else if (s==='steroid-equiv') { app.innerHTML=renderSteroidEquiv(); attachSteroidEquiv() }
 }
 
 // ── ステロイド外用薬一覧 ───────────────────────────────────────
@@ -2017,19 +2018,6 @@ const ASTHMA_ATTACK = {
     { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, interval:'6時間毎', note:'大発作で第一選択', potency:1.25 },
     { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, interval:'6時間毎', note:'代替・新生児・副腎皮質機能低下例', potency:0.25 },
   ],
-  // ステロイド力価換算 (anti-inflammatory potency; PSL=1 基準)
-  steroidEquivalence: {
-    reference: 'PSL = 1 (抗炎症作用、anti-inflammatory potency)',
-    table: [
-      { drug:'ヒドロコルチゾン (ソル・コーテフ、コートリル)', potency:0.25, equivPerPsl5:'20 mg',    duration:'短 (8〜12 h)',   mineralo:'高 (1)',       class:'short' },
-      { drug:'プレドニゾロン (プレドニン、PSL)',              potency:1,    equivPerPsl5:'5 mg',     duration:'中 (12〜36 h)',  mineralo:'中 (0.8)',     class:'intermediate' },
-      { drug:'メチルプレドニゾロン (ソル・メドロール)',       potency:1.25, equivPerPsl5:'4 mg',     duration:'中 (12〜36 h)',  mineralo:'弱 (0.5)',     class:'intermediate' },
-      { drug:'トリアムシノロン (レダコート)',                 potency:1.25, equivPerPsl5:'4 mg',     duration:'中 (12〜36 h)',  mineralo:'なし',          class:'intermediate' },
-      { drug:'デキサメタゾン (デカドロン)',                    potency:6.25, equivPerPsl5:'0.75 mg',  duration:'長 (36〜72 h)',  mineralo:'なし',          class:'long' },
-      { drug:'ベタメタゾン (リンデロン)',                      potency:6.25, equivPerPsl5:'0.75 mg',  duration:'長 (36〜72 h)',  mineralo:'なし',          class:'long' },
-    ],
-    note: '抗炎症力価は PSL (プレドニゾロン) を 1 とした相対値。長時間作用型はミネラルコルチコイド作用なく副腎抑制が強い。短時間作用型は液体貯留 (Na 貯留) 作用が強く長期連用に不向き。',
-  },
   // 治療プロトコル (per severity)
   treatment:{
     mild:{
@@ -2083,6 +2071,42 @@ const ASTHMA_ATTACK = {
     '1歳未満 / 幼若児',
     '夜間・遠方・社会的理由で経過観察困難',
     '過去の重症発作歴あり',
+  ],
+}
+
+// ============================================================
+// 全身ステロイド 力価換算表 (anti-inflammatory potency; PSL=1 基準)
+//   急性喘息発作・アナフィラキシー・副腎皮質機能低下 等、全ステロイド処方で参照
+// ============================================================
+const STEROID_EQUIVALENCE = {
+  reference: 'PSL (プレドニゾロン) = 1 (抗炎症作用; anti-inflammatory potency)',
+  classes: {
+    short:        { label:'短時間作用型 (生物学的半減期 8〜12 h)',  color:'amber' },
+    intermediate: { label:'中時間作用型 (12〜36 h)',                color:'sky' },
+    long:         { label:'長時間作用型 (36〜72 h)',                color:'purple' },
+  },
+  table: [
+    { drug:'コルチゾン',                                     potency:0.2,  equivPerPsl5:'25 mg',    duration:'8〜12 h',   mineralo:'高 (0.8)',     cls:'short',        iv:false, oral:true,  note:'ほぼ廃用、歴史的意味' },
+    { drug:'ヒドロコルチゾン (ソル・コーテフ®、コートリル®)',  potency:0.25, equivPerPsl5:'20 mg',    duration:'8〜12 h',   mineralo:'高 (1)',       cls:'short',        iv:true,  oral:true,  note:'副腎皮質機能低下・新生児・ショック' },
+    { drug:'プレドニゾロン (プレドニン®、PSL)',                potency:1,    equivPerPsl5:'5 mg',     duration:'12〜36 h',  mineralo:'中 (0.8)',     cls:'intermediate', iv:false, oral:true,  note:'経口の第一選択・基準' },
+    { drug:'メチルプレドニゾロン (ソル・メドロール®、メドロール®)', potency:1.25, equivPerPsl5:'4 mg', duration:'12〜36 h',  mineralo:'弱 (0.5)',     cls:'intermediate', iv:true,  oral:true,  note:'静注ステロイドの第一選択・パルス療法' },
+    { drug:'トリアムシノロン (レダコート®、ケナコルトA®)',       potency:1.25, equivPerPsl5:'4 mg', duration:'12〜36 h',  mineralo:'なし',          cls:'intermediate', iv:false, oral:true,  note:'関節内注射・筋注デポ製剤' },
+    { drug:'デキサメタゾン (デカドロン®、オルガドロン®)',       potency:6.25, equivPerPsl5:'0.75 mg', duration:'36〜72 h',  mineralo:'なし',          cls:'long',         iv:true,  oral:true,  note:'脳浮腫・制吐・クループ・胎児肺成熟' },
+    { drug:'ベタメタゾン (リンデロン®)',                        potency:6.25, equivPerPsl5:'0.6〜0.75 mg', duration:'36〜72 h', mineralo:'なし',    cls:'long',         iv:true,  oral:true,  note:'シロップあり・小児で使いやすい・切迫早産' },
+  ],
+  pulsetherapy:[
+    { indication:'ステロイドパルス療法 (重症自己免疫・ネフローゼ・川崎病 等)',
+      drug:'メチルプレドニゾロン',
+      dose:'30 mg/kg/日 × 3日 (最大 1,000 mg/日)',
+      note:'点滴 2〜3 時間かけて。血圧・心電図モニター' },
+  ],
+  notes: [
+    'PSL = 1 を基準として、各薬剤の抗炎症作用を倍率で表示',
+    '長時間作用型 (デキサメタゾン・ベタメタゾン) は副腎抑制が強く長期使用でステロイド離脱症候群リスク',
+    '短時間作用型 (ヒドロコルチゾン・コルチゾン) はミネラルコルチコイド作用 (Na貯留・浮腫) が強い',
+    '中時間作用型 (PSL・mPSL) は小児で最も使用頻度が高い',
+    'ベタメタゾンはシロップ製剤があり小児の経口投与に便利',
+    'デキサメタゾンはクループ・制吐・髄膜炎補助療法で単回使用が多い',
   ],
 }
 
@@ -2774,6 +2798,92 @@ function attachAsthmaStep() {
   }
 }
 
+// ── 全身ステロイド 力価換算 ────────────────────────────────
+function renderSteroidEquiv() {
+  const classColor = { short:'bg-amber-50 border-amber-200',
+                       intermediate:'bg-sky-50 border-sky-200',
+                       long:'bg-purple-50 border-purple-200' }
+  const classBadge = { short:'bg-amber-500', intermediate:'bg-sky-500', long:'bg-purple-500' }
+  const rows = STEROID_EQUIVALENCE.table.map(e => {
+    const isPsl = e.drug.includes('プレドニゾロン (プレドニン')
+    const routes = (e.iv && e.oral ? '経口・静注' : e.iv ? '静注' : e.oral ? '経口' : '—')
+    return `<tr class="${classColor[e.cls] || ''} ${isPsl?'font-bold':''}">
+      <td class="border border-gray-300 px-2 py-1.5 text-[11px]">
+        ${esc(e.drug)}
+        ${isPsl?' <span class="text-[9px] bg-indigo-600 text-white px-1 rounded">基準</span>':''}
+        <div class="text-[9px] text-gray-500 mt-0.5">${esc(e.note)}</div>
+      </td>
+      <td class="border border-gray-300 px-2 py-1.5 text-[11px] text-center font-mono">×${e.potency}</td>
+      <td class="border border-gray-300 px-2 py-1.5 text-[11px] text-center">${esc(e.equivPerPsl5)}</td>
+      <td class="border border-gray-300 px-2 py-1.5 text-[10px] text-center">${esc(e.duration)}</td>
+      <td class="border border-gray-300 px-2 py-1.5 text-[10px] text-center">${esc(e.mineralo)}</td>
+      <td class="border border-gray-300 px-2 py-1.5 text-[10px] text-center">${esc(routes)}</td>
+    </tr>`
+  }).join('')
+  const classCards = Object.entries(STEROID_EQUIVALENCE.classes).map(([key, c]) => {
+    const items = STEROID_EQUIVALENCE.table.filter(e => e.cls === key)
+    return `<div class="rounded-lg border ${classColor[key]} p-2">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="${classBadge[key]} text-white text-[10px] font-bold px-2 py-0.5 rounded">${esc(c.label)}</span>
+      </div>
+      <div class="text-[11px] text-gray-700 leading-relaxed">${items.map(x => esc(x.drug.replace(/\s*\([^)]+\)/, ''))).join(' / ')}</div>
+    </div>`
+  }).join('')
+  const notesHtml = STEROID_EQUIVALENCE.notes.map(t => `<li class="flex gap-2 text-[11px] text-gray-700 leading-relaxed"><span class="text-indigo-500 shrink-0">▸</span><span>${esc(t)}</span></li>`).join('')
+  const pulseRows = STEROID_EQUIVALENCE.pulsetherapy.map(p => `
+    <div class="rounded-lg border border-purple-300 bg-purple-50 p-3 space-y-1">
+      <div class="text-[11px] font-bold text-purple-900">${esc(p.indication)}</div>
+      <div class="text-sm font-bold text-purple-900">${esc(p.drug)}: ${esc(p.dose)}</div>
+      <div class="text-[10px] text-purple-800">${esc(p.note)}</div>
+    </div>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-steq-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">⚖ 全身ステロイド 力価換算</div>
+          <div class="text-xs text-gray-500">抗炎症作用 (anti-inflammatory potency)</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <section class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+        <div class="text-xs font-bold text-indigo-900">${esc(STEROID_EQUIVALENCE.reference)}</div>
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2 overflow-x-auto">
+        <div class="text-xs font-bold text-gray-700">📊 力価・等価量 換算表</div>
+        <table class="w-full border-collapse min-w-[560px]">
+          <thead><tr class="bg-gray-100">
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700 text-left">薬剤 (商品名)</th>
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">抗炎症力価</th>
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">PSL 5mg 相当</th>
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">作用時間</th>
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">塩類保持</th>
+            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">投与経路</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">⏱ 作用時間別の分類</div>
+        <div class="grid grid-cols-1 gap-2">${classCards}</div>
+      </section>
+      <section class="bg-white rounded-xl border border-purple-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-purple-800">💉 ステロイドパルス療法</div>
+        ${pulseRows}
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">📘 使い分けポイント</div>
+        <ul class="space-y-1.5">${notesHtml}</ul>
+      </section>
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 標準的な抗炎症力価表 (Harrison's、ACOGほか各種内分泌・リウマチガイドライン)。本ツールは目安であり、担当医の判断で選択してください。</div>
+    </div>`
+}
+function attachSteroidEquiv() {
+  document.getElementById('btn-steq-back')?.addEventListener('click', () => setState({screen:'list', category:'外用薬'}))
+}
+
 // ── 急性喘息発作対応 ────────────────────────────────────────
 function attackGradeFromAnswers() {
   const ans = state.attackGradeAnswers || {}
@@ -2825,20 +2935,6 @@ function renderAsthmaAttack() {
       </div>
       <div class="text-[10px] text-gray-500">${esc(iv.note)}</div>
     </div>`
-  }).join('')
-  // ステロイド力価換算表
-  const equivTable = ASTHMA_ATTACK.steroidEquivalence.table.map(e => {
-    const classColor = { short:'bg-amber-50 border-amber-200',
-                         intermediate:'bg-sky-50 border-sky-200',
-                         long:'bg-purple-50 border-purple-200' }[e.class] || 'bg-gray-50'
-    const isPsl = e.drug.includes('プレドニゾロン')
-    return `<tr class="${classColor} ${isPsl?'font-bold':''}">
-      <td class="border border-gray-300 px-2 py-1.5 text-[11px]">${esc(e.drug)}${isPsl?' <span class="text-[9px] text-indigo-700">(基準)</span>':''}</td>
-      <td class="border border-gray-300 px-2 py-1.5 text-[11px] text-center font-mono">×${e.potency}</td>
-      <td class="border border-gray-300 px-2 py-1.5 text-[11px] text-center">${esc(e.equivPerPsl5)}</td>
-      <td class="border border-gray-300 px-2 py-1.5 text-[10px]">${esc(e.duration)}</td>
-      <td class="border border-gray-300 px-2 py-1.5 text-[10px]">${esc(e.mineralo)}</td>
-    </tr>`
   }).join('')
   // Grade 評価チェックリスト
   const gradeColor = { mild:'bg-emerald-500 text-white border-emerald-500',
@@ -2978,21 +3074,16 @@ function renderAsthmaAttack() {
         <div class="text-[11px] font-bold text-gray-700 pt-1">静注 (大発作 ≥ で検討)</div>
         <div class="grid grid-cols-1 gap-2">${ivRows}</div>
       </section>
-      <!-- 7. ステロイド力価換算表 -->
-      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2 overflow-x-auto">
-        <div class="text-xs font-bold text-gray-700">⚖ ステロイド力価換算 (PSL 基準)</div>
-        <div class="text-[10px] text-gray-500">${esc(ASTHMA_ATTACK.steroidEquivalence.reference)}</div>
-        <table class="w-full border-collapse min-w-[500px]">
-          <thead><tr class="bg-gray-100">
-            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700 text-left">薬剤</th>
-            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">抗炎症力価</th>
-            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">PSL 5mg 相当量</th>
-            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">作用時間</th>
-            <th class="border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-700">塩類保持</th>
-          </tr></thead>
-          <tbody>${equivTable}</tbody>
-        </table>
-        <div class="text-[10px] text-gray-500 leading-relaxed pt-1">${esc(ASTHMA_ATTACK.steroidEquivalence.note)}</div>
+      <!-- 7. ステロイド力価換算 (別画面へリンク) -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3">
+        <button data-goto-steroid-equiv class="w-full flex items-center gap-2 text-left hover:bg-indigo-50 active:bg-indigo-100 rounded-lg p-2 -m-2">
+          <span class="text-xl shrink-0">⚖</span>
+          <div class="flex-1">
+            <div class="text-sm font-bold text-indigo-900">ステロイド力価換算表を開く</div>
+            <div class="text-[11px] text-gray-600">PSL / mPSL / ヒドロコルチゾン / デキサメタゾン ほか</div>
+          </div>
+          <span class="text-gray-300">›</span>
+        </button>
       </section>
       <!-- 7. 入院基準 -->
       <section class="bg-white rounded-xl border border-rose-200 p-3 space-y-2">
@@ -3004,6 +3095,7 @@ function renderAsthmaAttack() {
 }
 function attachAsthmaAttack() {
   document.getElementById('btn-attack-back')?.addEventListener('click', () => setState({screen:'list', category:'喘息薬'}))
+  document.querySelector('[data-goto-steroid-equiv]')?.addEventListener('click', () => setState({screen:'steroid-equiv'}))
   app.querySelectorAll('[data-attack-sev]').forEach(b => b.addEventListener('click', () => setState({attackSeverity:b.dataset.attackSev, attackSevSource:'manual'})))
   app.querySelectorAll('[data-attack-unit]').forEach(b => b.addEventListener('click', () => setState({attackAgeUnit:b.dataset.attackUnit})))
   // Grade 評価の選択
@@ -4554,12 +4646,22 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>
-      <li class="border-b-2 border-teal-200 bg-teal-50/40">
+      <li class="border-b border-teal-200 bg-teal-50/40">
         <button data-tool="moisturizers" class="w-full flex items-center px-4 py-4 hover:bg-teal-100 active:bg-teal-200 text-left gap-3">
           <span class="text-3xl shrink-0">💧</span>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-teal-900 text-base">保湿薬・スキンケア</div>
             <div class="text-xs text-gray-600 mt-0.5">剤形の使い分け / 季節別おすすめ / 製剤別特徴 (ヘパリノイド・尿素・ワセリン他)</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b-2 border-indigo-200 bg-indigo-50/40">
+        <button data-tool="steroid-equiv" class="w-full flex items-center px-4 py-4 hover:bg-indigo-100 active:bg-indigo-200 text-left gap-3">
+          <span class="text-3xl shrink-0">⚖</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-indigo-900 text-base">全身ステロイド 力価換算</div>
+            <div class="text-xs text-gray-600 mt-0.5">PSL / mPSL / ヒドロコルチゾン / デキサメタゾン ほか — 等価量・作用時間</div>
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
@@ -4640,6 +4742,8 @@ function attachListBody() {
       setState({screen:'atopy-ftu'})
     } else if (b.dataset.tool === 'moisturizers') {
       setState({screen:'moisturizers'})
+    } else if (b.dataset.tool === 'steroid-equiv') {
+      setState({screen:'steroid-equiv'})
     }
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
