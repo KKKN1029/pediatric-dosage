@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=88" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=88" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=88" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=88" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=88" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=88" />
+  <link rel="manifest" href="manifest.json?v=89" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=89" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=89" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=89" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=89" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=89" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v88 / attack-expand</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v89 / atrovent-saline</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '88'
+const BUILD_VERSION = '89'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2010,8 +2010,9 @@ const ASTHMA_ATTACK = {
   //   JPGL 2023 / 小児臨床では年齢・体重に関わらず 1回 0.3 mL が標準
   //   添付文書成人量 0.3〜0.5 mL、小児は 0.3 mL + 生食 2mL で希釈
   sabaNebDose: '1回 0.3 mL',
-  sabaNebNote:'+ 生食 2 mL でネブライザー吸入。全年齢共通。20分おきに最大3回まで反復可',
+  sabaNebNote:'+ 生食 2 mL と混和してネブライザー吸入。全年齢共通。20分おきに最大3回まで反復可',
   sabaNebNoteInfant:'※ 乳児 (生後3か月未満 or <5 kg) では 0.1〜0.2 mL から開始する場合あり',
+  sabaNebNoteWithAtrovent:'💡 アトロベント UD 併用時は生食不要 (アトロベントが 2 mL の希釈済み液のため、ベネトリン 0.3mL と混和して計 2.3 mL になる)',
   // SABA MDI + スペーサー
   sabaMdi:[
     { minMo:0,   maxMo:72,  label:'乳幼児〜5歳',  puffs:'1〜2 puff (100〜200μg)' },
@@ -2099,8 +2100,8 @@ const ASTHMA_ATTACK = {
   // 抗コリン薬 (中発作以上で SABA と併用)
   anticholinergic:{
     drug:'イプラトロピウム臭化物 (アトロベント®吸入液ユニット 0.25mg)',
-    dose:'0.25 mg/回 (全年齢共通、1アンプルそのまま)',
-    method:'SABA (ベネトリン 0.3mL) と混和して同時にネブライザー吸入',
+    dose:'0.25 mg (UD 1 アンプル = 2 mL) / 回、全年齢共通',
+    method:'ベネトリン 0.3 mL と混和 (計 2.3 mL)。アトロベント UD は 2 mL の希釈済み液なので 生食は追加不要',
     interval:'20分おきに最大3回まで (SABA と同回数)',
     indication:'中発作以上で、SABA 単独で改善不十分な場合に併用',
     pediatric:'小児保険適応は無いが、JPGL 2023 で併用推奨。乳幼児〜学童まで全年齢で使用可',
@@ -3141,6 +3142,7 @@ function renderAsthmaAttack() {
           <div class="text-[11px] font-bold text-sky-900">ネブライザー (ベネトリン吸入液 0.5%)</div>
           <div class="text-lg font-bold text-sky-900">${esc(ASTHMA_ATTACK.sabaNebDose)}</div>
           <div class="text-[11px] text-sky-700 leading-relaxed">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
+          <div class="text-[11px] bg-teal-100 border border-teal-200 text-teal-800 rounded px-2 py-1 leading-relaxed">${esc(ASTHMA_ATTACK.sabaNebNoteWithAtrovent)}</div>
           <div class="text-[10px] text-sky-600 leading-relaxed">${esc(ASTHMA_ATTACK.sabaNebNoteInfant)}</div>
         </div>
         <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-2">
