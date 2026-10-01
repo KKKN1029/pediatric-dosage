@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=86" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=86" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=86" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=86" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=86" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=86" />
+  <link rel="manifest" href="manifest.json?v=87" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=87" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=87" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=87" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=87" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=87" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v86 / steroid-equiv-page</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v87 / equiv-to-allergy</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '86'
+const BUILD_VERSION = '87'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -4646,7 +4646,7 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>
-      <li class="border-b border-teal-200 bg-teal-50/40">
+      <li class="border-b-2 border-teal-200 bg-teal-50/40">
         <button data-tool="moisturizers" class="w-full flex items-center px-4 py-4 hover:bg-teal-100 active:bg-teal-200 text-left gap-3">
           <span class="text-3xl shrink-0">💧</span>
           <div class="flex-1 min-w-0">
@@ -4655,7 +4655,10 @@ function buildListBodyHTML(query) {
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
-      </li>
+      </li>` : ''
+    // 抗アレルギー薬カテゴリのトップに全身ステロイド力価換算カード
+    const isAllergyCat = state.category === '抗アレルギー薬'
+    const allergyCard = isAllergyCat ? `
       <li class="border-b-2 border-indigo-200 bg-indigo-50/40">
         <button data-tool="steroid-equiv" class="w-full flex items-center px-4 py-4 hover:bg-indigo-100 active:bg-indigo-200 text-left gap-3">
           <span class="text-3xl shrink-0">⚖</span>
@@ -4710,14 +4713,14 @@ function buildListBodyHTML(query) {
         </button>
       </li>` : ''
     const items = drugs.length===0
-      ? ((isTopicalCat || isAsthmaCat) ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
+      ? ((isTopicalCat || isAsthmaCat || isAllergyCat) ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
         <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.plus} 薬剤追加</button>
       </div>
-      <ul class="bg-white">${topicalCard}${asthmaCard}${items}</ul>`
+      <ul class="bg-white">${topicalCard}${asthmaCard}${allergyCard}${items}</ul>`
   }
 
   return `
