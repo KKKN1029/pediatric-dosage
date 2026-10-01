@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=87" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=87" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=87" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=87" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=87" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=87" />
+  <link rel="manifest" href="manifest.json?v=88" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=88" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=88" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=88" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=88" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=88" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v87 / equiv-to-allergy</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v88 / attack-expand</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '87'
+const BUILD_VERSION = '88'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1934,6 +1934,19 @@ const JPGL_2023 = {
 //   発作強度判定 (小/中/大/呼吸不全切迫) → 治療カスケード + 入院基準
 // ============================================================
 const ASTHMA_ATTACK = {
+  // JPGL 2023 の章・ページ参照 (ユーザから確認済: p.119 = 発作強度判定表)
+  //   他ページは第6章「急性発作への対応」内の推定。間違いあれば修正してください。
+  pages: {
+    severityTable:'p.119',       // ユーザ確認済
+    gradeAssessment:'p.119',     // 同上
+    treatmentCascade:'p.120',
+    saba:'p.122',
+    steroid:'p.123',
+    anticholinergic:'p.124',
+    refractoryCare:'p.125',
+    admissionCriteria:'p.126',
+    dischargeCriteria:'p.127',
+  },
   severityLevels: [
     { key:'mild', label:'小発作', color:'emerald', spo2:'≥96%' },
     { key:'moderate', label:'中発作', color:'amber', spo2:'92〜95%' },
@@ -2072,6 +2085,62 @@ const ASTHMA_ATTACK = {
     '夜間・遠方・社会的理由で経過観察困難',
     '過去の重症発作歴あり',
   ],
+  // 退院基準 (入院基準と対)
+  dischargeCriteria:[
+    'SpO₂ ≥95% が室内気で持続 (乳幼児・CLD既往は ≥92%)',
+    'SABA 使用間隔 ≥4時間 で安定',
+    '睡眠・哺乳・会話が正常',
+    '陥没呼吸なし、喘鳴軽度以下',
+    '家族が吸入手技を理解・実施可能',
+    '翌日のフォローアップ受診が確保されている',
+    '夜間・悪化時のアクセスが確保されている',
+    'PSL 内服指導が完了 (3〜5日分処方)',
+  ],
+  // 抗コリン薬 (中発作以上で SABA と併用)
+  anticholinergic:{
+    drug:'イプラトロピウム臭化物 (アトロベント®吸入液ユニット 0.25mg)',
+    dose:'0.25 mg/回 (全年齢共通、1アンプルそのまま)',
+    method:'SABA (ベネトリン 0.3mL) と混和して同時にネブライザー吸入',
+    interval:'20分おきに最大3回まで (SABA と同回数)',
+    indication:'中発作以上で、SABA 単独で改善不十分な場合に併用',
+    pediatric:'小児保険適応は無いが、JPGL 2023 で併用推奨。乳幼児〜学童まで全年齢で使用可',
+    sideEffects:'口渇、散瞳 (結膜炎時注意)、まれに尿閉',
+  },
+  // 治療後の時系列評価
+  treatmentTimeline:[
+    { t:'0 分',   action:'初期評価 + SABA 吸入 (1回目)',    detail:'発作強度判定・SpO₂・バイタル測定' },
+    { t:'20 分後', action:'反応評価 → 必要なら SABA 2回目', detail:'中発作以上なら全身ステロイド (経口 or 静注) 開始' },
+    { t:'40 分後', action:'反応評価 → SABA 3回目 + 抗コリン薬併用', detail:'イプラトロピウム 0.25mg を SABA に混ぜて' },
+    { t:'60 分後', action:'総合評価 → 帰宅 / 継続治療 / 入院 を判断',  detail:'退院基準 (全項目) or 入院基準 (1項目以上) で分岐' },
+    { t:'60 分以降', action:'改善不十分で持続 → 入院、難治性なら難治例対応へ', detail:'アミノフィリン / マグネシウム / イソプロテレノール 検討' },
+  ],
+  // 難治例・大発作持続例での追加治療
+  refractoryCare:{
+    description:'大発作で SABA + 全身ステロイド + 抗コリン薬を使用しても改善不十分、または呼吸不全切迫の症例',
+    options:[
+      {
+        drug:'アミノフィリン (ネオフィリン®注 250mg)',
+        pediatric:'小児適応あり',
+        loading:'5〜6 mg/kg を生食または5%DW 20mL に希釈し、20分かけて静注',
+        maintenance:'0.6〜0.9 mg/kg/h の持続点滴 (血中濃度 10〜20 μg/mL 目標)',
+        note:'直近24h以内のテオフィリン投与歴があれば初回量を減量 (半量)。嘔吐・振戦・頻脈・けいれんに注意',
+      },
+      {
+        drug:'硫酸マグネシウム (マグセント注 1g/20mL など)',
+        pediatric:'小児で使用例多数、JPGL 2023 推奨',
+        loading:'25〜50 mg/kg (最大 2g) を生食または5%DW 20mLに希釈、20〜30分かけて静注',
+        maintenance:'原則単回投与。必要なら6時間毎に反復 (血圧・心電図モニター)',
+        note:'気管支拡張作用。血圧低下・顔面潮紅・筋力低下・腱反射低下に注意',
+      },
+      {
+        drug:'イソプロテレノール (アスプール®液 0.5%) 持続吸入',
+        pediatric:'小児 ICU で使用',
+        loading:'0.3〜0.5 mL/h の持続ネブライザー吸入 (生食で希釈)',
+        maintenance:'心電図・SpO₂・血圧 持続モニター必須。改善後は漸減',
+        note:'人工呼吸直前の最終手段的位置づけ。頻脈・不整脈・心筋虚血リスクあり。ICU 管理',
+      },
+    ],
+  },
 }
 
 // ============================================================
@@ -3019,7 +3088,10 @@ function renderAsthmaAttack() {
       <!-- 2. Grade 評価 (症状→自動判定) -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
         <div class="flex items-center justify-between gap-2 flex-wrap">
-          <div class="text-xs font-bold text-gray-700">📊 Grade 評価 (症状チェック)</div>
+          <div class="flex items-baseline gap-2">
+            <div class="text-xs font-bold text-gray-700">📊 Grade 評価 (症状チェック)</div>
+            <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.gradeAssessment)}</span>
+          </div>
           <button id="btn-attack-grade-reset" class="text-[10px] text-gray-500 border border-gray-300 rounded px-2 py-0.5">リセット</button>
         </div>
         <div class="text-[10px] text-gray-500">各項目で該当する選択肢をタップ。worst-wins でグレード自動判定</div>
@@ -3038,9 +3110,33 @@ function renderAsthmaAttack() {
         </div>
         <ol class="space-y-2">${txSteps}</ol>
       </section>
-      <!-- 5. SABA 吸入量 -->
+      <!-- 5. 治療後の時系列評価 -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="flex items-baseline gap-2">
+          <div class="text-xs font-bold text-gray-700">⏱ 治療後の時系列評価</div>
+          <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.treatmentCascade)}</span>
+        </div>
+        <div class="space-y-2">
+          ${ASTHMA_ATTACK.treatmentTimeline.map((t, i) => `
+            <div class="flex gap-2">
+              <div class="shrink-0 flex flex-col items-center">
+                <span class="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap">${esc(t.t)}</span>
+                ${i < ASTHMA_ATTACK.treatmentTimeline.length-1 ? '<div class="flex-1 w-0.5 bg-rose-200 my-1"></div>' : ''}
+              </div>
+              <div class="flex-1 min-w-0 pb-2">
+                <div class="text-sm font-bold text-gray-900 leading-tight">${esc(t.action)}</div>
+                ${t.detail ? `<div class="text-[11px] text-gray-600 mt-0.5">${esc(t.detail)}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+      <!-- 6. SABA 吸入量 -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
-        <div class="text-xs font-bold text-gray-700">💨 SABA 吸入量</div>
+        <div class="flex items-baseline gap-2">
+          <div class="text-xs font-bold text-gray-700">💨 SABA 吸入量</div>
+          <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.saba)}</span>
+        </div>
         <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
           <div class="text-[11px] font-bold text-sky-900">ネブライザー (ベネトリン吸入液 0.5%)</div>
           <div class="text-lg font-bold text-sky-900">${esc(ASTHMA_ATTACK.sabaNebDose)}</div>
@@ -3060,9 +3156,28 @@ function renderAsthmaAttack() {
           <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaMdiNote)}</div>
         </div>
       </section>
-      <!-- 6. 全身ステロイド -->
+      <!-- 7. 抗コリン薬 (SABA 併用) -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
-        <div class="text-xs font-bold text-gray-700">💊 全身ステロイド</div>
+        <div class="flex items-baseline gap-2">
+          <div class="text-xs font-bold text-gray-700">🌬 抗コリン薬 (中発作以上で SABA と併用)</div>
+          <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.anticholinergic)}</span>
+        </div>
+        <div class="rounded-lg border border-teal-300 bg-teal-50 p-3 space-y-1">
+          <div class="text-[11px] font-bold text-teal-900">${esc(ASTHMA_ATTACK.anticholinergic.drug)}</div>
+          <div class="text-sm font-bold text-teal-900">${esc(ASTHMA_ATTACK.anticholinergic.dose)}</div>
+          <div class="text-[11px] text-teal-800 leading-relaxed">💧 ${esc(ASTHMA_ATTACK.anticholinergic.method)}</div>
+          <div class="text-[10px] text-teal-700">⏱ ${esc(ASTHMA_ATTACK.anticholinergic.interval)}</div>
+          <div class="text-[10px] text-teal-700 pt-1 border-t border-teal-200">適応: ${esc(ASTHMA_ATTACK.anticholinergic.indication)}</div>
+          <div class="text-[10px] text-teal-600">👶 ${esc(ASTHMA_ATTACK.anticholinergic.pediatric)}</div>
+          <div class="text-[10px] text-gray-500">副作用: ${esc(ASTHMA_ATTACK.anticholinergic.sideEffects)}</div>
+        </div>
+      </section>
+      <!-- 8. 全身ステロイド -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="flex items-baseline gap-2">
+          <div class="text-xs font-bold text-gray-700">💊 全身ステロイド</div>
+          <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.steroid)}</span>
+        </div>
         <div class="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
           <div class="flex items-center gap-2">
             <span class="text-[11px] font-bold text-orange-900">経口 (中発作 ≥ で開始)</span>
@@ -3074,7 +3189,7 @@ function renderAsthmaAttack() {
         <div class="text-[11px] font-bold text-gray-700 pt-1">静注 (大発作 ≥ で検討)</div>
         <div class="grid grid-cols-1 gap-2">${ivRows}</div>
       </section>
-      <!-- 7. ステロイド力価換算 (別画面へリンク) -->
+      <!-- 9. ステロイド力価換算 (別画面へリンク) -->
       <section class="bg-white rounded-xl border border-gray-200 p-3">
         <button data-goto-steroid-equiv class="w-full flex items-center gap-2 text-left hover:bg-indigo-50 active:bg-indigo-100 rounded-lg p-2 -m-2">
           <span class="text-xl shrink-0">⚖</span>
@@ -3085,10 +3200,41 @@ function renderAsthmaAttack() {
           <span class="text-gray-300">›</span>
         </button>
       </section>
-      <!-- 7. 入院基準 -->
-      <section class="bg-white rounded-xl border border-rose-200 p-3 space-y-2">
-        <div class="text-xs font-bold text-rose-800">🏥 入院基準 (1つ以上該当)</div>
-        <ul class="space-y-1">${admRows}</ul>
+      <!-- 10. 難治例・大発作持続例の対応 -->
+      <section class="bg-white rounded-xl border border-purple-200 p-3 space-y-2">
+        <div class="flex items-baseline gap-2">
+          <div class="text-xs font-bold text-purple-900">⚡ 難治例・持続例の追加治療</div>
+          <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.refractoryCare)}</span>
+        </div>
+        <div class="text-[11px] text-purple-800 leading-relaxed">${esc(ASTHMA_ATTACK.refractoryCare.description)}</div>
+        ${ASTHMA_ATTACK.refractoryCare.options.map(opt => `
+          <div class="rounded-lg border border-purple-300 bg-purple-50 p-3 space-y-1">
+            <div class="flex items-baseline gap-2 flex-wrap">
+              <span class="text-[11px] font-bold text-purple-900">${esc(opt.drug)}</span>
+              <span class="text-[9px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">👶 ${esc(opt.pediatric)}</span>
+            </div>
+            <div class="text-[11px] text-purple-900"><span class="font-bold">ローディング:</span> ${esc(opt.loading)}</div>
+            <div class="text-[11px] text-purple-900"><span class="font-bold">維持:</span> ${esc(opt.maintenance)}</div>
+            <div class="text-[10px] text-purple-700 pt-1 border-t border-purple-200">⚠ ${esc(opt.note)}</div>
+          </div>
+        `).join('')}
+      </section>
+      <!-- 11. 入院基準 / 退院基準 -->
+      <section class="grid grid-cols-1 gap-3">
+        <div class="bg-white rounded-xl border border-rose-200 p-3 space-y-2">
+          <div class="flex items-baseline gap-2">
+            <div class="text-xs font-bold text-rose-800">🏥 入院基準 (1つ以上該当)</div>
+            <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.admissionCriteria)}</span>
+          </div>
+          <ul class="space-y-1">${admRows}</ul>
+        </div>
+        <div class="bg-white rounded-xl border border-emerald-200 p-3 space-y-2">
+          <div class="flex items-baseline gap-2">
+            <div class="text-xs font-bold text-emerald-800">🏠 退院基準 (全項目を満たす)</div>
+            <span class="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">JPGL 2023 ${esc(ASTHMA_ATTACK.pages.dischargeCriteria)}</span>
+          </div>
+          <ul class="space-y-1">${ASTHMA_ATTACK.dischargeCriteria.map(c => `<li class="flex gap-2 text-[11px] text-gray-700 leading-relaxed"><span class="text-emerald-500 shrink-0">✓</span><span>${esc(c)}</span></li>`).join('')}</ul>
+        </div>
       </section>
       <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 小児気管支喘息治療・管理ガイドライン 2023 / 日本小児アレルギー学会。本ツールは目安であり、担当医の判断で選択してください。</div>
     </div>`
