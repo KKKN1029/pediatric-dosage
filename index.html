@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=82" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=82" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=82" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=82" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=82" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=82" />
+  <link rel="manifest" href="manifest.json?v=83" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=83" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=83" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=83" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=83" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=83" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v82 / asthma-attack</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v83 / grade-eval</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '82'
+const BUILD_VERSION = '83'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1525,7 +1525,9 @@ let state = {
   attackWeight: '',                // kg
   attackAge: '',                   // 歳 (MDI 判定用)
   attackAgeUnit: 'years',
-  attackSeverity: 'moderate',      // mild|moderate|severe|critical
+  attackSeverity: 'moderate',      // mild|moderate|severe|critical (手動選択値)
+  attackGradeAnswers: {},          // { awareness: 'mild'|'moderate'|'severe'|'critical', ... }
+  attackSevSource: 'manual',       // 'manual' | 'auto' (Grade評価からの自動反映)
 }
 
 function setState(patch) { Object.assign(state, patch); render() }
@@ -1932,18 +1934,63 @@ const JPGL_2023 = {
 // ============================================================
 const ASTHMA_ATTACK = {
   severityLevels: [
-    { key:'mild', label:'小発作', color:'emerald',
-      spo2:'≥96%',
-      criteria:['安静時呼吸困難なし','遊び・哺乳 普通','陥没呼吸なし','喘鳴軽度','文で話せる','意識清明'] },
-    { key:'moderate', label:'中発作', color:'amber',
-      spo2:'92〜95%',
-      criteria:['安静時軽度の呼吸困難','遊び・哺乳 やや困難','陥没呼吸軽度','喘鳴中等度','句で区切って話す','やや興奮'] },
-    { key:'severe', label:'大発作', color:'rose',
-      spo2:'<92%',
-      criteria:['安静時中〜高度の呼吸困難','遊び・哺乳 困難','陥没呼吸高度','喘鳴著明','単語でしか話せない','興奮・不穏'] },
-    { key:'critical', label:'呼吸不全切迫', color:'purple',
-      spo2:'<90% / チアノーゼ',
-      criteria:['意識低下・錯乱','発語困難','喘鳴微弱〜消失 (silent chest)','徐呼吸 or 無呼吸','徐脈','チアノーゼ'] },
+    { key:'mild', label:'小発作', color:'emerald', spo2:'≥96%' },
+    { key:'moderate', label:'中発作', color:'amber', spo2:'92〜95%' },
+    { key:'severe', label:'大発作', color:'rose', spo2:'<92%' },
+    { key:'critical', label:'呼吸不全切迫', color:'purple', spo2:'<90% / チアノーゼ' },
+  ],
+  // Grade 評価用: 項目別に 4 段階 (JPGL 2023 準拠)
+  //   worst-item wins でグレードを決定
+  gradeItems: [
+    { key:'awareness', label:'意識・興奮度',
+      options:[
+        {grade:'mild', label:'平静・清明'},
+        {grade:'moderate', label:'やや興奮'},
+        {grade:'severe', label:'興奮・不穏'},
+        {grade:'critical', label:'錯乱・意識低下'},
+      ] },
+    { key:'speech', label:'会話',
+      options:[
+        {grade:'mild', label:'文で話せる'},
+        {grade:'moderate', label:'句で区切る'},
+        {grade:'severe', label:'単語のみ'},
+        {grade:'critical', label:'発語困難'},
+      ] },
+    { key:'activity', label:'遊び・哺乳',
+      options:[
+        {grade:'mild', label:'普通'},
+        {grade:'moderate', label:'やや困難'},
+        {grade:'severe', label:'困難'},
+        {grade:'critical', label:'不可'},
+      ] },
+    { key:'wheeze', label:'喘鳴',
+      options:[
+        {grade:'mild', label:'軽度'},
+        {grade:'moderate', label:'中等度'},
+        {grade:'severe', label:'著明'},
+        {grade:'critical', label:'微弱〜消失 (silent chest)'},
+      ] },
+    { key:'retraction', label:'陥没呼吸',
+      options:[
+        {grade:'mild', label:'なし'},
+        {grade:'moderate', label:'軽度'},
+        {grade:'severe', label:'著明'},
+        {grade:'critical', label:'高度・努力呼吸'},
+      ] },
+    { key:'spo2', label:'SpO₂ (室内気)',
+      options:[
+        {grade:'mild', label:'≥96%'},
+        {grade:'moderate', label:'92〜95%'},
+        {grade:'severe', label:'<92%'},
+        {grade:'critical', label:'<90% / チアノーゼ'},
+      ] },
+    { key:'resp', label:'呼吸数・心拍数',
+      options:[
+        {grade:'mild', label:'正常〜軽度増加'},
+        {grade:'moderate', label:'中等度頻呼吸'},
+        {grade:'severe', label:'著明頻呼吸・頻脈'},
+        {grade:'critical', label:'徐呼吸 or 徐脈・無呼吸'},
+      ] },
   ],
   // SABA 吸入量 (ベネトリン吸入液 0.5% ネブライザー)
   sabaNebDoses: [
@@ -2716,18 +2763,46 @@ function attachAsthmaStep() {
 }
 
 // ── 急性喘息発作対応 ────────────────────────────────────────
+function attackGradeFromAnswers() {
+  const ans = state.attackGradeAnswers || {}
+  const order = { mild:0, moderate:1, severe:2, critical:3 }
+  const keys = ASTHMA_ATTACK.gradeItems.map(i => i.key)
+  const scores = keys.map(k => ans[k] ? order[ans[k]] : null).filter(x => x != null)
+  if (scores.length === 0) return null
+  const worst = Math.max(...scores)
+  return ['mild','moderate','severe','critical'][worst]
+}
 function renderAsthmaAttack() {
   const w = parseFloat(state.attackWeight) || 0
-  const sev = state.attackSeverity || 'moderate'
+  // 発作強度: Grade評価があればそれを優先、無ければ手動選択
+  const autoGrade = attackGradeFromAnswers()
+  const sev = (state.attackSevSource === 'auto' && autoGrade) ? autoGrade : (state.attackSeverity || 'moderate')
   const sevInfo = ASTHMA_ATTACK.severityLevels.find(x => x.key === sev)
   const tx = ASTHMA_ATTACK.treatment[sev]
-  // SABA ネブ用量
-  const nebDose = w > 0 ? (ASTHMA_ATTACK.sabaNebDoses.find(d => w <= d.maxKg)?.dose || '—') : '—'
+  // SABA ネブ用量 (ハイライト行を特定)
+  const nebRows = ASTHMA_ATTACK.sabaNebDoses.map((d, i) => {
+    const isMatch = w > 0 && w <= d.maxKg && !ASTHMA_ATTACK.sabaNebDoses.slice(0, i).some(prev => w <= prev.maxKg)
+    const label = i === 0 ? `≤ ${d.maxKg} kg`
+                 : i === ASTHMA_ATTACK.sabaNebDoses.length - 1 ? `> ${ASTHMA_ATTACK.sabaNebDoses[i-1].maxKg} kg`
+                 : `${ASTHMA_ATTACK.sabaNebDoses[i-1].maxKg}〜${d.maxKg} kg`
+    return `<tr class="${isMatch?'bg-sky-200 font-bold':''}">
+      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900">${esc(label)}</td>
+      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900 font-mono">${esc(d.dose)}</td>
+      <td class="border border-sky-200 px-2 py-1 text-center">${isMatch?'<span class="text-sky-700">◀ 該当</span>':''}</td>
+    </tr>`
+  }).join('')
   // SABA MDI 用量 (年齢から)
   const rawAge = parseFloat(state.attackAge)
   const ageMo = Number.isFinite(rawAge) && rawAge >= 0
     ? (state.attackAgeUnit === 'months' ? rawAge : rawAge * 12) : null
-  const mdiInfo = ageMo != null ? ASTHMA_ATTACK.sabaMdi.find(m => ageMo >= m.minMo && ageMo < m.maxMo) : null
+  const mdiRows = ASTHMA_ATTACK.sabaMdi.map(m => {
+    const isMatch = ageMo != null && ageMo >= m.minMo && ageMo < m.maxMo
+    return `<tr class="${isMatch?'bg-sky-200 font-bold':''}">
+      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900">${esc(m.label)}</td>
+      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900 font-mono">${esc(m.puffs)}</td>
+      <td class="border border-sky-200 px-2 py-1 text-center">${isMatch?'<span class="text-sky-700">◀ 該当</span>':''}</td>
+    </tr>`
+  }).join('')
   // PSL 経口量
   const pslMin = w > 0 ? (w * ASTHMA_ATTACK.steroidOral.perKgMin).toFixed(1) : '—'
   const pslMax = w > 0 ? Math.min(w * ASTHMA_ATTACK.steroidOral.perKgMax, ASTHMA_ATTACK.steroidOral.maxDaily).toFixed(1) : '—'
@@ -2737,13 +2812,44 @@ function renderAsthmaAttack() {
     const maxMg = w > 0 ? (w * iv.perKgMax).toFixed(1) : '—'
     return `<div class="bg-white border border-gray-200 rounded p-2 space-y-0.5">
       <div class="text-[11px] font-semibold text-gray-800">${esc(iv.drug)}</div>
-      <div class="text-[11px] text-gray-700">1回 ${minMg}〜${maxMg} mg (${iv.perKgMin}〜${iv.perKgMax} mg/kg) ${esc(iv.interval)}</div>
+      <div class="text-sm font-bold text-gray-900">1回 ${minMg}〜${maxMg} mg</div>
+      <div class="text-[10px] text-gray-600">${iv.perKgMin}〜${iv.perKgMax} mg/kg、${esc(iv.interval)}</div>
       <div class="text-[10px] text-gray-500">${esc(iv.note)}</div>
     </div>`
   }).join('')
-  // 発作強度セレクタ
+  // Grade 評価チェックリスト
+  const gradeColor = { mild:'bg-emerald-500 text-white border-emerald-500',
+                       moderate:'bg-amber-500 text-white border-amber-500',
+                       rose:'bg-rose-500 text-white border-rose-500',
+                       severe:'bg-rose-500 text-white border-rose-500',
+                       critical:'bg-purple-500 text-white border-purple-500' }
+  const gradeItemsHtml = ASTHMA_ATTACK.gradeItems.map(item => {
+    const ans = state.attackGradeAnswers?.[item.key]
+    const opts = item.options.map(o => {
+      const active = ans === o.grade
+      return `<button data-attack-grade="${item.key}" data-grade="${o.grade}" class="flex-1 min-w-0 px-1 py-1.5 text-[10px] font-medium border rounded ${active?gradeColor[o.grade]:'bg-white text-gray-700 border-gray-300'}">${esc(o.label)}</button>`
+    }).join('')
+    return `<div class="bg-white rounded-lg border border-gray-200 p-2 space-y-1">
+      <div class="text-[11px] font-semibold text-gray-800">${esc(item.label)}</div>
+      <div class="grid grid-cols-4 gap-1">${opts}</div>
+    </div>`
+  }).join('')
+  const autoBadge = autoGrade ? (() => {
+    const info = ASTHMA_ATTACK.severityLevels.find(x => x.key === autoGrade)
+    const col = { emerald:'bg-emerald-500', amber:'bg-amber-500', rose:'bg-rose-500', purple:'bg-purple-500' }[info.color]
+    return `<div class="rounded-lg border-2 border-current p-2 ${state.attackSevSource==='auto'?'bg-sky-50':'bg-white'}">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="${col} text-white text-xs font-bold px-2 py-0.5 rounded-full">自動判定: ${esc(info.label)}</span>
+          <span class="text-[10px] text-gray-500">(worst-wins)</span>
+        </div>
+        ${state.attackSevSource!=='auto' ? `<button data-attack-apply-auto class="text-[11px] bg-sky-100 hover:bg-sky-200 text-sky-700 font-medium px-2 py-1 rounded">この判定を適用</button>` : `<span class="text-[10px] text-sky-700">適用中</span>`}
+      </div>
+    </div>`
+  })() : `<div class="text-[11px] text-gray-500 text-center py-2 bg-gray-100 rounded">各項目を選択すると発作強度を自動判定します</div>`
+  // 手動発作強度セレクタ
   const sevBtns = ASTHMA_ATTACK.severityLevels.map(s => {
-    const active = sev === s.key
+    const active = state.attackSevSource !== 'auto' && sev === s.key
     const cmap = {
       emerald: active?'bg-emerald-500 text-white border-emerald-500':'bg-white text-emerald-700 border-emerald-300',
       amber:   active?'bg-amber-500 text-white border-amber-500':'bg-white text-amber-700 border-amber-300',
@@ -2751,17 +2857,6 @@ function renderAsthmaAttack() {
       purple:  active?'bg-purple-500 text-white border-purple-500':'bg-white text-purple-700 border-purple-300',
     }
     return `<button data-attack-sev="${s.key}" class="flex-1 py-2 px-1 text-xs font-bold border rounded-lg ${cmap[s.color]}">${esc(s.label)}<div class="text-[9px] opacity-80 mt-0.5">SpO₂ ${esc(s.spo2)}</div></button>`
-  }).join('')
-  // 発作強度の判断基準 (折り畳み)
-  const criteriaCards = ASTHMA_ATTACK.severityLevels.map(s => {
-    const cmap = { emerald:'border-emerald-300 bg-emerald-50 text-emerald-800',
-                   amber:'border-amber-300 bg-amber-50 text-amber-800',
-                   rose:'border-rose-300 bg-rose-50 text-rose-800',
-                   purple:'border-purple-300 bg-purple-50 text-purple-800' }
-    return `<div class="rounded-lg border ${cmap[s.color]} p-2">
-      <div class="text-[11px] font-bold">${esc(s.label)} <span class="text-[10px] opacity-80">SpO₂ ${esc(s.spo2)}</span></div>
-      <ul class="mt-1 space-y-0.5">${s.criteria.map(c => `<li class="text-[10px] leading-relaxed">• ${esc(c)}</li>`).join('')}</ul>
-    </div>`
   }).join('')
   // 治療カスケード
   const txColor = { emerald:'border-emerald-400 bg-emerald-50', amber:'border-amber-400 bg-amber-50',
@@ -2802,62 +2897,90 @@ function renderAsthmaAttack() {
           </div>
         </div>
       </section>
-      <!-- 2. 発作強度選択 -->
+      <!-- 2. Grade 評価 (症状→自動判定) -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
-        <div class="text-xs font-bold text-gray-700">🩺 発作強度を選択</div>
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-xs font-bold text-gray-700">📊 Grade 評価 (症状チェック)</div>
+          <button id="btn-attack-grade-reset" class="text-[10px] text-gray-500 border border-gray-300 rounded px-2 py-0.5">リセット</button>
+        </div>
+        <div class="text-[10px] text-gray-500">各項目で該当する選択肢をタップ。worst-wins でグレード自動判定</div>
+        <div class="space-y-2">${gradeItemsHtml}</div>
+        ${autoBadge}
+      </section>
+      <!-- 3. 手動発作強度 (オーバーライド) -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">🩺 手動選択 ${state.attackSevSource==='auto'?'<span class="text-[10px] font-normal text-gray-500">(自動判定を使用中 — ボタンで上書き可)</span>':''}</div>
         <div class="flex gap-2">${sevBtns}</div>
       </section>
-      <!-- 3. 治療カスケード -->
+      <!-- 4. 治療カスケード -->
       <section class="rounded-xl border-2 ${txColor} p-4 space-y-3">
         <div class="flex items-center gap-2">
           <span class="bg-${sevInfo.color}-500 text-white text-xs font-bold px-3 py-1 rounded-full">${esc(sevInfo.label)} / ${esc(tx.setting)}</span>
         </div>
         <ol class="space-y-2">${txSteps}</ol>
       </section>
-      <!-- 4. SABA 吸入量 -->
-      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+      <!-- 5. SABA 吸入量 -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
         <div class="text-xs font-bold text-gray-700">💨 SABA 吸入量</div>
-        <div class="grid grid-cols-1 gap-2">
-          <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
-            <div class="text-[11px] font-bold text-sky-900">ネブライザー (サルブタモール 0.5%)</div>
-            <div class="text-sm font-bold text-sky-900">体重 ${w > 0 ? w + ' kg' : '— kg'} → ${esc(nebDose)}</div>
-            <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
-          </div>
-          <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
-            <div class="text-[11px] font-bold text-sky-900">MDI + スペーサー</div>
-            <div class="text-sm font-bold text-sky-900">${mdiInfo ? esc(mdiInfo.label) + ' → ' + esc(mdiInfo.puffs) : '年齢を入力'}</div>
-            <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaMdiNote)}</div>
-          </div>
+        <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-2">
+          <div class="text-[11px] font-bold text-sky-900">ネブライザー (サルブタモール 0.5%)</div>
+          <table class="w-full border-collapse">
+            <thead><tr>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">体重</th>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">量</th>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100"></th>
+            </tr></thead>
+            <tbody>${nebRows}</tbody>
+          </table>
+          <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
+        </div>
+        <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-2">
+          <div class="text-[11px] font-bold text-sky-900">MDI + スペーサー (サルタノール/メプチンエアー)</div>
+          <table class="w-full border-collapse">
+            <thead><tr>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">年齢</th>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">puff数</th>
+              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100"></th>
+            </tr></thead>
+            <tbody>${mdiRows}</tbody>
+          </table>
+          <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaMdiNote)}</div>
         </div>
       </section>
-      <!-- 5. 全身ステロイド -->
+      <!-- 6. 全身ステロイド -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
         <div class="text-xs font-bold text-gray-700">💊 全身ステロイド</div>
         <div class="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
-          <div class="text-[11px] font-bold text-orange-900">経口 (中発作 ≥)</div>
+          <div class="text-[11px] font-bold text-orange-900">経口 (中発作 ≥ で開始)</div>
           <div class="text-sm font-bold text-orange-900">${esc(ASTHMA_ATTACK.steroidOral.drug)}: ${pslMin}〜${pslMax} mg/日</div>
           <div class="text-[10px] text-orange-800">${ASTHMA_ATTACK.steroidOral.perKgMin}〜${ASTHMA_ATTACK.steroidOral.perKgMax} mg/kg/日 ${esc(ASTHMA_ATTACK.steroidOral.freq)} (最大 ${ASTHMA_ATTACK.steroidOral.maxDaily} mg) × ${esc(ASTHMA_ATTACK.steroidOral.duration)}</div>
         </div>
-        <div class="text-[11px] font-bold text-gray-700 pt-1">静注 (大発作 ≥)</div>
-        ${ivRows}
+        <div class="text-[11px] font-bold text-gray-700 pt-1">静注 (大発作 ≥ で検討)</div>
+        <div class="grid grid-cols-1 gap-2">${ivRows}</div>
       </section>
-      <!-- 6. 入院基準 -->
+      <!-- 7. 入院基準 -->
       <section class="bg-white rounded-xl border border-rose-200 p-3 space-y-2">
         <div class="text-xs font-bold text-rose-800">🏥 入院基準 (1つ以上該当)</div>
         <ul class="space-y-1">${admRows}</ul>
-      </section>
-      <!-- 7. 発作強度判定基準 (参考) -->
-      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
-        <div class="text-xs font-bold text-gray-700">📋 発作強度 判定基準 (参考)</div>
-        <div class="grid grid-cols-1 gap-2">${criteriaCards}</div>
       </section>
       <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 小児気管支喘息治療・管理ガイドライン 2023 / 日本小児アレルギー学会。本ツールは目安であり、担当医の判断で選択してください。</div>
     </div>`
 }
 function attachAsthmaAttack() {
   document.getElementById('btn-attack-back')?.addEventListener('click', () => setState({screen:'list', category:'喘息薬'}))
-  app.querySelectorAll('[data-attack-sev]').forEach(b => b.addEventListener('click', () => setState({attackSeverity:b.dataset.attackSev})))
+  app.querySelectorAll('[data-attack-sev]').forEach(b => b.addEventListener('click', () => setState({attackSeverity:b.dataset.attackSev, attackSevSource:'manual'})))
   app.querySelectorAll('[data-attack-unit]').forEach(b => b.addEventListener('click', () => setState({attackAgeUnit:b.dataset.attackUnit})))
+  // Grade 評価の選択
+  app.querySelectorAll('[data-attack-grade]').forEach(b => b.addEventListener('click', () => {
+    const next = {...(state.attackGradeAnswers||{}), [b.dataset.attackGrade]:b.dataset.grade}
+    setState({attackGradeAnswers: next})
+  }))
+  document.getElementById('btn-attack-grade-reset')?.addEventListener('click', () => setState({attackGradeAnswers:{}, attackSevSource:'manual'}))
+  // 自動判定を適用
+  document.querySelector('[data-attack-apply-auto]')?.addEventListener('click', () => {
+    const auto = attackGradeFromAnswers()
+    if (auto) setState({attackSevSource:'auto', attackSeverity:auto})
+  })
   const bindNum = (id, key) => {
     const el = document.getElementById(id)
     if (!el) return
