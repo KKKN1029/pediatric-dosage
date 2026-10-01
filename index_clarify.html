@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=81" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=81" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=81" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=81" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=81" />
+  <link rel="manifest" href="manifest.json?v=82" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=82" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=82" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=82" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=82" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=82" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v81 / revert-icons</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v82 / asthma-attack</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '81'
+const BUILD_VERSION = '82'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1521,6 +1521,11 @@ let state = {
   atopyAreas: { face:false, arms:false, legs:false, front:false, back:false },
   atopyFreq: 2,                    // 1日回数
   atopyDays: 7,                    // 処方日数
+  // 急性喘息発作対応
+  attackWeight: '',                // kg
+  attackAge: '',                   // 歳 (MDI 判定用)
+  attackAgeUnit: 'years',
+  attackSeverity: 'moderate',      // mild|moderate|severe|critical
 }
 
 function setState(patch) { Object.assign(state, patch); render() }
@@ -1587,6 +1592,7 @@ function render() {
   else if (s==='vitalsigns') { app.innerHTML=renderVitalSigns(); attachVitalSigns() }
   else if (s==='topical-steroid') { app.innerHTML=renderTopicalSteroid(); attachTopicalSteroid() }
   else if (s==='asthma-step') { app.innerHTML=renderAsthmaStep(); attachAsthmaStep() }
+  else if (s==='asthma-attack') { app.innerHTML=renderAsthmaAttack(); attachAsthmaAttack() }
   else if (s==='atopy-ftu') { app.innerHTML=renderAtopyFtu(); attachAtopyFtu() }
   else if (s==='moisturizers') { app.innerHTML=renderMoisturizers(); attachMoisturizers() }
 }
@@ -1918,6 +1924,107 @@ const JPGL_2023 = {
     'salbutamol-inhaled-v5':    { role:'SABA',      code:'SLB' },
     'procaterol-inhaled-v5':    { role:'SABA',      code:'PRC' },
   },
+}
+
+// ============================================================
+// 急性喘息発作 対応プロトコル (JPGL 2023 / 日本小児アレルギー学会)
+//   発作強度判定 (小/中/大/呼吸不全切迫) → 治療カスケード + 入院基準
+// ============================================================
+const ASTHMA_ATTACK = {
+  severityLevels: [
+    { key:'mild', label:'小発作', color:'emerald',
+      spo2:'≥96%',
+      criteria:['安静時呼吸困難なし','遊び・哺乳 普通','陥没呼吸なし','喘鳴軽度','文で話せる','意識清明'] },
+    { key:'moderate', label:'中発作', color:'amber',
+      spo2:'92〜95%',
+      criteria:['安静時軽度の呼吸困難','遊び・哺乳 やや困難','陥没呼吸軽度','喘鳴中等度','句で区切って話す','やや興奮'] },
+    { key:'severe', label:'大発作', color:'rose',
+      spo2:'<92%',
+      criteria:['安静時中〜高度の呼吸困難','遊び・哺乳 困難','陥没呼吸高度','喘鳴著明','単語でしか話せない','興奮・不穏'] },
+    { key:'critical', label:'呼吸不全切迫', color:'purple',
+      spo2:'<90% / チアノーゼ',
+      criteria:['意識低下・錯乱','発語困難','喘鳴微弱〜消失 (silent chest)','徐呼吸 or 無呼吸','徐脈','チアノーゼ'] },
+  ],
+  // SABA 吸入量 (ベネトリン吸入液 0.5% ネブライザー)
+  sabaNebDoses: [
+    { maxKg:10,  dose:'0.1 mL' },
+    { maxKg:20,  dose:'0.2 mL' },
+    { maxKg:999, dose:'0.3 mL (最大)' },
+  ],
+  sabaNebNote:'+ 生食 2 mL でネブライザー。20分おきに最大3回まで反復可',
+  // SABA MDI + スペーサー
+  sabaMdi:[
+    { minMo:0,   maxMo:72,  label:'乳幼児〜5歳',  puffs:'1〜2 puff (100〜200μg)' },
+    { minMo:72,  maxMo:144, label:'6〜11歳',       puffs:'2〜4 puff (200〜400μg)' },
+    { minMo:144, maxMo:999, label:'12歳以上',       puffs:'4〜10 puff (400〜1000μg)' },
+  ],
+  sabaMdiNote:'サルタノールインヘラー/メプチンエアー 100μg/puff + スペーサー。1 puff ずつ呼気停止 5〜10 秒。20分おきに反復可',
+  // 全身ステロイド
+  steroidOral:{
+    drug:'プレドニゾロン (プレドニン®)',
+    perKgMin:1, perKgMax:2, unit:'mg/kg/日',
+    freq:'分1〜2',
+    maxDaily:60,
+    duration:'3〜5日間 (漸減原則不要)',
+  },
+  steroidIv:[
+    { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, interval:'6時間毎', note:'大発作で第一選択' },
+    { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, interval:'6時間毎', note:'代替' },
+  ],
+  // 治療プロトコル (per severity)
+  treatment:{
+    mild:{
+      setting:'外来・自宅',
+      steps:[
+        'SABA 吸入 (ネブ または MDI+スペーサー)',
+        '20分おきに最大3回まで反復可',
+        '改善 → 経過観察・環境調整・吸入手技指導',
+        '未改善 → 中発作治療へ進む',
+      ],
+    },
+    moderate:{
+      setting:'外来 (改善不十分なら入院)',
+      steps:[
+        '酸素投与 (SpO₂ ≥95% を目標)',
+        'SABA 吸入 20分おき × 3回',
+        '全身ステロイド (経口 or 静注) を併用',
+        '抗コリン薬吸入併用検討 (イプラトロピウム 0.25mg)',
+        '改善 → 外来管理 + PSL 3〜5日継続',
+        '未改善・SpO₂ 低下 → 入院',
+      ],
+    },
+    severe:{
+      setting:'入院',
+      steps:[
+        '入院決定、小児科専門医コンサルト',
+        '酸素投与 (必要なら nasal high-flow)',
+        'SABA 持続吸入 or 20分おき頻回吸入',
+        'ステロイド静注 (メチルプレドニゾロン 1〜2mg/kg q6h)',
+        '抗コリン薬吸入併用 (イプラトロピウム)',
+        '改善不十分 → イソプロテレノール持続・アミノフィリン検討',
+        'マグネシウム 25〜50 mg/kg 静注検討 (難治例)',
+      ],
+    },
+    critical:{
+      setting:'ICU',
+      steps:[
+        'ICU 搬送、挿管・人工呼吸準備',
+        'アドレナリン筋注 検討 (アナフィラキシー疑いあれば)',
+        'ステロイド静注 (メチルプレドニゾロン 2mg/kg q6h) 継続',
+        'マグネシウム 25〜50 mg/kg 静注',
+        '補助換気 (NPPV or 気管挿管)',
+        '原因検索 (異物吸引・心不全・肺炎などの除外)',
+      ],
+    },
+  },
+  admissionCriteria:[
+    'SpO₂ ≤92% が治療後も持続',
+    '大発作で治療後改善不十分',
+    '繰り返す発作 (前回入院から日数が短い)',
+    '1歳未満 / 幼若児',
+    '夜間・遠方・社会的理由で経過観察困難',
+    '過去の重症発作歴あり',
+  ],
 }
 
 // ============================================================
@@ -2606,6 +2713,163 @@ function attachAsthmaStep() {
       }
     })
   }
+}
+
+// ── 急性喘息発作対応 ────────────────────────────────────────
+function renderAsthmaAttack() {
+  const w = parseFloat(state.attackWeight) || 0
+  const sev = state.attackSeverity || 'moderate'
+  const sevInfo = ASTHMA_ATTACK.severityLevels.find(x => x.key === sev)
+  const tx = ASTHMA_ATTACK.treatment[sev]
+  // SABA ネブ用量
+  const nebDose = w > 0 ? (ASTHMA_ATTACK.sabaNebDoses.find(d => w <= d.maxKg)?.dose || '—') : '—'
+  // SABA MDI 用量 (年齢から)
+  const rawAge = parseFloat(state.attackAge)
+  const ageMo = Number.isFinite(rawAge) && rawAge >= 0
+    ? (state.attackAgeUnit === 'months' ? rawAge : rawAge * 12) : null
+  const mdiInfo = ageMo != null ? ASTHMA_ATTACK.sabaMdi.find(m => ageMo >= m.minMo && ageMo < m.maxMo) : null
+  // PSL 経口量
+  const pslMin = w > 0 ? (w * ASTHMA_ATTACK.steroidOral.perKgMin).toFixed(1) : '—'
+  const pslMax = w > 0 ? Math.min(w * ASTHMA_ATTACK.steroidOral.perKgMax, ASTHMA_ATTACK.steroidOral.maxDaily).toFixed(1) : '—'
+  // 静注ステロイド
+  const ivRows = ASTHMA_ATTACK.steroidIv.map(iv => {
+    const minMg = w > 0 ? (w * iv.perKgMin).toFixed(1) : '—'
+    const maxMg = w > 0 ? (w * iv.perKgMax).toFixed(1) : '—'
+    return `<div class="bg-white border border-gray-200 rounded p-2 space-y-0.5">
+      <div class="text-[11px] font-semibold text-gray-800">${esc(iv.drug)}</div>
+      <div class="text-[11px] text-gray-700">1回 ${minMg}〜${maxMg} mg (${iv.perKgMin}〜${iv.perKgMax} mg/kg) ${esc(iv.interval)}</div>
+      <div class="text-[10px] text-gray-500">${esc(iv.note)}</div>
+    </div>`
+  }).join('')
+  // 発作強度セレクタ
+  const sevBtns = ASTHMA_ATTACK.severityLevels.map(s => {
+    const active = sev === s.key
+    const cmap = {
+      emerald: active?'bg-emerald-500 text-white border-emerald-500':'bg-white text-emerald-700 border-emerald-300',
+      amber:   active?'bg-amber-500 text-white border-amber-500':'bg-white text-amber-700 border-amber-300',
+      rose:    active?'bg-rose-500 text-white border-rose-500':'bg-white text-rose-700 border-rose-300',
+      purple:  active?'bg-purple-500 text-white border-purple-500':'bg-white text-purple-700 border-purple-300',
+    }
+    return `<button data-attack-sev="${s.key}" class="flex-1 py-2 px-1 text-xs font-bold border rounded-lg ${cmap[s.color]}">${esc(s.label)}<div class="text-[9px] opacity-80 mt-0.5">SpO₂ ${esc(s.spo2)}</div></button>`
+  }).join('')
+  // 発作強度の判断基準 (折り畳み)
+  const criteriaCards = ASTHMA_ATTACK.severityLevels.map(s => {
+    const cmap = { emerald:'border-emerald-300 bg-emerald-50 text-emerald-800',
+                   amber:'border-amber-300 bg-amber-50 text-amber-800',
+                   rose:'border-rose-300 bg-rose-50 text-rose-800',
+                   purple:'border-purple-300 bg-purple-50 text-purple-800' }
+    return `<div class="rounded-lg border ${cmap[s.color]} p-2">
+      <div class="text-[11px] font-bold">${esc(s.label)} <span class="text-[10px] opacity-80">SpO₂ ${esc(s.spo2)}</span></div>
+      <ul class="mt-1 space-y-0.5">${s.criteria.map(c => `<li class="text-[10px] leading-relaxed">• ${esc(c)}</li>`).join('')}</ul>
+    </div>`
+  }).join('')
+  // 治療カスケード
+  const txColor = { emerald:'border-emerald-400 bg-emerald-50', amber:'border-amber-400 bg-amber-50',
+                    rose:'border-rose-400 bg-rose-50', purple:'border-purple-400 bg-purple-50' }[sevInfo.color]
+  const txSteps = tx.steps.map((s, i) => `<li class="flex gap-2 text-sm text-gray-800 leading-relaxed">
+    <span class="shrink-0 w-5 h-5 rounded-full bg-white border border-gray-300 text-[11px] font-bold flex items-center justify-center text-gray-700">${i+1}</span>
+    <span class="flex-1">${esc(s)}</span>
+  </li>`).join('')
+  const admRows = ASTHMA_ATTACK.admissionCriteria.map(c => `<li class="flex gap-2 text-[11px] text-gray-700 leading-relaxed"><span class="text-rose-500 shrink-0">▸</span><span>${esc(c)}</span></li>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-attack-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">🚨 急性喘息発作 対応</div>
+          <div class="text-xs text-gray-500">JPGL 2023 / 日本小児アレルギー学会</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <!-- 1. 患者情報入力 -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="text-xs font-bold text-gray-700">⚖ 患者情報</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-500">体重 (kg)</label>
+            <input id="attack-weight" type="number" inputmode="decimal" min="0" value="${esc(state.attackWeight)}" placeholder="例: 15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-500">年齢 (MDI量判定用)</label>
+            <div class="flex gap-1">
+              <input id="attack-age" type="number" inputmode="decimal" min="0" value="${esc(state.attackAge)}" placeholder="例: 5" class="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              <div class="flex rounded-lg overflow-hidden border border-gray-300 text-[11px]">
+                ${['years','months'].map(u => `<button data-attack-unit="${u}" class="px-2 ${state.attackAgeUnit===u?'bg-rose-500 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 2. 発作強度選択 -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">🩺 発作強度を選択</div>
+        <div class="flex gap-2">${sevBtns}</div>
+      </section>
+      <!-- 3. 治療カスケード -->
+      <section class="rounded-xl border-2 ${txColor} p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="bg-${sevInfo.color}-500 text-white text-xs font-bold px-3 py-1 rounded-full">${esc(sevInfo.label)} / ${esc(tx.setting)}</span>
+        </div>
+        <ol class="space-y-2">${txSteps}</ol>
+      </section>
+      <!-- 4. SABA 吸入量 -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">💨 SABA 吸入量</div>
+        <div class="grid grid-cols-1 gap-2">
+          <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
+            <div class="text-[11px] font-bold text-sky-900">ネブライザー (サルブタモール 0.5%)</div>
+            <div class="text-sm font-bold text-sky-900">体重 ${w > 0 ? w + ' kg' : '— kg'} → ${esc(nebDose)}</div>
+            <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
+          </div>
+          <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
+            <div class="text-[11px] font-bold text-sky-900">MDI + スペーサー</div>
+            <div class="text-sm font-bold text-sky-900">${mdiInfo ? esc(mdiInfo.label) + ' → ' + esc(mdiInfo.puffs) : '年齢を入力'}</div>
+            <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaMdiNote)}</div>
+          </div>
+        </div>
+      </section>
+      <!-- 5. 全身ステロイド -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">💊 全身ステロイド</div>
+        <div class="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
+          <div class="text-[11px] font-bold text-orange-900">経口 (中発作 ≥)</div>
+          <div class="text-sm font-bold text-orange-900">${esc(ASTHMA_ATTACK.steroidOral.drug)}: ${pslMin}〜${pslMax} mg/日</div>
+          <div class="text-[10px] text-orange-800">${ASTHMA_ATTACK.steroidOral.perKgMin}〜${ASTHMA_ATTACK.steroidOral.perKgMax} mg/kg/日 ${esc(ASTHMA_ATTACK.steroidOral.freq)} (最大 ${ASTHMA_ATTACK.steroidOral.maxDaily} mg) × ${esc(ASTHMA_ATTACK.steroidOral.duration)}</div>
+        </div>
+        <div class="text-[11px] font-bold text-gray-700 pt-1">静注 (大発作 ≥)</div>
+        ${ivRows}
+      </section>
+      <!-- 6. 入院基準 -->
+      <section class="bg-white rounded-xl border border-rose-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-rose-800">🏥 入院基準 (1つ以上該当)</div>
+        <ul class="space-y-1">${admRows}</ul>
+      </section>
+      <!-- 7. 発作強度判定基準 (参考) -->
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">📋 発作強度 判定基準 (参考)</div>
+        <div class="grid grid-cols-1 gap-2">${criteriaCards}</div>
+      </section>
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 小児気管支喘息治療・管理ガイドライン 2023 / 日本小児アレルギー学会。本ツールは目安であり、担当医の判断で選択してください。</div>
+    </div>`
+}
+function attachAsthmaAttack() {
+  document.getElementById('btn-attack-back')?.addEventListener('click', () => setState({screen:'list', category:'喘息薬'}))
+  app.querySelectorAll('[data-attack-sev]').forEach(b => b.addEventListener('click', () => setState({attackSeverity:b.dataset.attackSev})))
+  app.querySelectorAll('[data-attack-unit]').forEach(b => b.addEventListener('click', () => setState({attackAgeUnit:b.dataset.attackUnit})))
+  const bindNum = (id, key) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.addEventListener('input', e => {
+      state[key] = e.target.value
+      render()
+      const nx = document.getElementById(id)
+      if (nx) { nx.focus(); try { const p = nx.value.length; nx.setSelectionRange(p, p) } catch {} }
+    })
+  }
+  bindNum('attack-weight', 'attackWeight')
+  bindNum('attack-age', 'attackAge')
 }
 
 // ── アトピー塗布量計算 (FTU法) ─────────────────────────────
@@ -4164,12 +4428,22 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>
-      <li class="border-b-2 border-sky-200 bg-sky-50/40">
+      <li class="border-b border-sky-200 bg-sky-50/40">
         <button data-tool="asthma-step" data-goto="stepdown" class="w-full flex items-center px-4 py-3.5 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
           <span class="text-2xl shrink-0">📉</span>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-sky-900 text-sm">③ Step down 方法</div>
             <div class="text-[11px] text-gray-600 mt-0.5">減量手順ガイド + 増悪因子チェックリスト</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>
+      <li class="border-b-2 border-rose-200 bg-rose-50/40">
+        <button data-tool="asthma-attack" class="w-full flex items-center px-4 py-3.5 hover:bg-rose-100 active:bg-rose-200 text-left gap-3">
+          <span class="text-2xl shrink-0">🚨</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-rose-900 text-sm">④ 急性発作対応</div>
+            <div class="text-[11px] text-gray-600 mt-0.5">体重入力 + 発作強度 → SABA / 全身ステロイド / 入院基準</div>
           </div>
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
@@ -4201,6 +4475,8 @@ function attachListBody() {
   app.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.tool === 'asthma-step') {
       setState({screen:'asthma-step', asthmaScrollTo: b.dataset.goto || null})
+    } else if (b.dataset.tool === 'asthma-attack') {
+      setState({screen:'asthma-attack'})
     } else if (b.dataset.tool === 'atopy-ftu') {
       setState({screen:'atopy-ftu'})
     } else if (b.dataset.tool === 'moisturizers') {
