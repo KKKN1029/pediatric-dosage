@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=80" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=80" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=80" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=80" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=80" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=80" />
+  <link rel="manifest" href="manifest.json?v=81" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=81" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=81" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=81" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=81" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v80 / svg-icons</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v81 / revert-icons</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '80'
+const BUILD_VERSION = '81'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2028,25 +2028,10 @@ function renderTopicalSteroid() {
           </div>
           <textarea data-st-rank="${ri}" data-st-drug="${di}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1 leading-relaxed" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
         </li>`
-      : (() => {
-          const forms = d.forms || []
-          const formsHtml = forms.map(f => {
-            const iconType = /ローション/.test(f) ? 'bottle'
-                           : /フォーム/.test(f) ? 'foam'
-                           : /スプレー/.test(f) ? 'spray'
-                           : /シート/.test(f) ? 'sheet'
-                           : 'tube'
-            const svg = drugIcon(iconType, { capColor: brandCapColor(f), size: 32 })
-            return `<div class="flex items-center gap-1.5 py-0.5">
-              <span class="shrink-0">${svg}</span>
-              <span class="text-[11px] text-gray-700 leading-tight">${esc(f)}</span>
-            </div>`
-          }).join('')
-          return `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
-            <div class="text-sm font-semibold text-gray-900 mb-1">${esc(d.generic)}</div>
-            <div class="space-y-0.5">${formsHtml}</div>
-          </li>`
-        })()).join('')
+      : `<li class="px-3 py-2 border-b border-gray-100 last:border-0">
+          <div class="text-sm font-semibold text-gray-900">${esc(d.generic)}</div>
+          <div class="text-[11px] text-gray-600 mt-0.5 leading-relaxed">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+        </li>`).join('')
     return `
     <div class="rounded-xl border ${rankColor(r.color)} overflow-hidden">
       <div class="${rankBadge(r.color)} text-white px-3 py-2 flex items-baseline gap-2">
@@ -2085,28 +2070,14 @@ function renderTopicalSteroid() {
         <input data-st-non="${ni}" data-st-field="strength" value="${esc(d.strength)}" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="強さ (例: ストロングクラス相当)" />
         <textarea data-st-non="${ni}" data-st-field="forms" rows="2" class="w-full text-[11px] border border-gray-300 rounded px-2 py-1" placeholder="製品名・剤形（複数行）">${esc((d.forms||[]).join('\n'))}</textarea>
       </div>`
-    : (() => {
-        const forms = d.forms || []
-        const formsHtml = forms.map(f => {
-          const iconType = /ローション/.test(f) ? 'bottle'
-                         : /フォーム/.test(f) ? 'foam'
-                         : /クリーム/.test(f) ? 'tube'
-                         : 'tube'
-          const svg = drugIcon(iconType, { capColor: brandCapColor(f), size: 32 })
-          return `<div class="flex items-center gap-1.5 py-0.5">
-            <span class="shrink-0">${svg}</span>
-            <span class="text-[11px] text-gray-700 leading-tight">${esc(f)}</span>
-          </div>`
-        }).join('')
-        return `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-2">
-          <div class="flex items-baseline gap-2 flex-wrap">
-            <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
-            <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
-          </div>
-          <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
-          <div class="space-y-0.5">${formsHtml}</div>
-        </div>`
-      })()).join('')
+    : `<div class="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-bold text-purple-900">${esc(d.generic)}</span>
+          <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">${esc(d.cls)}</span>
+        </div>
+        <div class="text-[11px] text-purple-700">${esc(d.strength)}</div>
+        <div class="text-[11px] text-gray-700">${(d.forms||[]).map(f => esc(f)).join(' / ')}</div>
+      </div>`).join('')
 
   return `
     <div class="bg-white border-b border-gray-200 px-4 pt-4 pb-3 sticky top-0 z-10">
@@ -2829,20 +2800,16 @@ function renderMoisturizers() {
                     if (!info) return s==='all' ? '<span class="text-[9px] bg-gray-200 text-gray-700 px-1 rounded">通年</span>' : ''
                     return `<span class="text-[9px] ${seasonColors[info.color]} px-1 rounded">${info.icon}</span>`
                   }).join('')
-                  const iconSvg = drugIcon(resolveIconType(f), { capColor: brandCapColor(f.name), size: 44 })
                   return `
-                  <div class="rounded border border-gray-200 p-2 bg-white flex gap-2">
-                    <div class="shrink-0 flex items-start pt-0.5">${iconSvg}</div>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-baseline gap-2 flex-wrap">
-                        <span class="text-[11px] font-semibold text-gray-800">${esc(f.name)}</span>
-                        <span class="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">${esc(f.type)}</span>
-                        ${seasonBadges}
-                      </div>
-                      <div class="text-[10px] text-gray-500 mt-0.5">規格: ${esc(f.sizes || '—')}</div>
-                      <div class="text-[10px] text-gray-700 mt-1 leading-relaxed">${esc(f.feature || '')}</div>
-                      <div class="text-[10px] text-gray-500 mt-1">推奨部位: ${esc(f.area || '—')}｜油性度 ${dots(f.oiliness || 0)}</div>
+                  <div class="rounded border border-gray-200 p-2 bg-white">
+                    <div class="flex items-baseline gap-2 flex-wrap">
+                      <span class="text-[11px] font-semibold text-gray-800">${esc(f.name)}</span>
+                      <span class="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">${esc(f.type)}</span>
+                      ${seasonBadges}
                     </div>
+                    <div class="text-[10px] text-gray-500 mt-0.5">規格: ${esc(f.sizes || '—')}</div>
+                    <div class="text-[10px] text-gray-700 mt-1 leading-relaxed">${esc(f.feature || '')}</div>
+                    <div class="text-[10px] text-gray-500 mt-1">推奨部位: ${esc(f.area || '—')}｜油性度 ${dots(f.oiliness || 0)}</div>
                   </div>`}).join('')}
               </div>
             </div>`).join('')}
