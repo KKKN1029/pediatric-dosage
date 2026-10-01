@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=83" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=83" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=83" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=83" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=83" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=83" />
+  <link rel="manifest" href="manifest.json?v=84" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=84" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=84" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=84" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=84" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=84" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v83 / grade-eval</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v84 / saba-fixed</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '83'
+const BUILD_VERSION = '84'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1993,12 +1993,11 @@ const ASTHMA_ATTACK = {
       ] },
   ],
   // SABA 吸入量 (ベネトリン吸入液 0.5% ネブライザー)
-  sabaNebDoses: [
-    { maxKg:10,  dose:'0.1 mL' },
-    { maxKg:20,  dose:'0.2 mL' },
-    { maxKg:999, dose:'0.3 mL (最大)' },
-  ],
-  sabaNebNote:'+ 生食 2 mL でネブライザー。20分おきに最大3回まで反復可',
+  //   JPGL 2023 / 小児臨床では年齢・体重に関わらず 1回 0.3 mL が標準
+  //   添付文書成人量 0.3〜0.5 mL、小児は 0.3 mL + 生食 2mL で希釈
+  sabaNebDose: '1回 0.3 mL',
+  sabaNebNote:'+ 生食 2 mL でネブライザー吸入。全年齢共通。20分おきに最大3回まで反復可',
+  sabaNebNoteInfant:'※ 乳児 (生後3か月未満 or <5 kg) では 0.1〜0.2 mL から開始する場合あり',
   // SABA MDI + スペーサー
   sabaMdi:[
     { minMo:0,   maxMo:72,  label:'乳幼児〜5歳',  puffs:'1〜2 puff (100〜200μg)' },
@@ -2779,18 +2778,7 @@ function renderAsthmaAttack() {
   const sev = (state.attackSevSource === 'auto' && autoGrade) ? autoGrade : (state.attackSeverity || 'moderate')
   const sevInfo = ASTHMA_ATTACK.severityLevels.find(x => x.key === sev)
   const tx = ASTHMA_ATTACK.treatment[sev]
-  // SABA ネブ用量 (ハイライト行を特定)
-  const nebRows = ASTHMA_ATTACK.sabaNebDoses.map((d, i) => {
-    const isMatch = w > 0 && w <= d.maxKg && !ASTHMA_ATTACK.sabaNebDoses.slice(0, i).some(prev => w <= prev.maxKg)
-    const label = i === 0 ? `≤ ${d.maxKg} kg`
-                 : i === ASTHMA_ATTACK.sabaNebDoses.length - 1 ? `> ${ASTHMA_ATTACK.sabaNebDoses[i-1].maxKg} kg`
-                 : `${ASTHMA_ATTACK.sabaNebDoses[i-1].maxKg}〜${d.maxKg} kg`
-    return `<tr class="${isMatch?'bg-sky-200 font-bold':''}">
-      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900">${esc(label)}</td>
-      <td class="border border-sky-200 px-2 py-1 text-[11px] text-sky-900 font-mono">${esc(d.dose)}</td>
-      <td class="border border-sky-200 px-2 py-1 text-center">${isMatch?'<span class="text-sky-700">◀ 該当</span>':''}</td>
-    </tr>`
-  }).join('')
+  // SABA ネブ用量 (全年齢固定)
   // SABA MDI 用量 (年齢から)
   const rawAge = parseFloat(state.attackAge)
   const ageMo = Number.isFinite(rawAge) && rawAge >= 0
@@ -2922,17 +2910,11 @@ function renderAsthmaAttack() {
       <!-- 5. SABA 吸入量 -->
       <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
         <div class="text-xs font-bold text-gray-700">💨 SABA 吸入量</div>
-        <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-2">
-          <div class="text-[11px] font-bold text-sky-900">ネブライザー (サルブタモール 0.5%)</div>
-          <table class="w-full border-collapse">
-            <thead><tr>
-              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">体重</th>
-              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100">量</th>
-              <th class="border border-sky-200 px-2 py-1 text-[10px] font-bold text-sky-900 bg-sky-100"></th>
-            </tr></thead>
-            <tbody>${nebRows}</tbody>
-          </table>
-          <div class="text-[10px] text-sky-700">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
+        <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-1">
+          <div class="text-[11px] font-bold text-sky-900">ネブライザー (ベネトリン吸入液 0.5%)</div>
+          <div class="text-lg font-bold text-sky-900">${esc(ASTHMA_ATTACK.sabaNebDose)}</div>
+          <div class="text-[11px] text-sky-700 leading-relaxed">${esc(ASTHMA_ATTACK.sabaNebNote)}</div>
+          <div class="text-[10px] text-sky-600 leading-relaxed">${esc(ASTHMA_ATTACK.sabaNebNoteInfant)}</div>
         </div>
         <div class="rounded-lg border border-sky-300 bg-sky-50 p-3 space-y-2">
           <div class="text-[11px] font-bold text-sky-900">MDI + スペーサー (サルタノール/メプチンエアー)</div>
