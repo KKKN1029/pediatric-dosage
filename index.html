@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=92" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=92" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=92" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=92" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=92" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=92" />
+  <link rel="manifest" href="manifest.json?v=93" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=93" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=93" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=93" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=93" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=93" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v92 / max-dose-cap</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v93 / psl-cap-text-input</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '92'
+const BUILD_VERSION = '93'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2029,9 +2029,12 @@ const ASTHMA_ATTACK = {
     maxDaily:60,
     duration:'3〜5日間 (漸減原則不要)',
   },
+  // 静注ステロイド最大量は PSL 換算 60 mg/回 を基準に各薬剤の potency で逆算
+  //   (個別の maxPerDose を持たず、maxPslEqPerDose から統一的に決定)
+  maxPslEqPerDose: 60,  // 急性喘息発作の1回最大 PSL 換算量 (mg)
   steroidIv:[
-    { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, maxPerDose:60, interval:'6時間毎', note:'大発作で第一選択。1回量は60mg (= PSL 48mg相当) までが目安', potency:1.25 },
-    { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, maxPerDose:200, interval:'6時間毎', note:'代替・新生児・副腎皮質機能低下例。1回量は200mg (= PSL 50mg相当) までが目安', potency:0.25 },
+    { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, interval:'6時間毎', note:'大発作で第一選択', potency:1.25 },
+    { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, interval:'6時間毎', note:'代替・新生児・副腎皮質機能低下例', potency:0.25 },
   ],
   // 治療プロトコル (per severity)
   treatment:{
@@ -2765,7 +2768,7 @@ function renderAsthmaRegimen() {
     <div class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
       <div class="text-xs font-bold text-gray-700">👶 年齢 (JPGL 対象は 15歳以下)</div>
       <div class="flex gap-2">
-        <input id="asthma-age" type="number" inputmode="decimal" value="${esc(state.asthmaAgeInput)}" placeholder="例: 5" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        <input id="asthma-age" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" value="${esc(state.asthmaAgeInput)}" placeholder="例: 5" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
         <div class="flex rounded-lg overflow-hidden border border-gray-300 text-xs">
           ${['years','months'].map(u => `<button data-asthma-unit="${u}" class="px-3 ${state.asthmaAgeUnit===u?'bg-sky-600 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
         </div>
@@ -3052,13 +3055,15 @@ function renderAsthmaAttack() {
   // PSL 経口量
   const pslMin = w > 0 ? (w * ASTHMA_ATTACK.steroidOral.perKgMin).toFixed(1) : '—'
   const pslMax = w > 0 ? Math.min(w * ASTHMA_ATTACK.steroidOral.perKgMax, ASTHMA_ATTACK.steroidOral.maxDaily).toFixed(1) : '—'
-  // 静注ステロイド (PSL換算も併記、最大量キャップあり)
+  // 静注ステロイド (PSL換算 60mg/回 を基準に各薬剤最大量を逆算)
+  const maxPslEq = ASTHMA_ATTACK.maxPslEqPerDose
   const ivRows = ASTHMA_ATTACK.steroidIv.map(iv => {
+    const drugMaxPerDose = maxPslEq / iv.potency  // 力価で逆算
     const rawMin = w > 0 ? w * iv.perKgMin : 0
     const rawMax = w > 0 ? w * iv.perKgMax : 0
-    const capMin = iv.maxPerDose ? Math.min(rawMin, iv.maxPerDose) : rawMin
-    const capMax = iv.maxPerDose ? Math.min(rawMax, iv.maxPerDose) : rawMax
-    const isCapped = w > 0 && iv.maxPerDose && rawMax > iv.maxPerDose
+    const capMin = Math.min(rawMin, drugMaxPerDose)
+    const capMax = Math.min(rawMax, drugMaxPerDose)
+    const isCapped = w > 0 && rawMax > drugMaxPerDose
     const minMg = w > 0 ? capMin.toFixed(1) : '—'
     const maxMg = w > 0 ? capMax.toFixed(1) : '—'
     const pslMinEq = w > 0 ? (capMin * iv.potency).toFixed(1) : '—'
@@ -3068,11 +3073,11 @@ function renderAsthmaAttack() {
     return `<div class="bg-white border border-gray-200 rounded p-2 space-y-1">
       <div class="flex items-baseline gap-2 flex-wrap">
         <span class="text-[11px] font-semibold text-gray-800">${esc(iv.drug)}</span>
-        ${iv.maxPerDose ? `<span class="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">最大 ${iv.maxPerDose} mg/回</span>` : ''}
+        <span class="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">最大 ${drugMaxPerDose.toFixed(0)} mg/回 (PSL換算 ${maxPslEq} mg)</span>
         ${isCapped ? `<span class="text-[9px] bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded animate-pulse">⚠ 最大量到達</span>` : ''}
       </div>
       <div class="text-sm font-bold text-gray-900">1回 ${minMg}〜${maxMg} mg (${iv.perKgMin}〜${iv.perKgMax} mg/kg、${esc(iv.interval)})</div>
-      ${isCapped ? `<div class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">体重 ${w}kg × ${iv.perKgMax} mg/kg = ${rawMax.toFixed(1)}mg は最大量 ${iv.maxPerDose}mg を超えるため ${iv.maxPerDose}mg にキャップ</div>` : ''}
+      ${isCapped ? `<div class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">体重 ${w}kg × ${iv.perKgMax} mg/kg = ${rawMax.toFixed(1)} mg は PSL換算 ${maxPslEq} mg (= この薬剤 ${drugMaxPerDose.toFixed(0)} mg) を超えるためキャップ</div>` : ''}
       <div class="flex items-baseline gap-2 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 flex-wrap">
         <span class="text-[10px] font-bold text-indigo-700">PSL換算</span>
         <span class="text-[11px] font-mono text-indigo-900">${pslMinEq}〜${pslMaxEq} mg</span>
@@ -3118,12 +3123,12 @@ function renderAsthmaAttack() {
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] text-gray-500">体重 (kg)</label>
-            <input id="attack-weight" type="number" inputmode="decimal" min="0" value="${esc(state.attackWeight)}" placeholder="例: 15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
+            <input id="attack-weight" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" value="${esc(state.attackWeight)}" placeholder="例: 15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
           </div>
           <div class="space-y-1 min-w-0">
             <label class="text-[11px] text-gray-500">年齢 (MDI量判定用)</label>
             <div class="flex gap-1 w-full min-w-0">
-              <input id="attack-age" type="number" inputmode="decimal" min="0" value="${esc(state.attackAge)}" placeholder="例: 5" class="flex-1 min-w-0 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              <input id="attack-age" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" value="${esc(state.attackAge)}" placeholder="例: 5" class="flex-1 min-w-0 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
               <div class="flex rounded-lg overflow-hidden border border-gray-300 text-[11px] shrink-0">
                 ${['years','months'].map(u => `<button data-attack-unit="${u}" class="px-1.5 ${state.attackAgeUnit===u?'bg-rose-500 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
               </div>
@@ -3367,11 +3372,11 @@ function renderAtopyFtu() {
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] text-gray-500">1日回数</label>
-            <input id="atopy-freq" type="number" min="0" max="10" value="${esc(state.atopyFreq)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input id="atopy-freq" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(state.atopyFreq)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
           <div class="space-y-1">
             <label class="text-[11px] text-gray-500">処方日数</label>
-            <input id="atopy-days" type="number" min="0" max="365" value="${esc(state.atopyDays)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input id="atopy-days" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(state.atopyDays)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
         </div>
       </div>
