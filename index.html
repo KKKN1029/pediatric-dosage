@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=90" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=90" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=90" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=90" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=90" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=90" />
+  <link rel="manifest" href="manifest.json?v=91" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=91" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=91" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=91" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=91" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=91" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v90 / severity-notation</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v91 / age-input-fix</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '90'
+const BUILD_VERSION = '91'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -3107,12 +3107,12 @@ function renderAsthmaAttack() {
             <label class="text-[11px] text-gray-500">体重 (kg)</label>
             <input id="attack-weight" type="number" inputmode="decimal" min="0" value="${esc(state.attackWeight)}" placeholder="例: 15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
           </div>
-          <div class="space-y-1">
+          <div class="space-y-1 min-w-0">
             <label class="text-[11px] text-gray-500">年齢 (MDI量判定用)</label>
-            <div class="flex gap-1">
-              <input id="attack-age" type="number" inputmode="decimal" min="0" value="${esc(state.attackAge)}" placeholder="例: 5" class="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
-              <div class="flex rounded-lg overflow-hidden border border-gray-300 text-[11px]">
-                ${['years','months'].map(u => `<button data-attack-unit="${u}" class="px-2 ${state.attackAgeUnit===u?'bg-rose-500 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
+            <div class="flex gap-1 w-full min-w-0">
+              <input id="attack-age" type="number" inputmode="decimal" min="0" value="${esc(state.attackAge)}" placeholder="例: 5" class="flex-1 min-w-0 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              <div class="flex rounded-lg overflow-hidden border border-gray-300 text-[11px] shrink-0">
+                ${['years','months'].map(u => `<button data-attack-unit="${u}" class="px-1.5 ${state.attackAgeUnit===u?'bg-rose-500 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
               </div>
             </div>
           </div>
