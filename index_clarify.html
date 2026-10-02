@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=91" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=91" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=91" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=91" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=91" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=91" />
+  <link rel="manifest" href="manifest.json?v=92" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=92" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=92" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=92" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=92" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=92" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v91 / age-input-fix</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v92 / max-dose-cap</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '91'
+const BUILD_VERSION = '92'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2030,8 +2030,8 @@ const ASTHMA_ATTACK = {
     duration:'3〜5日間 (漸減原則不要)',
   },
   steroidIv:[
-    { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, interval:'6時間毎', note:'大発作で第一選択', potency:1.25 },
-    { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, interval:'6時間毎', note:'代替・新生児・副腎皮質機能低下例', potency:0.25 },
+    { drug:'メチルプレドニゾロン (ソル・メドロール®)', perKgMin:1, perKgMax:2, maxPerDose:60, interval:'6時間毎', note:'大発作で第一選択。1回量は60mg (= PSL 48mg相当) までが目安', potency:1.25 },
+    { drug:'ヒドロコルチゾン (ソル・コーテフ®)',       perKgMin:5, perKgMax:7, maxPerDose:200, interval:'6時間毎', note:'代替・新生児・副腎皮質機能低下例。1回量は200mg (= PSL 50mg相当) までが目安', potency:0.25 },
   ],
   // 治療プロトコル (per severity)
   treatment:{
@@ -2123,9 +2123,11 @@ const ASTHMA_ATTACK = {
       {
         drug:'アミノフィリン (ネオフィリン®注 250mg)',
         pediatric:'小児適応あり',
-        loading:'5〜6 mg/kg を生食または5%DW 20mL に希釈し、20分かけて静注',
-        maintenance:'0.6〜0.9 mg/kg/h の持続点滴 (血中濃度 10〜20 μg/mL 目標)',
+        loading:'5〜6 mg/kg (最大 300 mg) を生食または5%DW 20mL に希釈し、20分かけて静注',
+        maintenance:'0.6〜0.9 mg/kg/h (最大 20 mg/h) の持続点滴 (血中濃度 10〜20 μg/mL 目標)',
         note:'直近24h以内のテオフィリン投与歴があれば初回量を減量 (半量)。嘔吐・振戦・頻脈・けいれんに注意',
+        loadingPerKgMin:5, loadingPerKgMax:6, loadingMaxTotal:300,
+        maintPerKgMin:0.6, maintPerKgMax:0.9, maintMaxPerHour:20,
       },
       {
         drug:'硫酸マグネシウム (マグセント注 1g/20mL など)',
@@ -2133,6 +2135,7 @@ const ASTHMA_ATTACK = {
         loading:'25〜50 mg/kg (最大 2g) を生食または5%DW 20mLに希釈、20〜30分かけて静注',
         maintenance:'原則単回投与。必要なら6時間毎に反復 (血圧・心電図モニター)',
         note:'気管支拡張作用。血圧低下・顔面潮紅・筋力低下・腱反射低下に注意',
+        loadingPerKgMin:25, loadingPerKgMax:50, loadingMaxTotal:2000,
       },
       {
         drug:'イソプロテレノール (アスプール®液 0.5%) 持続吸入',
@@ -3049,18 +3052,28 @@ function renderAsthmaAttack() {
   // PSL 経口量
   const pslMin = w > 0 ? (w * ASTHMA_ATTACK.steroidOral.perKgMin).toFixed(1) : '—'
   const pslMax = w > 0 ? Math.min(w * ASTHMA_ATTACK.steroidOral.perKgMax, ASTHMA_ATTACK.steroidOral.maxDaily).toFixed(1) : '—'
-  // 静注ステロイド (PSL換算も併記)
+  // 静注ステロイド (PSL換算も併記、最大量キャップあり)
   const ivRows = ASTHMA_ATTACK.steroidIv.map(iv => {
-    const minMg = w > 0 ? (w * iv.perKgMin).toFixed(1) : '—'
-    const maxMg = w > 0 ? (w * iv.perKgMax).toFixed(1) : '—'
-    const pslMinEq = w > 0 ? (w * iv.perKgMin * iv.potency).toFixed(1) : '—'
-    const pslMaxEq = w > 0 ? (w * iv.perKgMax * iv.potency).toFixed(1) : '—'
+    const rawMin = w > 0 ? w * iv.perKgMin : 0
+    const rawMax = w > 0 ? w * iv.perKgMax : 0
+    const capMin = iv.maxPerDose ? Math.min(rawMin, iv.maxPerDose) : rawMin
+    const capMax = iv.maxPerDose ? Math.min(rawMax, iv.maxPerDose) : rawMax
+    const isCapped = w > 0 && iv.maxPerDose && rawMax > iv.maxPerDose
+    const minMg = w > 0 ? capMin.toFixed(1) : '—'
+    const maxMg = w > 0 ? capMax.toFixed(1) : '—'
+    const pslMinEq = w > 0 ? (capMin * iv.potency).toFixed(1) : '—'
+    const pslMaxEq = w > 0 ? (capMax * iv.potency).toFixed(1) : '—'
     const pslPerKgMin = (iv.perKgMin * iv.potency).toFixed(2)
     const pslPerKgMax = (iv.perKgMax * iv.potency).toFixed(2)
     return `<div class="bg-white border border-gray-200 rounded p-2 space-y-1">
-      <div class="text-[11px] font-semibold text-gray-800">${esc(iv.drug)}</div>
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-[11px] font-semibold text-gray-800">${esc(iv.drug)}</span>
+        ${iv.maxPerDose ? `<span class="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">最大 ${iv.maxPerDose} mg/回</span>` : ''}
+        ${isCapped ? `<span class="text-[9px] bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded animate-pulse">⚠ 最大量到達</span>` : ''}
+      </div>
       <div class="text-sm font-bold text-gray-900">1回 ${minMg}〜${maxMg} mg (${iv.perKgMin}〜${iv.perKgMax} mg/kg、${esc(iv.interval)})</div>
-      <div class="flex items-baseline gap-2 bg-indigo-50 border border-indigo-200 rounded px-2 py-1">
+      ${isCapped ? `<div class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">体重 ${w}kg × ${iv.perKgMax} mg/kg = ${rawMax.toFixed(1)}mg は最大量 ${iv.maxPerDose}mg を超えるため ${iv.maxPerDose}mg にキャップ</div>` : ''}
+      <div class="flex items-baseline gap-2 bg-indigo-50 border border-indigo-200 rounded px-2 py-1 flex-wrap">
         <span class="text-[10px] font-bold text-indigo-700">PSL換算</span>
         <span class="text-[11px] font-mono text-indigo-900">${pslMinEq}〜${pslMaxEq} mg</span>
         <span class="text-[9px] text-indigo-600">(${pslPerKgMin}〜${pslPerKgMax} mg/kg、力価 ×${iv.potency})</span>
