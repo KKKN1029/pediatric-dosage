@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v98 / tamiflu-perkg</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v99 / perkg-daily-prefix</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '98'
+const BUILD_VERSION = '99'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -3051,7 +3051,11 @@ function renderInfluenzaRx() {
       if (drug.id === 'oseltamivir' && mode==='treatment' && ageMo != null && ageMo < 12 && w > 0) {
         const dose = +Math.min(w * spec.infantRule.perKgMg, spec.infantRule.maxPerDose).toFixed(1)
         const conc = spec.dsConc || 30
-        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, perDoseExtra:`DS ${(conc/10).toFixed(0)}%: 1回 ${(dose/conc).toFixed(2)} g` })
+        const tM = String(spec.freq||'').match(/(\d+)\s*回\s*\/\s*日/)
+        const times = tM ? +tM[1] : 2
+        const perKgDaily = spec.infantRule.perKgMg * times  // 3 mg/kg × 2回 = 6 mg/kg/日
+        doseDisplay = `<div class="text-xs text-sky-700 font-bold">${perKgDaily} mg/kg/日 (${spec.infantRule.perKgMg} mg/kg × ${times}回/日) → ${w} kg なら</div>`
+          + fmtFluDose(dose, spec.freq, { duration:spec.duration, perDoseExtra:`DS ${(conc/10).toFixed(0)}%: 1回 ${(dose/conc).toFixed(2)} g` })
           + `<div class="text-[10px] text-gray-500">${esc(spec.infantRule.label)}</div>`
       } else if (spec.doseByWeight && w > 0) {
         const bracket = spec.doseByWeight.find(b => w < b.maxKg) || spec.doseByWeight[spec.doseByWeight.length-1]
@@ -3084,8 +3088,12 @@ function renderInfluenzaRx() {
         const isCapped = w * spec.perKgMg > spec.maxPerDose
         const warn = isCapped ? ' <span class="text-[9px] bg-amber-500 text-white px-1 rounded">⚠最大量</span>' : ''
         const dsNote = spec.dsConc ? `DS ${(spec.dsConc/10).toFixed(0)}%: 1回 ${(dose/spec.dsConc).toFixed(2)} g` : ''
-        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, warn, perDoseExtra:dsNote })
-          + `<div class="text-[10px] text-gray-500">${spec.formulaNote || `${spec.perKgMg} mg/kg、1回最大 ${spec.maxPerDose} mg${spec.maxSevere?`（重症例は最大 ${spec.maxSevere} mg）`:''}`}</div>`
+        const tM = String(spec.freq||'').match(/(\d+)\s*回\s*\/\s*日/)
+        const times = tM ? +tM[1] : 1
+        const perKgDaily = +(spec.perKgMg * times).toFixed(1)
+        doseDisplay = `<div class="text-xs text-sky-700 font-bold">${perKgDaily} mg/kg/日 (${spec.perKgMg} mg/kg × ${times}${tM?'回/日':'回'}) → ${w} kg なら</div>`
+          + fmtFluDose(dose, spec.freq, { duration:spec.duration, warn, perDoseExtra:dsNote })
+          + `<div class="text-[10px] text-gray-500">${spec.formulaNote || `1回最大 ${spec.maxPerDose} mg${spec.maxSevere?`（重症例は最大 ${spec.maxSevere} mg）`:''}`}</div>`
       } else {
         doseDisplay = `<div class="text-[11px] text-gray-500">体重または年齢を入力してください</div>`
       }
