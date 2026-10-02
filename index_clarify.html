@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v95 / dose-bracket-fix</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v96 / daily-dose-format</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '95'
+const BUILD_VERSION = '96'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2199,12 +2199,14 @@ const INFLUENZA_RX = {
       route:'吸入 (ドライパウダー)', forms:['ロタディスク 5 mg × 4ブリスター'],
       treatment: {
         ageMinMonths:60,  // 5歳以上 (吸入手技に協力必要)
-        fixedDose:'10 mg (2 吸入) × 2回/日', duration:'5日間',
+        mgPerDose:10, perDoseNote:'2 吸入',
+        freq:'2回/日', duration:'5日間',
         timing:'発症 48 時間以内',
       },
       prophylaxis: {
         ageMinMonths:60,
-        fixedDose:'10 mg (2 吸入) × 1回/日', duration:'10日間',
+        mgPerDose:10, perDoseNote:'2 吸入',
+        freq:'1回/日', duration:'10日間',
       },
       note:'乳糖含有・気管支痙攣注意 (喘息既往は特に)。乾燥粉末のため吸入手技が必要',
     },
@@ -2214,8 +2216,8 @@ const INFLUENZA_RX = {
       treatment: {
         ageMinMonths:0,  // 添付文書上は年齢制限なし (ただし吸入手技)
         doseByAge: [
-          { ageMaxMonths:120, fixedDose:'20 mg (1 キット) × 単回吸入', label:'10 歳未満' },
-          { ageMaxMonths:999, fixedDose:'40 mg (2 キット) × 単回吸入', label:'10 歳以上' },
+          { ageMaxMonths:120, mgPerDose:20, perDoseNote:'1 キット', freq:'単回', label:'10 歳未満' },
+          { ageMaxMonths:999, mgPerDose:40, perDoseNote:'2 キット', freq:'単回', label:'10 歳以上' },
         ],
         duration:'単回のみ',
         timing:'発症 48 時間以内',
@@ -2223,7 +2225,7 @@ const INFLUENZA_RX = {
       prophylaxis: {
         ageMinMonths:120,  // 10 歳以上のみ予防適応
         doseByAge: [
-          { ageMaxMonths:999, fixedDose:'20 mg × 1日 × 2日 or 40 mg 単回', label:'10 歳以上' },
+          { ageMaxMonths:999, fixedDose:'20 mg × 1日 × 2日 (または 40 mg 単回)', label:'10 歳以上' },
         ],
       },
       note:'単回吸入で治療完了できるため小児に人気。吸入手技に協力できる年齢から',
@@ -3000,6 +3002,28 @@ function attachAsthmaStep() {
 }
 
 // ── 抗インフルエンザ薬 選択ガイド ──────────────────────────
+// 1回量 + 服用回数 → "1日量 N mg (1回 X mg × 1日 Y 回)" 形式で表示するヘルパー
+function fmtFluDose(mgPerDose, freq, opts={}) {
+  const perDoseExtra = opts.perDoseExtra ? ` <span class="text-[11px] font-normal text-gray-600">(${esc(opts.perDoseExtra)})</span>` : ''
+  const duration = opts.duration ? ` <span class="text-[11px] font-normal text-gray-600">× ${esc(opts.duration)}</span>` : ''
+  const warn = opts.warn || ''
+  const freqStr = String(freq||'')
+  const timesMatch = freqStr.match(/(\d+)\s*回\s*\/\s*日/)
+  if (timesMatch) {
+    const n = +timesMatch[1]
+    const totalRaw = mgPerDose * n
+    const total = Number.isInteger(totalRaw) ? totalRaw : +totalRaw.toFixed(1)
+    const perRaw = mgPerDose
+    const per = Number.isInteger(+perRaw) ? perRaw : +(+perRaw).toFixed(1)
+    return `<div class="text-sm font-bold text-gray-900">1日量 ${total} mg${warn} <span class="text-[11px] font-normal text-gray-700">(1回 ${per} mg${perDoseExtra} × 1日 ${n} 回)</span>${duration}</div>`
+  }
+  // 単回・頓用など
+  const perRaw = mgPerDose
+  const per = Number.isInteger(+perRaw) ? perRaw : +(+perRaw).toFixed(1)
+  const freqLabel = freqStr && freqStr !== '1回' ? freqStr : '単回'
+  return `<div class="text-sm font-bold text-gray-900">1回 ${per} mg${warn}${perDoseExtra} <span class="text-[11px] font-normal text-gray-700">× ${esc(freqLabel)}</span>${duration}</div>`
+}
+
 function renderInfluenzaRx() {
   const w = parseFloat(state.fluWeight) || 0
   const rawAge = parseFloat(state.fluAge)
@@ -3031,27 +3055,34 @@ function renderInfluenzaRx() {
     if (ageOk) {
       // 1歳未満ルール (タミフル)
       if (drug.id === 'oseltamivir' && mode==='treatment' && ageMo != null && ageMo < 12 && w > 0) {
-        const dose = Math.min(w * spec.infantRule.perKgMg, spec.infantRule.maxPerDose).toFixed(1)
-        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${dose} mg × ${esc(spec.freq)} × ${esc(spec.duration)}</div>
-          <div class="text-[11px] text-gray-700">${esc(spec.infantRule.label)}</div>
-          <div class="text-[10px] text-gray-500">DS 3% なら ${(dose/30).toFixed(2)} g/回</div>`
+        const dose = +Math.min(w * spec.infantRule.perKgMg, spec.infantRule.maxPerDose).toFixed(1)
+        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration })
+          + `<div class="text-[11px] text-gray-700">${esc(spec.infantRule.label)}</div>`
+          + `<div class="text-[10px] text-gray-500">DS 3% なら 1回 ${(dose/30).toFixed(2)} g</div>`
       } else if (spec.doseByWeight && w > 0) {
         const bracket = spec.doseByWeight.find(b => w < b.maxKg) || spec.doseByWeight[spec.doseByWeight.length-1]
-        const dsStr = bracket.dsG ? ` (DS 3%: ${bracket.dsG} g/回)` : ''
-        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${bracket.mgPerDose} mg${dsStr} × ${esc(spec.freq)} × ${esc(spec.duration)}</div>
-          <div class="text-[11px] text-gray-700">体重 ${esc(bracket.label)}</div>`
+        const extra = bracket.dsG ? `DS 3%: 1回 ${bracket.dsG} g` : ''
+        doseDisplay = fmtFluDose(bracket.mgPerDose, spec.freq, { duration:spec.duration, perDoseExtra:extra })
+          + `<div class="text-[11px] text-gray-700">体重 ${esc(bracket.label)}</div>`
       } else if (spec.doseByAge && ageMo != null) {
         const bracket = spec.doseByAge.find(b => ageMo < b.ageMaxMonths) || spec.doseByAge[spec.doseByAge.length-1]
-        doseDisplay = `<div class="text-sm font-bold text-gray-900">${esc(bracket.fixedDose)}</div>
-          <div class="text-[11px] text-gray-700">${esc(bracket.label)}${spec.duration?' × '+esc(spec.duration):''}</div>`
+        if (bracket.mgPerDose) {
+          doseDisplay = fmtFluDose(bracket.mgPerDose, bracket.freq || spec.freq, { duration:spec.duration, perDoseExtra:bracket.perDoseNote })
+            + `<div class="text-[11px] text-gray-700">${esc(bracket.label)}</div>`
+        } else {
+          doseDisplay = `<div class="text-sm font-bold text-gray-900">${esc(bracket.fixedDose)}</div>
+            <div class="text-[11px] text-gray-700">${esc(bracket.label)}${spec.duration?' × '+esc(spec.duration):''}</div>`
+        }
+      } else if (spec.mgPerDose) {
+        doseDisplay = fmtFluDose(spec.mgPerDose, spec.freq, { duration:spec.duration, perDoseExtra:spec.perDoseNote })
       } else if (spec.fixedDose) {
         doseDisplay = `<div class="text-sm font-bold text-gray-900">${esc(spec.fixedDose)}${spec.duration?' × '+esc(spec.duration):''}</div>`
       } else if (spec.perKgMg && w > 0) {
-        const dose = Math.min(w * spec.perKgMg, spec.maxPerDose).toFixed(1)
+        const dose = +Math.min(w * spec.perKgMg, spec.maxPerDose).toFixed(1)
         const isCapped = w * spec.perKgMg > spec.maxPerDose
-        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${dose} mg${isCapped?' <span class="text-[9px] bg-amber-500 text-white px-1 rounded">⚠最大量</span>':''} (${spec.perKgMg} mg/kg、最大 ${spec.maxPerDose} mg)</div>
-          <div class="text-[11px] text-gray-700">${esc(spec.freq||'')} × ${esc(spec.duration||'')}</div>`
-        if (spec.maxSevere) doseDisplay += `<div class="text-[10px] text-gray-500">重症例は最大 ${spec.maxSevere} mg まで可</div>`
+        const warn = isCapped ? ' <span class="text-[9px] bg-amber-500 text-white px-1 rounded">⚠最大量</span>' : ''
+        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, warn })
+          + `<div class="text-[10px] text-gray-500">${spec.perKgMg} mg/kg、1回最大 ${spec.maxPerDose} mg${spec.maxSevere?`（重症例は最大 ${spec.maxSevere} mg）`:''}</div>`
       } else {
         doseDisplay = `<div class="text-[11px] text-gray-500">体重または年齢を入力してください</div>`
       }
