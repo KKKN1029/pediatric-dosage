@@ -13,12 +13,12 @@
   <meta name="apple-mobile-web-app-title" content="Pocket Wiki" />
   <meta name="theme-color" content="#2563eb" />
   <!-- バージョン付きで manifest / icon を参照 (リリース時に v=NN を更新) -->
-  <link rel="manifest" href="manifest.json?v=93" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=93" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=93" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=93" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=93" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=93" />
+  <link rel="manifest" href="manifest.json?v=94" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=94" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=94" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=94" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=94" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=94" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v93 / psl-cap-text-input</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v94 / influenza-guide</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '93'
+const BUILD_VERSION = '94'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -1528,6 +1528,11 @@ let state = {
   attackSeverity: 'moderate',      // mild|moderate|severe|critical (手動選択値)
   attackGradeAnswers: {},          // { awareness: 'mild'|'moderate'|'severe'|'critical', ... }
   attackSevSource: 'manual',       // 'manual' | 'auto' (Grade評価からの自動反映)
+  // 抗インフルエンザ薬 選択ガイド
+  fluWeight: '',
+  fluAge: '',
+  fluAgeUnit: 'years',
+  fluMode: 'treatment',            // 'treatment' | 'prophylaxis'
 }
 
 function setState(patch) { Object.assign(state, patch); render() }
@@ -1599,6 +1604,7 @@ function render() {
   else if (s==='atopy-ftu') { app.innerHTML=renderAtopyFtu(); attachAtopyFtu() }
   else if (s==='moisturizers') { app.innerHTML=renderMoisturizers(); attachMoisturizers() }
   else if (s==='steroid-equiv') { app.innerHTML=renderSteroidEquiv(); attachSteroidEquiv() }
+  else if (s==='influenza-rx') { app.innerHTML=renderInfluenzaRx(); attachInfluenzaRx() }
 }
 
 // ── ステロイド外用薬一覧 ───────────────────────────────────────
@@ -2149,6 +2155,124 @@ const ASTHMA_ATTACK = {
       },
     ],
   },
+}
+
+// ============================================================
+// 抗インフルエンザ薬 選択ガイド (治療 / 予防)
+//   タミフル / リレンザ / イナビル / ラピアクタ / ゾフルーザ
+//   年齢・体重から適応と用量を算出
+// ============================================================
+const INFLUENZA_RX = {
+  drugs: [
+    {
+      id:'oseltamivir', name:'オセルタミビル', brand:'タミフル®', color:'sky',
+      route:'経口', forms:['カプセル 75mg','ドライシロップ 3% (30mg/g)'],
+      treatment: {
+        ageMinMonths:0,  // 新生児にも使用可 (生後2週以降)
+        // 体重別の1回量
+        doseByWeight: [
+          { maxKg:15,  mgPerDose:30, dsG:1.0, label:'<15 kg' },
+          { maxKg:23,  mgPerDose:45, dsG:1.5, label:'15〜23 kg' },
+          { maxKg:40,  mgPerDose:60, dsG:2.0, label:'23〜40 kg' },
+          { maxKg:999, mgPerDose:75, dsG:2.5, label:'>40 kg or 成人' },
+        ],
+        infantRule: { ageMaxMonths:12, perKgMg:3, maxPerDose:30,
+                      label:'1歳未満: 3 mg/kg × 2回/日 (最大 30 mg/回)' },
+        freq:'2回/日', duration:'5日間',
+        timing:'発症 48 時間以内に開始',
+      },
+      prophylaxis: {
+        ageMinMonths:12,  // 1歳以上
+        doseByWeight: [
+          { maxKg:15,  mgPerDose:30, label:'<15 kg' },
+          { maxKg:23,  mgPerDose:45, label:'15〜23 kg' },
+          { maxKg:40,  mgPerDose:60, label:'23〜40 kg' },
+          { maxKg:999, mgPerDose:75, label:'>40 kg or 成人' },
+        ],
+        freq:'1回/日', duration:'10日間',
+        timing:'濃厚接触後 48 時間以内に開始',
+      },
+      note:'10代の異常行動報告あり → 現在は使用可だが保護者説明と注意観察が必要',
+    },
+    {
+      id:'zanamivir', name:'ザナミビル', brand:'リレンザ®', color:'teal',
+      route:'吸入 (ドライパウダー)', forms:['ロタディスク 5 mg × 4ブリスター'],
+      treatment: {
+        ageMinMonths:60,  // 5歳以上 (吸入手技に協力必要)
+        fixedDose:'10 mg (2 吸入) × 2回/日', duration:'5日間',
+        timing:'発症 48 時間以内',
+      },
+      prophylaxis: {
+        ageMinMonths:60,
+        fixedDose:'10 mg (2 吸入) × 1回/日', duration:'10日間',
+      },
+      note:'乳糖含有・気管支痙攣注意 (喘息既往は特に)。乾燥粉末のため吸入手技が必要',
+    },
+    {
+      id:'laninamivir', name:'ラニナミビル', brand:'イナビル®', color:'violet',
+      route:'吸入', forms:['吸入粉末剤 20 mg キット','吸入懸濁用セット 160 mg'],
+      treatment: {
+        ageMinMonths:0,  // 添付文書上は年齢制限なし (ただし吸入手技)
+        doseByAge: [
+          { ageMaxMonths:120, fixedDose:'20 mg (1 キット) × 単回吸入', label:'10 歳未満' },
+          { ageMaxMonths:999, fixedDose:'40 mg (2 キット) × 単回吸入', label:'10 歳以上' },
+        ],
+        duration:'単回のみ',
+        timing:'発症 48 時間以内',
+      },
+      prophylaxis: {
+        ageMinMonths:120,  // 10 歳以上のみ予防適応
+        doseByAge: [
+          { ageMaxMonths:999, fixedDose:'20 mg × 1日 × 2日 or 40 mg 単回', label:'10 歳以上' },
+        ],
+      },
+      note:'単回吸入で治療完了できるため小児に人気。吸入手技に協力できる年齢から',
+    },
+    {
+      id:'peramivir', name:'ペラミビル', brand:'ラピアクタ®', color:'orange',
+      route:'点滴静注', forms:['点滴用 150 mg/15mL バイアル','300 mg/60mL バッグ'],
+      treatment: {
+        ageMinMonths:0,  // 新生児から使用可
+        perKgMg:10, maxPerDose:300, maxSevere:600,
+        freq:'1回', duration:'通常 1 回。重症/免疫抑制例は 1 日 1 回を連日 (3日程度)',
+        timing:'発症 48 時間以内',
+      },
+      prophylaxis:null,  // 予防適応なし
+      note:'経口・吸入困難時 (重症・意識障害・嘔吐) の第一選択。入院例に多い',
+    },
+    {
+      id:'baloxavir', name:'バロキサビル', brand:'ゾフルーザ®', color:'rose',
+      route:'経口', forms:['錠 10 mg / 20 mg','顆粒 2% (20 mg/g)'],
+      treatment: {
+        ageMinMonths:0,  // 添付文書上は制限なし
+        doseByWeight: [
+          { maxKg:20,  mgPerDose:10, label:'<20 kg' },
+          { maxKg:40,  mgPerDose:20, label:'20〜40 kg' },
+          { maxKg:80,  mgPerDose:40, label:'40〜80 kg' },
+          { maxKg:999, mgPerDose:80, label:'≥80 kg or 成人標準' },
+        ],
+        freq:'単回', duration:'単回のみ',
+        timing:'発症 48 時間以内',
+      },
+      prophylaxis: {
+        ageMinMonths:144,  // 12 歳以上のみ予防適応
+        doseByWeight: [
+          { maxKg:20,  mgPerDose:10, label:'<20 kg' },
+          { maxKg:40,  mgPerDose:20, label:'20〜40 kg' },
+          { maxKg:80,  mgPerDose:40, label:'40〜80 kg' },
+          { maxKg:999, mgPerDose:80, label:'≥80 kg' },
+        ],
+        freq:'単回', timing:'濃厚接触後 48 時間以内',
+      },
+      note:'CAP依存エンドヌクレアーゼ阻害薬 (新機序)。小児では耐性変異ウイルス (I38 変異) 出現率が高く、12 歳未満は原則他剤を優先',
+    },
+  ],
+  generalNotes: [
+    '抗インフルエンザ薬は原則、発症 48 時間以内に開始すると効果が高い',
+    '48 時間以降でも、高リスク (乳幼児・免疫抑制・妊婦・慢性疾患既往) では投与検討',
+    '予防投与は、同居家族・濃厚接触者のうちハイリスク者に限定することが望ましい',
+    '10 代のオセルタミビル異常行動 — 服薬の有無に関わらずインフルエンザ罹患時は 2 日間程度は見守りを',
+  ],
 }
 
 // ============================================================
@@ -2873,6 +2997,150 @@ function attachAsthmaStep() {
       }
     })
   }
+}
+
+// ── 抗インフルエンザ薬 選択ガイド ──────────────────────────
+function renderInfluenzaRx() {
+  const w = parseFloat(state.fluWeight) || 0
+  const rawAge = parseFloat(state.fluAge)
+  const ageMo = Number.isFinite(rawAge) && rawAge >= 0
+    ? (state.fluAgeUnit === 'months' ? rawAge : rawAge * 12) : null
+  const mode = state.fluMode || 'treatment'
+  // 各薬剤を評価
+  const drugCards = INFLUENZA_RX.drugs.map(drug => {
+    const spec = drug[mode]
+    const colorBg = { sky:'border-sky-300 bg-sky-50', teal:'border-teal-300 bg-teal-50',
+                      violet:'border-violet-300 bg-violet-50', orange:'border-orange-300 bg-orange-50',
+                      rose:'border-rose-300 bg-rose-50' }[drug.color]
+    const colorBadge = { sky:'bg-sky-500', teal:'bg-teal-500', violet:'bg-violet-500',
+                         orange:'bg-orange-500', rose:'bg-rose-500' }[drug.color]
+    // 予防適応がない or 年齢・体重不足で使えない
+    if (!spec) {
+      return `<div class="rounded-xl border border-gray-200 bg-gray-50 opacity-60 p-3 space-y-1">
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-bold text-gray-600">${esc(drug.name)}</span>
+          <span class="text-[11px] text-gray-500">${esc(drug.brand)}</span>
+          <span class="text-[9px] bg-gray-300 text-gray-700 px-1.5 py-0.5 rounded">${mode==='prophylaxis'?'予防適応なし':'適応外'}</span>
+        </div>
+      </div>`
+    }
+    const ageOk = ageMo == null || ageMo >= spec.ageMinMonths
+    // 用量計算
+    let doseDisplay = ''
+    let ageSpecific = ''
+    if (ageOk) {
+      // 1歳未満ルール (タミフル)
+      if (drug.id === 'oseltamivir' && mode==='treatment' && ageMo != null && ageMo < 12 && w > 0) {
+        const dose = Math.min(w * spec.infantRule.perKgMg, spec.infantRule.maxPerDose).toFixed(1)
+        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${dose} mg × ${esc(spec.freq)} × ${esc(spec.duration)}</div>
+          <div class="text-[11px] text-gray-700">${esc(spec.infantRule.label)}</div>
+          <div class="text-[10px] text-gray-500">DS 3% なら ${(dose/30).toFixed(2)} g/回</div>`
+      } else if (spec.doseByWeight && w > 0) {
+        const bracket = spec.doseByWeight.find(b => w <= b.maxKg) || spec.doseByWeight[spec.doseByWeight.length-1]
+        const dsStr = bracket.dsG ? ` (DS 3%: ${bracket.dsG} g/回)` : ''
+        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${bracket.mgPerDose} mg${dsStr} × ${esc(spec.freq)} × ${esc(spec.duration)}</div>
+          <div class="text-[11px] text-gray-700">体重 ${esc(bracket.label)}</div>`
+      } else if (spec.doseByAge && ageMo != null) {
+        const bracket = spec.doseByAge.find(b => ageMo < b.ageMaxMonths) || spec.doseByAge[spec.doseByAge.length-1]
+        doseDisplay = `<div class="text-sm font-bold text-gray-900">${esc(bracket.fixedDose)}</div>
+          <div class="text-[11px] text-gray-700">${esc(bracket.label)}${spec.duration?' × '+esc(spec.duration):''}</div>`
+      } else if (spec.fixedDose) {
+        doseDisplay = `<div class="text-sm font-bold text-gray-900">${esc(spec.fixedDose)}${spec.duration?' × '+esc(spec.duration):''}</div>`
+      } else if (spec.perKgMg && w > 0) {
+        const dose = Math.min(w * spec.perKgMg, spec.maxPerDose).toFixed(1)
+        const isCapped = w * spec.perKgMg > spec.maxPerDose
+        doseDisplay = `<div class="text-sm font-bold text-gray-900">1回 ${dose} mg${isCapped?' <span class="text-[9px] bg-amber-500 text-white px-1 rounded">⚠最大量</span>':''} (${spec.perKgMg} mg/kg、最大 ${spec.maxPerDose} mg)</div>
+          <div class="text-[11px] text-gray-700">${esc(spec.freq||'')} × ${esc(spec.duration||'')}</div>`
+        if (spec.maxSevere) doseDisplay += `<div class="text-[10px] text-gray-500">重症例は最大 ${spec.maxSevere} mg まで可</div>`
+      } else {
+        doseDisplay = `<div class="text-[11px] text-gray-500">体重または年齢を入力してください</div>`
+      }
+    } else {
+      ageSpecific = `<div class="text-[11px] bg-rose-50 border border-rose-200 text-rose-700 rounded px-2 py-1">⚠ この年齢では ${mode==='treatment'?'治療':'予防'} 適応外 (${(spec.ageMinMonths/12).toFixed(spec.ageMinMonths<12?1:0)} 歳以上)</div>`
+    }
+    const timing = spec.timing ? `<div class="text-[10px] text-gray-500">⏱ ${esc(spec.timing)}</div>` : ''
+    const forms = drug.forms.map(f => `<li class="text-[10px] text-gray-600">▸ ${esc(f)}</li>`).join('')
+    const note = drug.note ? `<div class="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1 leading-relaxed">⚠ ${esc(drug.note)}</div>` : ''
+    return `<div class="rounded-xl border-2 ${ageOk?colorBg:'border-gray-200 bg-gray-50 opacity-70'} p-3 space-y-2">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="${colorBadge} text-white text-[10px] font-bold px-2 py-0.5 rounded">${esc(drug.brand)}</span>
+        <span class="text-sm font-bold text-gray-900">${esc(drug.name)}</span>
+        <span class="text-[10px] text-gray-500">${esc(drug.route)}</span>
+      </div>
+      ${ageSpecific}
+      ${ageOk ? doseDisplay : ''}
+      ${timing}
+      <details class="text-[10px]">
+        <summary class="text-gray-500 cursor-pointer">剤形 / 詳細</summary>
+        <ul class="mt-1 space-y-0.5">${forms}</ul>
+      </details>
+      ${note}
+    </div>`
+  }).join('')
+  const generalNotes = INFLUENZA_RX.generalNotes.map(n => `<li class="flex gap-2 text-[11px] text-gray-700 leading-relaxed"><span class="text-sky-500 shrink-0">▸</span><span>${esc(n)}</span></li>`).join('')
+  return `
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <button id="btn-flu-back" class="text-blue-600 text-3xl font-light w-8">‹</button>
+        <div class="flex-1 text-center min-w-0">
+          <div class="font-bold text-gray-900 text-base leading-tight">🦠 抗インフルエンザ薬 選択ガイド</div>
+          <div class="text-xs text-gray-500">年齢・体重から適応と用量を算出</div>
+        </div>
+        <div class="w-8"></div>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+        <div class="text-xs font-bold text-gray-700">⚖ 患者情報</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-500">体重 (kg)</label>
+            <input id="flu-weight" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" value="${esc(state.fluWeight)}" placeholder="例: 15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+          <div class="space-y-1 min-w-0">
+            <label class="text-[11px] text-gray-500">年齢</label>
+            <div class="flex gap-1 w-full min-w-0">
+              <input id="flu-age" type="text" inputmode="decimal" pattern="[0-9]*\.?[0-9]*" value="${esc(state.fluAge)}" placeholder="例: 5" class="flex-1 min-w-0 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+              <div class="flex rounded-lg overflow-hidden border border-gray-300 text-[11px] shrink-0">
+                ${['years','months'].map(u => `<button data-flu-unit="${u}" class="px-1.5 ${state.fluAgeUnit===u?'bg-sky-500 text-white':'bg-white text-gray-600'}">${u==='years'?'歳':'月'}</button>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">🎯 投与目的</div>
+        <div class="flex gap-2">
+          ${['treatment','prophylaxis'].map(m => `<button data-flu-mode="${m}" class="flex-1 py-2 text-sm font-bold border rounded-lg ${mode===m?'bg-sky-600 text-white border-sky-600':'bg-white text-gray-700 border-gray-300'}">${m==='treatment'?'💊 治療':'🛡 予防'}</button>`).join('')}
+        </div>
+      </section>
+      <section class="space-y-3">
+        <div class="text-xs font-bold text-gray-700 px-1">薬剤別 用量・適応</div>
+        ${drugCards}
+      </section>
+      <section class="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div class="text-xs font-bold text-gray-700">📘 共通ポイント</div>
+        <ul class="space-y-1.5">${generalNotes}</ul>
+      </section>
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">出典: 各薬剤添付文書 / 日本感染症学会 抗インフルエンザ薬使用方針 / 小児呼吸器感染症診療ガイドライン。本ツールは目安であり、担当医の判断で選択してください。</div>
+    </div>`
+}
+function attachInfluenzaRx() {
+  document.getElementById('btn-flu-back')?.addEventListener('click', () => setState({screen:'list', category:'抗ウイルス薬'}))
+  app.querySelectorAll('[data-flu-unit]').forEach(b => b.addEventListener('click', () => setState({fluAgeUnit:b.dataset.fluUnit})))
+  app.querySelectorAll('[data-flu-mode]').forEach(b => b.addEventListener('click', () => setState({fluMode:b.dataset.fluMode})))
+  const bindNum = (id, key) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.addEventListener('input', e => {
+      state[key] = e.target.value
+      render()
+      const nx = document.getElementById(id)
+      if (nx) { nx.focus(); try { const p = nx.value.length; nx.setSelectionRange(p, p) } catch {} }
+    })
+  }
+  bindNum('flu-weight', 'fluWeight')
+  bindNum('flu-age', 'fluAge')
 }
 
 // ── 全身ステロイド 力価換算 ────────────────────────────────
@@ -4853,6 +5121,19 @@ function buildListBodyHTML(query) {
           <span class="text-gray-300 text-lg shrink-0">›</span>
         </button>
       </li>` : ''
+    // 抗ウイルス薬カテゴリのトップに抗インフルエンザ薬ガイドカード
+    const isAntiviralCat = state.category === '抗ウイルス薬'
+    const antiviralCard = isAntiviralCat ? `
+      <li class="border-b-2 border-sky-200 bg-sky-50/40">
+        <button data-tool="influenza-rx" class="w-full flex items-center px-4 py-4 hover:bg-sky-100 active:bg-sky-200 text-left gap-3">
+          <span class="text-3xl shrink-0">🦠</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sky-900 text-base">抗インフルエンザ薬 選択ガイド</div>
+            <div class="text-xs text-gray-600 mt-0.5">年齢・体重 → タミフル / リレンザ / イナビル / ラピアクタ / ゾフルーザ 用量算出 (治療/予防)</div>
+          </div>
+          <span class="text-gray-300 text-lg shrink-0">›</span>
+        </button>
+      </li>` : ''
     // 喘息薬カテゴリでは先頭に JPGL 2023 治療ステップ判別ツールを 3 カード表示
     const isAsthmaCat = state.category === '喘息薬'
     const asthmaCard = isAsthmaCat ? `
@@ -4897,14 +5178,14 @@ function buildListBodyHTML(query) {
         </button>
       </li>` : ''
     const items = drugs.length===0
-      ? ((isTopicalCat || isAsthmaCat || isAllergyCat) ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
+      ? ((isTopicalCat || isAsthmaCat || isAllergyCat || isAntiviralCat) ? '' : `<div class="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-2"><span class="text-3xl">💊</span><span>薬剤が見つかりません</span></div>`)
       : (isFav ? drugs.map(drugListItem).join('') : renderListBySubcategory(drugs, drugListItem))
     mainContent = `
       <div class="px-4 py-2 bg-blue-600 flex items-center justify-between">
         <h2 class="text-sm font-bold text-white">${isFav?'お気に入り':esc(state.category)}</h2>
         <button id="btn-add-drug" class="text-xs text-white bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded-lg inline-flex items-center gap-1">${ICON.plus} 薬剤追加</button>
       </div>
-      <ul class="bg-white">${topicalCard}${asthmaCard}${allergyCard}${items}</ul>`
+      <ul class="bg-white">${topicalCard}${asthmaCard}${allergyCard}${antiviralCard}${items}</ul>`
   }
 
   return `
@@ -4931,6 +5212,8 @@ function attachListBody() {
       setState({screen:'moisturizers'})
     } else if (b.dataset.tool === 'steroid-equiv') {
       setState({screen:'steroid-equiv'})
+    } else if (b.dataset.tool === 'influenza-rx') {
+      setState({screen:'influenza-rx'})
     }
   }))
   app.querySelectorAll('[data-drug]').forEach(b => b.addEventListener('click', () => {
