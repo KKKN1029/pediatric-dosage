@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v96 / daily-dose-format</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v98 / tamiflu-perkg</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '96'
+const BUILD_VERSION = '98'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -2169,28 +2169,20 @@ const INFLUENZA_RX = {
       route:'経口', forms:['カプセル 75mg','ドライシロップ 3% (30mg/g)'],
       treatment: {
         ageMinMonths:0,  // 新生児にも使用可 (生後2週以降)
-        // 体重別の1回量
-        doseByWeight: [
-          { maxKg:15,  mgPerDose:30, dsG:1.0, label:'<15 kg' },
-          { maxKg:23,  mgPerDose:45, dsG:1.5, label:'15〜23 kg' },
-          { maxKg:40,  mgPerDose:60, dsG:2.0, label:'23〜40 kg' },
-          { maxKg:999, mgPerDose:75, dsG:2.5, label:'>40 kg or 成人' },
-        ],
-        infantRule: { ageMaxMonths:12, perKgMg:3, maxPerDose:30,
-                      label:'1歳未満: 3 mg/kg × 2回/日 (最大 30 mg/回)' },
+        // 1歳以上: 1回 2 mg/kg × 2回/日 (最大 75 mg/回・150 mg/日)
+        perKgMg:2, maxPerDose:75, dsConc:30,
+        infantRule: { ageMaxMonths:12, perKgMg:3, maxPerDose:75,
+                      label:'1歳未満 (生後2週以降): 1回 3 mg/kg × 2回/日 = 6 mg/kg/日' },
         freq:'2回/日', duration:'5日間',
         timing:'発症 48 時間以内に開始',
+        formulaNote:'1歳以上: 1回 2 mg/kg × 2回/日 = 4 mg/kg/日 (最大 150 mg/日)',
       },
       prophylaxis: {
         ageMinMonths:12,  // 1歳以上
-        doseByWeight: [
-          { maxKg:15,  mgPerDose:30, label:'<15 kg' },
-          { maxKg:23,  mgPerDose:45, label:'15〜23 kg' },
-          { maxKg:40,  mgPerDose:60, label:'23〜40 kg' },
-          { maxKg:999, mgPerDose:75, label:'>40 kg or 成人' },
-        ],
+        perKgMg:2, maxPerDose:75, dsConc:30,
         freq:'1回/日', duration:'10日間',
         timing:'濃厚接触後 48 時間以内に開始',
+        formulaNote:'1回 2 mg/kg × 1回/日 (最大 75 mg/日)',
       },
       note:'10代の異常行動報告あり → 現在は使用可だが保護者説明と注意観察が必要',
     },
@@ -2250,9 +2242,10 @@ const INFLUENZA_RX = {
         doseByWeight: [
           { maxKg:20,  mgPerDose:10, label:'<20 kg' },
           { maxKg:40,  mgPerDose:20, label:'20〜40 kg' },
-          { maxKg:80,  mgPerDose:40, label:'40〜80 kg' },
-          { maxKg:999, mgPerDose:80, label:'≥80 kg or 成人標準' },
+          { maxKg:80,  mgPerDose:40, label:'40〜80 kg (12歳未満は体重に関わらず最大40 mg)' },
+          { maxKg:999, mgPerDose:80, label:'≥80 kg (成人・12歳以上のみ、12歳未満は40 mg)' },
         ],
+        pedMaxMg:40,  // 12歳未満は体重に関わらず最大 40 mg (2020年添付文書)
         freq:'単回', duration:'単回のみ',
         timing:'発症 48 時間以内',
       },
@@ -2266,7 +2259,7 @@ const INFLUENZA_RX = {
         ],
         freq:'単回', timing:'濃厚接触後 48 時間以内',
       },
-      note:'CAP依存エンドヌクレアーゼ阻害薬 (新機序)。小児では耐性変異ウイルス (I38 変異) 出現率が高く、12 歳未満は原則他剤を優先',
+      note:'CAP依存エンドヌクレアーゼ阻害薬 (新機序)。小児では耐性変異ウイルス (I38 変異) 出現率が高く、12 歳未満は原則他剤を優先。80 mg 用量は成人・12歳以上かつ ≥80 kg のみ (2020年添付文書追加)',
     },
   ],
   generalNotes: [
@@ -3017,11 +3010,12 @@ function fmtFluDose(mgPerDose, freq, opts={}) {
     const per = Number.isInteger(+perRaw) ? perRaw : +(+perRaw).toFixed(1)
     return `<div class="text-sm font-bold text-gray-900">1日量 ${total} mg${warn} <span class="text-[11px] font-normal text-gray-700">(1回 ${per} mg${perDoseExtra} × 1日 ${n} 回)</span>${duration}</div>`
   }
-  // 単回・頓用など
+  // 単回・頓用: 1日量 = 1回量 として「1日量 X mg (1回 X mg × 単回)」で統一
   const perRaw = mgPerDose
   const per = Number.isInteger(+perRaw) ? perRaw : +(+perRaw).toFixed(1)
-  const freqLabel = freqStr && freqStr !== '1回' ? freqStr : '単回'
-  return `<div class="text-sm font-bold text-gray-900">1回 ${per} mg${warn}${perDoseExtra} <span class="text-[11px] font-normal text-gray-700">× ${esc(freqLabel)}</span>${duration}</div>`
+  // duration が「単回のみ」など単回を含む場合は冗長なので省略
+  const durKeep = /単回|単日/.test(opts.duration||'') ? '' : duration
+  return `<div class="text-sm font-bold text-gray-900">1日量 ${per} mg${warn} <span class="text-[11px] font-normal text-gray-700">(1回 ${per} mg${perDoseExtra} × 単回)</span>${durKeep}</div>`
 }
 
 function renderInfluenzaRx() {
@@ -3056,14 +3050,22 @@ function renderInfluenzaRx() {
       // 1歳未満ルール (タミフル)
       if (drug.id === 'oseltamivir' && mode==='treatment' && ageMo != null && ageMo < 12 && w > 0) {
         const dose = +Math.min(w * spec.infantRule.perKgMg, spec.infantRule.maxPerDose).toFixed(1)
-        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration })
-          + `<div class="text-[11px] text-gray-700">${esc(spec.infantRule.label)}</div>`
-          + `<div class="text-[10px] text-gray-500">DS 3% なら 1回 ${(dose/30).toFixed(2)} g</div>`
+        const conc = spec.dsConc || 30
+        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, perDoseExtra:`DS ${(conc/10).toFixed(0)}%: 1回 ${(dose/conc).toFixed(2)} g` })
+          + `<div class="text-[10px] text-gray-500">${esc(spec.infantRule.label)}</div>`
       } else if (spec.doseByWeight && w > 0) {
         const bracket = spec.doseByWeight.find(b => w < b.maxKg) || spec.doseByWeight[spec.doseByWeight.length-1]
         const extra = bracket.dsG ? `DS 3%: 1回 ${bracket.dsG} g` : ''
-        doseDisplay = fmtFluDose(bracket.mgPerDose, spec.freq, { duration:spec.duration, perDoseExtra:extra })
+        // 12歳未満キャップ (ゾフルーザ: 体重に関わらず最大 40 mg)
+        let actualDose = bracket.mgPerDose
+        let capNote = ''
+        if (spec.pedMaxMg && ageMo != null && ageMo < 144 && bracket.mgPerDose > spec.pedMaxMg) {
+          actualDose = spec.pedMaxMg
+          capNote = `<div class="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1 mt-1">⚠ 12歳未満は体重に関わらず最大 ${spec.pedMaxMg} mg に制限 (2020年添付文書)</div>`
+        }
+        doseDisplay = fmtFluDose(actualDose, spec.freq, { duration:spec.duration, perDoseExtra:extra })
           + `<div class="text-[11px] text-gray-700">体重 ${esc(bracket.label)}</div>`
+          + capNote
       } else if (spec.doseByAge && ageMo != null) {
         const bracket = spec.doseByAge.find(b => ageMo < b.ageMaxMonths) || spec.doseByAge[spec.doseByAge.length-1]
         if (bracket.mgPerDose) {
@@ -3081,8 +3083,9 @@ function renderInfluenzaRx() {
         const dose = +Math.min(w * spec.perKgMg, spec.maxPerDose).toFixed(1)
         const isCapped = w * spec.perKgMg > spec.maxPerDose
         const warn = isCapped ? ' <span class="text-[9px] bg-amber-500 text-white px-1 rounded">⚠最大量</span>' : ''
-        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, warn })
-          + `<div class="text-[10px] text-gray-500">${spec.perKgMg} mg/kg、1回最大 ${spec.maxPerDose} mg${spec.maxSevere?`（重症例は最大 ${spec.maxSevere} mg）`:''}</div>`
+        const dsNote = spec.dsConc ? `DS ${(spec.dsConc/10).toFixed(0)}%: 1回 ${(dose/spec.dsConc).toFixed(2)} g` : ''
+        doseDisplay = fmtFluDose(dose, spec.freq, { duration:spec.duration, warn, perDoseExtra:dsNote })
+          + `<div class="text-[10px] text-gray-500">${spec.formulaNote || `${spec.perKgMg} mg/kg、1回最大 ${spec.maxPerDose} mg${spec.maxSevere?`（重症例は最大 ${spec.maxSevere} mg）`:''}`}</div>`
       } else {
         doseDisplay = `<div class="text-[11px] text-gray-500">体重または年齢を入力してください</div>`
       }
