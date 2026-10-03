@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v102 / acne-colored-cards</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v103 / gist-merge-diseases</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '102'
+const BUILD_VERSION = '103'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -878,6 +878,9 @@ let DRUGS = [
 //   この埋め込みから id 単位でフォールバック補完する。
 // ============================================================
 const EMBEDDED_DRUGS_BY_ID = new Map(DRUGS.map(d => [d.id, d]))
+// 埋め込み疾患も Gist に無い場合はマージして常に表示するためのスナップショット
+const EMBEDDED_DISEASES_BY_ID = new Map(DISEASES.map(d => [d.id, d]))
+const EMBEDDED_DISEASE_CATEGORIES = Array.isArray(DISEASE_CATEGORIES) ? [...DISEASE_CATEGORIES] : []
 // 各薬剤カテゴリ内のサブカテゴリ並び順 (Gist 由来。data.subcategoryOrder で差し替える)
 let SUBCATEGORY_ORDER = {}
 // サブサブカテゴリ並び順: { [カテゴリ]: { [サブカテゴリ]: [サブサブ1, サブサブ2, ...] } }
@@ -962,10 +965,22 @@ function applyMasterData(data) {
   if (data.subsubcategoryOrder && typeof data.subsubcategoryOrder === 'object') {
     SUBSUBCATEGORY_ORDER = data.subsubcategoryOrder
   }
-  if (Array.isArray(data.diseases)) DISEASES = data.diseases
+  if (Array.isArray(data.diseases)) {
+    // 埋め込みに存在するが Gist に無い疾患は末尾に追加 (薬剤と同じ merge 戦略)
+    const gistDiseaseIds = new Set(data.diseases.map(x => x && x.id).filter(Boolean))
+    const embOnlyDiseases = [...EMBEDDED_DISEASES_BY_ID.values()].filter(x => x && x.id && !gistDiseaseIds.has(x.id))
+    DISEASES = embOnlyDiseases.length ? [...data.diseases, ...embOnlyDiseases] : data.diseases
+  }
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
-  if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) DISEASE_CATEGORIES = data.diseaseCategories
+  if (Array.isArray(data.diseaseCategories) && data.diseaseCategories.length) {
+    // 疾患カテゴリも埋め込み分をマージ (Gist に無いカテゴリは追加)
+    const merged = [...data.diseaseCategories]
+    for (const c of EMBEDDED_DISEASE_CATEGORIES) {
+      if (c && !merged.includes(c)) merged.push(c)
+    }
+    DISEASE_CATEGORIES = merged
+  }
   // ステロイド外用薬データ (Gist 経由の同期)
   if (typeof STEROID_RANKS !== 'undefined') {
     if (Array.isArray(data.steroidRanks))      STEROID_RANKS = data.steroidRanks
@@ -1102,24 +1117,32 @@ async function autoSyncEmbeddedAdditions(gistId, gistData) {
   try { token = JSON.parse(tokenRaw) } catch { token = tokenRaw }
   if (!token || typeof token !== 'string') return
 
-  // 差分検出
+  // 差分検出 (薬剤 / 薬剤カテゴリ / 疾患 / 疾患カテゴリ)
   const gistDrugIds = new Set((gistData.drugs || []).map(x => x && x.id).filter(Boolean))
   const newDrugs = [...EMBEDDED_DRUGS_BY_ID.entries()]
     .filter(([id]) => !gistDrugIds.has(id))
     .map(([, emb]) => emb)
   const gistCatSet = new Set(gistData.drugCategories || [])
-  // 埋め込み CATEGORIES + 追加された DRUGS のカテゴリ両方をチェック
   const embCats = new Set(CATEGORIES || [])
   newDrugs.forEach(d => { if (d && d.category) embCats.add(d.category) })
   const newCats = [...embCats].filter(c => c && !gistCatSet.has(c))
 
-  if (newDrugs.length === 0 && newCats.length === 0) return
+  const gistDiseaseIds = new Set((gistData.diseases || []).map(x => x && x.id).filter(Boolean))
+  const newDiseases = [...EMBEDDED_DISEASES_BY_ID.entries()]
+    .filter(([id]) => !gistDiseaseIds.has(id))
+    .map(([, emb]) => emb)
+  const gistDiseaseCatSet = new Set(gistData.diseaseCategories || [])
+  const newDiseaseCats = EMBEDDED_DISEASE_CATEGORIES.filter(c => c && !gistDiseaseCatSet.has(c))
+
+  if (newDrugs.length === 0 && newCats.length === 0 && newDiseases.length === 0 && newDiseaseCats.length === 0) return
 
   __autoSyncRunning = true
   try {
     const nextData = {...gistData}
     nextData.drugs = [...(gistData.drugs || []), ...newDrugs]
     nextData.drugCategories = [...(gistData.drugCategories || []), ...newCats]
+    if (newDiseases.length) nextData.diseases = [...(gistData.diseases || []), ...newDiseases]
+    if (newDiseaseCats.length) nextData.diseaseCategories = [...(gistData.diseaseCategories || []), ...newDiseaseCats]
     nextData.updatedAt = new Date().toISOString()
 
     const res = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -1144,12 +1167,15 @@ async function autoSyncEmbeddedAdditions(gistId, gistData) {
     try {
       const msg = document.createElement('div')
       msg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0369a1;color:white;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:320px;line-height:1.4'
-      msg.textContent = `📦 Gist に同期しました: 薬剤+${newDrugs.length} / カテゴリ+${newCats.length}`
+      const parts = [`薬剤+${newDrugs.length}`, `カテゴリ+${newCats.length}`]
+      if (newDiseases.length) parts.push(`疾患+${newDiseases.length}`)
+      if (newDiseaseCats.length) parts.push(`疾患カテゴリ+${newDiseaseCats.length}`)
+      msg.textContent = `📦 Gist に同期しました: ${parts.join(' / ')}`
       document.body.appendChild(msg)
       setTimeout(() => { msg.style.opacity = '0'; msg.style.transition = 'opacity .3s' }, 3500)
       setTimeout(() => msg.remove(), 4000)
     } catch {}
-    console.log(`[Gist auto-sync] +${newDrugs.length} 薬剤 / +${newCats.length} カテゴリ`)
+    console.log(`[Gist auto-sync] +${newDrugs.length} 薬剤 / +${newCats.length} カテゴリ / +${newDiseases.length} 疾患 / +${newDiseaseCats.length} 疾患カテゴリ`)
   } catch (e) {
     console.warn('[Gist auto-sync 例外]', e.message)
   } finally {
