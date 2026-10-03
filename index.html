@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v103 / gist-merge-diseases</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v104 / prefer-embedded</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '103'
+const BUILD_VERSION = '104'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -166,8 +166,11 @@ let IV_FLUID_TABLES = [
 
 let DISEASES = [
   // 【尋常性ざ瘡 (ニキビ)】"どの処方を出すか・何て説明するか" を軸にした実臨床版
+  //   preferEmbedded:true → 構造化データ (type:'prescriptionCards' 等) を含むため、
+  //   Gist 上の古い版があっても常に埋め込み版を優先する。
   {
     id:'acne-vulgaris',
+    preferEmbedded:true,
     name:'尋常性ざ瘡 (ニキビ)',
     englishName:'Acne vulgaris',
     category:'皮膚',
@@ -824,51 +827,51 @@ let DRUGS = [
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布 (パール粒大/全顔)',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'第3世代レチノイド。面皰融解・新生面皰抑制。使用開始 2〜4週 に乾燥・紅斑・皮むけ (adapalene reaction) → 保湿併用必須。催奇形性なし。',
-    sideEffects:'乾燥、紅斑、皮むけ、刺激感、日光過敏', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'乾燥、紅斑、皮むけ、刺激感、日光過敏', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'bpo', genericName:'過酸化ベンゾイル (BPO)', abbreviation:'BPO', brandNames:['ベピオゲル 2.5%','ベピオローション 2.5%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 2.5% 15g','ローション 2.5% 15g'], adultDose:'1日1回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'角質剥離・抗菌 (耐性誘導なし)。衣類・タオル・寝具を 脱色 (白斑化) → 使用後の付着注意。乾燥・刺激強め → 少量から・保湿必須。',
-    sideEffects:'乾燥、刺激、紅斑、衣類脱色', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'乾燥、刺激、紅斑、衣類脱色', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'epiduo', genericName:'過酸化ベンゾイル/アダパレン配合', abbreviation:'BPO/アダパレン', brandNames:['エピデュオゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 2.5% + アダパレン 0.1%) 15g'], adultDose:'1日1回 夕 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'BPO + アダパレン の配合剤。面皰 + 炎症性皮疹の両方に有効。1剤で2作用の利便性だが刺激感は BPO/アダパレン 単剤より強い → 保湿必須。',
-    sideEffects:'乾燥、紅斑、刺激感 (単剤より強)', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'乾燥、紅斑、刺激感 (単剤より強)', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'duac', genericName:'過酸化ベンゾイル/クリンダマイシン配合', abbreviation:'BPO/クリンダ', brandNames:['デュアック配合ゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 3% + クリンダマイシン 1%) 15g'], adultDose:'1日1回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'BPO + 抗菌薬 の配合剤。炎症性皮疹に強い。BPO 併用により クリンダマイシン耐性 P.acnes の出現を抑制。',
-    sideEffects:'乾燥、刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'乾燥、刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'clindamycin-topical', genericName:'クリンダマイシン外用', abbreviation:'クリンダマイシン外用', brandNames:['ダラシンTゲル 1%','ダラシンTローション 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 1% 10g','ローション 1% 10mL'], adultDose:'1日2回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日2回 塗布'},
     ],
     notes:'抗菌薬外用。単独で漫然使用すると耐性菌 → BPO と併用または3ヶ月以内に。',
-    sideEffects:'乾燥、刺激、まれに接触皮膚炎', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'乾燥、刺激、まれに接触皮膚炎', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'nadifloxacin-topical', genericName:'ナジフロキサシン外用', abbreviation:'ナジフロキサシン', brandNames:['アクアチムクリーム 1%','アクアチムローション 1%','アクアチム軟膏 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['クリーム 1% 10g','ローション 1% 10mL','軟膏 1% 10g'], adultDose:'1日2回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'小児 (添付文書で年齢制限なし)',ageMinMonths:0,purpose:'治療',fixedDose:'1日2回 塗布',notes:'低年齢小児の臨床データは限定的'},
     ],
     notes:'ニューキノロン外用。クリンダマイシン外用の代替。',
-    sideEffects:'刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
+    sideEffects:'刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true, preferEmbedded:true},
   { id:'doxycycline', genericName:'ドキシサイクリン', abbreviation:'DOXY', brandNames:['ビブラマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg'], adultDose:'初日 200mg (分2)、以降 100mg/日 (分1)',
     pediatricDoses:[
       {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
     ],
     notes:'8歳未満禁忌 (歯牙着色・骨発育抑制)。食道刺激 → 多量の水で服用し就寝前は避ける。光線過敏に注意。',
     sideEffects:'悪心、下痢、光線過敏、食道刺激、歯牙着色 (8歳未満)',
-    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true},
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true, preferEmbedded:true},
   { id:'minocycline', genericName:'ミノサイクリン', abbreviation:'MINO', brandNames:['ミノマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg','顆粒 2%'], adultDose:'初回 100〜200mg、以降 100mg × 2回/日 (または 50mg × 2回/日)',
     pediatricDoses:[
       {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
     ],
     notes:'8歳未満禁忌。長期使用で めまい・皮膚色素沈着・血清病様反応・SLE様症状の報告 → 短期間 (3ヶ月以内) に。',
     sideEffects:'めまい、悪心、光線過敏、色素沈着、血清病様反応、SLE 様症状、歯牙着色 (8歳未満)',
-    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true},
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true, preferEmbedded:true},
 ]
 
 // ============================================================
@@ -934,6 +937,8 @@ function applyMasterData(data) {
     const merged = data.drugs.map(d => {
       const emb = EMBEDDED_DRUGS_BY_ID.get(d.id)
       if (!emb) return d
+      // preferEmbedded:true の薬剤は常に埋め込み版を優先 (構造化データや pending の整合性維持)
+      if (emb.preferEmbedded) return emb
       const m = {...d}
       if (!m.ivDilution && emb.ivDilution) m.ivDilution = emb.ivDilution
       if ((!Array.isArray(m.formulations) || m.formulations.length === 0) && Array.isArray(emb.formulations) && emb.formulations.length) {
@@ -966,10 +971,14 @@ function applyMasterData(data) {
     SUBSUBCATEGORY_ORDER = data.subsubcategoryOrder
   }
   if (Array.isArray(data.diseases)) {
-    // 埋め込みに存在するが Gist に無い疾患は末尾に追加 (薬剤と同じ merge 戦略)
     const gistDiseaseIds = new Set(data.diseases.map(x => x && x.id).filter(Boolean))
+    // preferEmbedded:true の疾患は Gist の同 id 版を埋め込み版で置き換える
+    //   (code 管理の構造化データが Gist 上の古い版で上書きされないようにする)
+    const preferEmbedMap = new Map([...EMBEDDED_DISEASES_BY_ID.entries()].filter(([, d]) => d && d.preferEmbedded))
+    const mergedGist = data.diseases.map(d => (d && preferEmbedMap.get(d.id)) || d)
+    // Gist に無い埋め込み疾患は末尾に追加
     const embOnlyDiseases = [...EMBEDDED_DISEASES_BY_ID.values()].filter(x => x && x.id && !gistDiseaseIds.has(x.id))
-    DISEASES = embOnlyDiseases.length ? [...data.diseases, ...embOnlyDiseases] : data.diseases
+    DISEASES = embOnlyDiseases.length ? [...mergedGist, ...embOnlyDiseases] : mergedGist
   }
   if (Array.isArray(data.ivFluidTables)) IV_FLUID_TABLES = data.ivFluidTables
   if (Array.isArray(data.drugCategories) && data.drugCategories.length) CATEGORIES = data.drugCategories
