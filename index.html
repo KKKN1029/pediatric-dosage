@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v99 / perkg-daily-prefix</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v100 / acne-disease</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '99'
+const BUILD_VERSION = '100'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -85,7 +85,7 @@ let CATEGORIES = [
 // 疾患マスターデータ
 // ============================================================
 
-let DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','その他']
+let DISEASE_CATEGORIES = ['呼吸器','感染症','消化器','循環器','神経','皮膚','その他']
 
 // 各 fluid: {name, Na, K, Cl, Ca, Mg, buffer, glucose, note}
 //   buffer: 緩衝剤を文字列でまとめて表示（例: "乳酸 28", "酢酸 25", "乳酸 8 + 酢酸 20"）
@@ -165,35 +165,51 @@ let IV_FLUID_TABLES = [
 ]
 
 let DISEASES = [
-  // 疾患データは先生が追加・確認することで表示されます
-  // 例: 下記の構造で追加してください
-  // {
-  //   id: 'cap',
-  //   name: '市中肺炎',
-  //   englishName: 'Community-acquired pneumonia',
-  //   abbreviation: 'CAP',
-  //   category: '呼吸器',
-  //   tags: ['肺炎', 'CAP'],
-  //   points: ['ポイント1', 'ポイント2'],
-  //   sections: [
-  //     { title: '診断', content: '内容' },
-  //     { title: '治療', content: '内容' },
-  //   ],
-  //   relatedDrugIds: ['azithromycin'],
-  //   references: ['参考文献'],
-  //   notes: ''
-  // },
+  // 【尋常性ざ瘡 (ニキビ)】日皮会ガイドライン 2017 ベース
+  {
+    id:'acne-vulgaris',
+    name:'尋常性ざ瘡 (ニキビ)',
+    englishName:'Acne vulgaris',
+    category:'皮膚',
+    tags:['ニキビ','ざ瘡','acne','思春期','毛包脂腺'],
+    points:[
+      '面皰 (白ニキビ・黒ニキビ) が初期病変。炎症性に進展 → 丘疹・膿疱 → 結節・嚢胞',
+      '治療の軸は 外用レチノイド (アダパレン) + 過酸化ベンゾイル (BPO) + 必要時 抗菌薬',
+      '抗菌薬単独は耐性菌を増やす → BPO/配合剤と併用し 3ヶ月以内に留める',
+      '12歳未満: アダパレン・BPO ともに添付文書で "有効性・安全性未確立"',
+      'スキンケア (低刺激洗浄・保湿) と増悪因子回避 (こすり・被覆) の指導が治療と同等に重要',
+    ],
+    sections:[
+      { title:'重症度分類 (日皮会 2017)',
+        content:'片顔面の 炎症性皮疹 (丘疹・膿疱) 個数で判定\n\n• 軽症: ≤ 5個\n• 中等症: 6〜20個\n• 重症: 21〜50個 または結節・嚢胞あり\n• 最重症: >50個、または結節・嚢胞多発' },
+      { title:'第一選択の外用薬',
+        content:'【面皰 (白・黒) 中心 → 軽症】\n• アダパレン 0.1% ゲル (ディフェリン®) 1日1回 夕 洗顔後\n• または 過酸化ベンゾイル 2.5% ゲル (ベピオ®) 1日1回\n• または BPO/アダパレン配合 (エピデュオ®) 1日1回\n\n【炎症性皮疹あり → 中等症】\n• 上記 + 抗菌薬外用 (クリンダマイシン / ナジフロキサシン)\n• または BPO/クリンダマイシン配合 (デュアック®) 1日1回\n\n【重症・最重症】\n• 外用 (エピデュオ or デュアック + アダパレン) + 内服抗菌薬を併用' },
+      { title:'内服抗菌薬 (中等症〜重症)',
+        content:'【第一選択・8歳以上】\n• ドキシサイクリン (ビブラマイシン®) 50〜100 mg × 1〜2回/日\n• ミノサイクリン (ミノマイシン®) 50〜100 mg × 1〜2回/日\n× 8歳未満は 歯牙着色・骨発育抑制 → 禁忌\n\n【8歳未満 or テトラサイクリン使用困難】\n• クラリスロマイシン (クラリス®) 10〜15 mg/kg/日 分2 (成人 400 mg/日)\n• ロキシスロマイシン (ルリッド®) 150 mg × 2回/日\n\n【期間】原則 3ヶ月以内、改善後は外用維持療法に切替\n【耐性菌予防】漫然投与しない。BPO 併用で耐性菌抑制' },
+      { title:'外用薬の使い方・注意',
+        content:'• アダパレン・BPO とも 初期 2〜4週 に 乾燥・皮むけ・刺激感 → 保湿剤 (ヒルドイド等) 併用必須\n• 塗布量: アダパレンは 顔全体で パール粒大、BPO は少なめから\n• BPO は 衣類・タオル・寝具を脱色 (白斑化) → 使用後の付着注意\n• 日光過敏 (特にレチノイド) → 日中は日焼け止め推奨\n• 洗顔 1日2回・低刺激・擦らない\n• アダパレンは 催奇形性なし、BPO は妊娠中も使用可 (添付文書は慎重投与)' },
+      { title:'ホルモン療法 (女性・難治例)',
+        content:'• 月経前増悪型・多嚢胞性卵巣症候群 (PCOS) 疑い → 低用量ピル (LEP/OC) 考慮 (15歳以上)\n• スピロノラクトン は 日本ではざ瘡保険適用外 (off-label)\n• 外来処方前に 月経歴・多毛・肥満 の問診を' },
+      { title:'患者・家族への指導',
+        content:'• ニキビは「病気」。早期治療で瘢痕 (ニキビ跡) を防げる\n• 自分でつぶす・ピンセットで出す → 瘢痕化・感染の原因 → 禁止\n• 洗顔は 泡で優しく、1日2回まで\n• 保湿は必須 (アダパレン・BPO 使用開始時は特に)\n• 改善まで 4〜8週 (初期は刺激で悪化感も)\n• 髪・手で擦らない、長時間マスク・被覆を避ける\n• 高GI食・乳製品大量摂取で増悪の報告あり (チョコ・ピーナツはエビデンス弱)\n× ステロイド外用の長期連用 → ステロイドざ瘡 → 原則禁忌' },
+      { title:'皮膚科紹介のタイミング',
+        content:'• 外用 + 内服 4〜8週 で改善なし\n• 結節・嚢胞・瘢痕化が進行\n• 色素沈着 (炎症後色素沈着 PIH) で QOL 低下\n• イソトレチノイン (国内未承認) 検討例 → 専門医紹介' },
+    ],
+    relatedDrugIds:['adapalene','bpo','epiduo','duac','clindamycin-topical','doxycycline','minocycline','clarithromycin'],
+    references:['尋常性痤瘡治療ガイドライン 2017 (日本皮膚科学会)','皮膚科の臨床 ざ瘡治療 標準レジメン'],
+    notes:'小児科外来では 中学生以降の軽〜中等症に外用で対応可。重症・瘢痕傾向は皮膚科紹介を躊躇しない。',
+  },
 ]
 
 let DRUGS = [
   // 抗ウイルス薬
-  { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
+  { id:'oseltamivir', genericName:'オセルタミビルリン酸塩', abbreviation:'オセルタミビル', brandNames:['タミフル'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'内服', formulations:['カプセル 75mg','DS 30mg/g'], adultDose:'治療: 150mg/日（分2・5日間）　予防: 75mg/日（分1・7〜10日間）',
     pediatricDoses:[
       {ageLabel:'新生児〜1歳未満',ageMinMonths:0,ageMaxMonths:12,purpose:'治療',dosePerKg:6,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
       {ageLabel:'1歳以上（治療）',ageMinMonths:12,purpose:'治療',dosePerKg:4,maxDosePerDay:150,frequency:'分2',duration:'5日間'},
       {ageLabel:'12歳以上（予防）',ageMinMonths:144,purpose:'予防',dosePerKg:2,maxDosePerDay:75,frequency:'分1',duration:'7〜10日間'},
     ], notes:'インフルエンザ罹患時には異常行動による事故に対する予防的対応を講じることを患者の家族に説明する。腎機能障害のある患者では投与法変更を要する。', sideEffects:'悪心、嘔吐', references:['新 小児薬用量 改訂第9版']},
-  { id:'zanamivir', genericName:'ザナミビル水和物', abbreviation:'ザナミビル', brandNames:['リレンザ'], category:'抗ウイルス薬', route:'吸入', formulations:['ドライパウダー 5mg/ブリスター'], adultDose:'治療: 20mg/日（分2・5日間）　予防: 10mg/日（分1・10日間）',
+  { id:'zanamivir', genericName:'ザナミビル水和物', abbreviation:'ザナミビル', brandNames:['リレンザ'], category:'抗ウイルス薬', subcategory:'抗インフルエンザ薬', route:'吸入', formulations:['ドライパウダー 5mg/ブリスター'], adultDose:'治療: 20mg/日（分2・5日間）　予防: 10mg/日（分1・10日間）',
     pediatricDoses:[
       {ageLabel:'7歳6ヶ月以上（治療）',ageMinMonths:90,purpose:'治療',fixedDose:'10mg（2吸入）を1日2回',frequency:'分2',duration:'5日間'},
       {ageLabel:'7歳6ヶ月以上（予防）',ageMinMonths:90,purpose:'予防',fixedDose:'10mg（2吸入）を1日1回',frequency:'分1',duration:'10日間'},
@@ -758,6 +774,59 @@ let DRUGS = [
     ],
     notes:'日本で承認された唯一の1歳以上の小児適応を有するPPI (2022年11月承認、2024年6月用量追加)。投与期間: 胃潰瘍・吻合部潰瘍 最大8週間 / 十二指腸潰瘍 最大6週間 / 逆流性食道炎 最大8週間。酸分泌抑制力が最強。H.pylori除菌・重症逆流性食道炎の第一選択。小児顆粒剤・静注あり。オメプラゾールの光学異性体でCYP2C19多型による効果差を改良。',
     references:['新 小児薬用量 改訂第10版']},
+  // ────────────────────────────────────────────────
+  // ざ瘡治療薬 (外用・内服)
+  // ────────────────────────────────────────────────
+  { id:'adapalene', genericName:'アダパレン', abbreviation:'アダパレン', brandNames:['ディフェリンゲル 0.1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 0.1% 15g チューブ'], adultDose:'1日1回 夕 洗顔後に面皰部位へ薄く塗布',
+    pediatricDoses:[
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布 (パール粒大/全顔)',notes:'12歳未満は有効性・安全性未確立'},
+    ],
+    notes:'第3世代レチノイド。面皰融解・新生面皰抑制。使用開始 2〜4週 に乾燥・紅斑・皮むけ (adapalene reaction) → 保湿併用必須。催奇形性なし。',
+    sideEffects:'乾燥、紅斑、皮むけ、刺激感、日光過敏', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'bpo', genericName:'過酸化ベンゾイル (BPO)', abbreviation:'BPO', brandNames:['ベピオゲル 2.5%','ベピオローション 2.5%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 2.5% 15g','ローション 2.5% 15g'], adultDose:'1日1回 洗顔後に塗布',
+    pediatricDoses:[
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
+    ],
+    notes:'角質剥離・抗菌 (耐性誘導なし)。衣類・タオル・寝具を 脱色 (白斑化) → 使用後の付着注意。乾燥・刺激強め → 少量から・保湿必須。',
+    sideEffects:'乾燥、刺激、紅斑、衣類脱色', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'epiduo', genericName:'過酸化ベンゾイル/アダパレン配合', abbreviation:'BPO/アダパレン', brandNames:['エピデュオゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 2.5% + アダパレン 0.1%) 15g'], adultDose:'1日1回 夕 洗顔後に塗布',
+    pediatricDoses:[
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布',notes:'12歳未満は有効性・安全性未確立'},
+    ],
+    notes:'BPO + アダパレン の配合剤。面皰 + 炎症性皮疹の両方に有効。1剤で2作用の利便性だが刺激感は BPO/アダパレン 単剤より強い → 保湿必須。',
+    sideEffects:'乾燥、紅斑、刺激感 (単剤より強)', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'duac', genericName:'過酸化ベンゾイル/クリンダマイシン配合', abbreviation:'BPO/クリンダ', brandNames:['デュアック配合ゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 3% + クリンダマイシン 1%) 15g'], adultDose:'1日1回 洗顔後に塗布',
+    pediatricDoses:[
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
+    ],
+    notes:'BPO + 抗菌薬 の配合剤。炎症性皮疹に強い。BPO 併用により クリンダマイシン耐性 P.acnes の出現を抑制。',
+    sideEffects:'乾燥、刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'clindamycin-topical', genericName:'クリンダマイシン外用', abbreviation:'クリンダマイシン外用', brandNames:['ダラシンTゲル 1%','ダラシンTローション 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 1% 10g','ローション 1% 10mL'], adultDose:'1日2回 洗顔後に塗布',
+    pediatricDoses:[
+      {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日2回 塗布'},
+    ],
+    notes:'抗菌薬外用。単独で漫然使用すると耐性菌 → BPO と併用または3ヶ月以内に。',
+    sideEffects:'乾燥、刺激、まれに接触皮膚炎', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'nadifloxacin-topical', genericName:'ナジフロキサシン外用', abbreviation:'ナジフロキサシン', brandNames:['アクアチムクリーム 1%','アクアチムローション 1%','アクアチム軟膏 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['クリーム 1% 10g','ローション 1% 10mL','軟膏 1% 10g'], adultDose:'1日2回 洗顔後に塗布',
+    pediatricDoses:[
+      {ageLabel:'小児 (添付文書で年齢制限なし)',ageMinMonths:0,purpose:'治療',fixedDose:'1日2回 塗布',notes:'低年齢小児の臨床データは限定的'},
+    ],
+    notes:'ニューキノロン外用。クリンダマイシン外用の代替。',
+    sideEffects:'刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017']},
+  { id:'doxycycline', genericName:'ドキシサイクリン', abbreviation:'DOXY', brandNames:['ビブラマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg'], adultDose:'初日 200mg (分2)、以降 100mg/日 (分1)',
+    pediatricDoses:[
+      {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
+    ],
+    notes:'8歳未満禁忌 (歯牙着色・骨発育抑制)。食道刺激 → 多量の水で服用し就寝前は避ける。光線過敏に注意。',
+    sideEffects:'悪心、下痢、光線過敏、食道刺激、歯牙着色 (8歳未満)',
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版']},
+  { id:'minocycline', genericName:'ミノサイクリン', abbreviation:'MINO', brandNames:['ミノマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg','顆粒 2%'], adultDose:'初回 100〜200mg、以降 100mg × 2回/日 (または 50mg × 2回/日)',
+    pediatricDoses:[
+      {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
+    ],
+    notes:'8歳未満禁忌。長期使用で めまい・皮膚色素沈着・血清病様反応・SLE様症状の報告 → 短期間 (3ヶ月以内) に。',
+    sideEffects:'めまい、悪心、光線過敏、色素沈着、血清病様反応、SLE 様症状、歯牙着色 (8歳未満)',
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版']},
 ]
 
 // ============================================================
