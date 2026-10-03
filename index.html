@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v104 / prefer-embedded</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v105 / check-sync-fix</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '104'
+const BUILD_VERSION = '105'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -959,9 +959,20 @@ function applyMasterData(data) {
     //   ・代わりに編集ツールが check1/check2 を Gist に同期するため、
     //     データの正本は Gist 側で一貫管理される
   }
-  // Gist に check1 / check2 が同梱されていれば localStorage に反映 (Gist が正本)
-  if (Array.isArray(data.check1)) LS.set('check1', data.check1)
-  if (Array.isArray(data.check2)) LS.set('check2', data.check2)
+  // Gist に check1 / check2 が同梱されていれば localStorage に反映
+  //   ただし Gist 側に存在しない (= 埋め込みのみの) drug id の check は保持する
+  //   そうしないと アプリ側で押した新規薬剤のチェックが リロードで消えてしまう
+  if (Array.isArray(data.check1) || Array.isArray(data.check2)) {
+    const gistDrugIds = new Set((data.drugs || []).map(x => x && x.id).filter(Boolean))
+    if (Array.isArray(data.check1)) {
+      const preserved = [...loadCheck1()].filter(id => !gistDrugIds.has(id))
+      LS.set('check1', [...new Set([...data.check1, ...preserved])])
+    }
+    if (Array.isArray(data.check2)) {
+      const preserved = [...loadCheck2()].filter(id => !gistDrugIds.has(id))
+      LS.set('check2', [...new Set([...data.check2, ...preserved])])
+    }
+  }
   // サブカテゴリ並び順 (カテゴリ→[サブ1,サブ2,...] のオブジェクト)
   if (data.subcategoryOrder && typeof data.subcategoryOrder === 'object') {
     SUBCATEGORY_ORDER = data.subcategoryOrder
@@ -1284,6 +1295,52 @@ const toggleCheck = (id, level) => {
   const set = level === 1 ? loadCheck1() : loadCheck2()
   set.has(id) ? set.delete(id) : set.add(id)
   ;(level === 1 ? saveCheck1 : saveCheck2)(set)
+  // Gist に同期 (editor_gh_token がある端末のみ)
+  // これをしないと リロード時に Gist の check1/check2 で上書きされてしまう
+  syncChecksToGist().catch(e => console.warn('[check sync]', e?.message || e))
+}
+// localStorage の check1/check2 を Gist に PATCH (editor_gh_token 必須)
+let __checkSyncPending = false
+async function syncChecksToGist() {
+  if (__checkSyncPending) return
+  const id = getGistId()
+  if (!id) return
+  let tokenRaw = localStorage.getItem('editor_gh_token')
+  if (!tokenRaw) return
+  let token
+  try { token = JSON.parse(tokenRaw) } catch { token = tokenRaw }
+  if (!token || typeof token !== 'string') return
+  __checkSyncPending = true
+  // 連打に備えて 500ms デバウンス
+  await new Promise(r => setTimeout(r, 500))
+  try {
+    const cached = LS.get(GIST_LS_CACHE, 'null') || {}
+    const next = {
+      ...cached,
+      check1: [...loadCheck1()],
+      check2: [...loadCheck2()],
+      updatedAt: new Date().toISOString(),
+    }
+    const res = await fetch(`https://api.github.com/gists/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(next, null, 2) } }
+      })
+    })
+    if (res.ok) {
+      LS.set(GIST_LS_CACHE, next)
+      localStorage.setItem(GIST_LS_CACHE_AT, String(Date.now()))
+    } else {
+      console.warn('[check sync 失敗]', res.status)
+    }
+  } finally {
+    __checkSyncPending = false
+  }
 }
 // 旧 confirmed_master からの一度きりの移行: 旧データは「1次のみ確認済み」として扱う
 ;(() => {
