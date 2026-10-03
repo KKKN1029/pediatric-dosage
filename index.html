@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v101 / acne-prescription-sets</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v102 / acne-colored-cards</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '101'
+const BUILD_VERSION = '102'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -181,7 +181,49 @@ let DISEASES = [
     ],
     sections:[
       { title:'💊 症状別 処方セット (まずこれを出す)',
-        content:'【セット A — 面皰中心 (白・黒ニキビ、炎症なし)】\n📋 ベピオゲル 2.5%  15g　顔面 1日1回 夕 (洗顔後)\n   または\n   ディフェリンゲル 0.1%  15g　顔面 1日1回 夕\n→ 面皰の改善 + 新生面皰の抑制\n※ 妊婦・妊娠可能性あり → BPO を選択 (ディフェリンは禁忌)\n\n【セット B — 炎症性皮疹あり (赤ニキビ・膿疱) — 初期治療の第一選択】\n📋 ベピオゲル 2.5%  15g　顔面 1日1回 夕\n   ダラシンTゲル 1%  20g　顔面 1日2回 朝・夕\n→ 面皰も炎症も両方。BPO 併用で耐性菌抑制\n※ 1剤化したい → デュアック配合ゲル (BPO/クリンダ) 15g 1日1回に置換\n\n【セット C — 面皰 + 炎症混在 (維持療法含む)】\n📋 ディフェリンゲル 0.1%  15g　顔面 1日1回 夕\n   アクアチムクリーム 1%  20g　顔面 1日2回 朝・夕\n→ アダパレンで面皰、アクアチムで炎症\n※ 1剤化したい → エピデュオゲル (BPO/アダパレン) 15g 1日1回 夕\n\n【セット D — 重症・難治 (炎症性皮疹 >20個 or 結節あり)】\n📋 エピデュオゲル  15g　顔面 1日1回 夕\n   ビブラマイシン錠 100 mg  1日1回 (8歳以上)\n→ 強力な外用 + 内服で短期間に鎮静\n※ 内服は 3ヶ月以内。改善後はセット A の単剤維持へ\n\n【寛解後の維持療法】\n📋 ベピオゲル or ディフェリンゲル  単剤  1日1回 夕 (継続)\n→ 新生面皰の抑制 → 再発予防。抗菌薬は漫然継続しない' },
+        type:'prescriptionCards',
+        cards:[
+          { label:'セット A', sub:'面皰中心 (白・黒ニキビ、炎症なし)', color:'sky',
+            rx:[
+              { drug:'ベピオゲル 2.5%', amount:'15g', target:'顔面', freq:'1日1回 夕 (洗顔後)' },
+              { or:true, drug:'ディフェリンゲル 0.1%', amount:'15g', target:'顔面', freq:'1日1回 夕' },
+            ],
+            intent:'面皰の改善 + 新生面皰の抑制',
+            warn:'妊婦・妊娠可能性あり → BPO を選択 (ディフェリンは禁忌)',
+          },
+          { label:'セット B', sub:'炎症性皮疹あり (赤ニキビ・膿疱) — 初期治療の第一選択', color:'emerald',
+            rx:[
+              { drug:'ベピオゲル 2.5%', amount:'15g', target:'顔面', freq:'1日1回 夕' },
+              { drug:'ダラシンTゲル 1%', amount:'20g', target:'顔面', freq:'1日2回 朝・夕' },
+            ],
+            intent:'面皰も炎症も両方。BPO 併用で耐性菌抑制',
+            alt:'1剤化したい → デュアック配合ゲル (BPO/クリンダ) 15g 1日1回に置換',
+          },
+          { label:'セット C', sub:'面皰 + 炎症混在 (維持療法含む)', color:'amber',
+            rx:[
+              { drug:'ディフェリンゲル 0.1%', amount:'15g', target:'顔面', freq:'1日1回 夕' },
+              { drug:'アクアチムクリーム 1%', amount:'20g', target:'顔面', freq:'1日2回 朝・夕' },
+            ],
+            intent:'アダパレンで面皰、アクアチムで炎症',
+            alt:'1剤化したい → エピデュオゲル (BPO/アダパレン) 15g 1日1回 夕',
+          },
+          { label:'セット D', sub:'重症・難治 (炎症性皮疹 >20個 or 結節あり)', color:'rose',
+            rx:[
+              { drug:'エピデュオゲル', amount:'15g', target:'顔面', freq:'1日1回 夕' },
+              { drug:'ビブラマイシン錠 100mg', amount:'', target:'内服', freq:'1日1回 (8歳以上)' },
+            ],
+            intent:'強力な外用 + 内服で短期間に鎮静',
+            warn:'内服は 3ヶ月以内。改善後はセット A の単剤維持へ',
+          },
+          { label:'維持療法', sub:'寛解後の再発予防', color:'violet',
+            rx:[
+              { drug:'ベピオゲル or ディフェリンゲル', amount:'', target:'顔面', freq:'単剤 1日1回 夕 (継続)' },
+            ],
+            intent:'新生面皰の抑制 → 再発予防',
+            alt:'抗菌薬は漫然継続しない (耐性菌対策)',
+          },
+        ],
+      },
       { title:'👨‍⚕️ 服薬指導 (そのまま伝えてOK)',
         content:'• 「ベピオは夜1回、ダラシンは朝晩2回塗ってください」\n• 「夜も朝も洗顔後に塗ってください。洗顔料を泡立ててやさしく洗ってください」\n• 「ベピオは顔全体に薄く、ダラシンは赤ニキビの部分だけに」\n• 「使い始めに赤み・ひりひりが出ることがあります。心配なら顔の一部に試し塗りから」\n• 「強い刺激が出たら中止するか、塗って10〜20分で洗い流す "ショートコンタクト法" で続けてOK」\n• 「ベピオは 衣類・タオル・まくらカバーを白く漂白するので服や布団に付けないように」\n• 「改善まで 4〜8週 かかります。最初の2週で逆に悪化感があっても続けてください」\n• 「自分でつぶす・ピンセットで出すのは絶対にダメ (瘢痕・色素沈着の原因)」\n• 「お化粧はOK、ただし "ノンコメドジェニック" のものを薄く」\n• 「日焼け止めも "ノンコメドジェニック" を」' },
       { title:'🎯 外用薬 使い分けマップ',
@@ -782,51 +824,51 @@ let DRUGS = [
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布 (パール粒大/全顔)',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'第3世代レチノイド。面皰融解・新生面皰抑制。使用開始 2〜4週 に乾燥・紅斑・皮むけ (adapalene reaction) → 保湿併用必須。催奇形性なし。',
-    sideEffects:'乾燥、紅斑、皮むけ、刺激感、日光過敏', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'乾燥、紅斑、皮むけ、刺激感、日光過敏', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'bpo', genericName:'過酸化ベンゾイル (BPO)', abbreviation:'BPO', brandNames:['ベピオゲル 2.5%','ベピオローション 2.5%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 2.5% 15g','ローション 2.5% 15g'], adultDose:'1日1回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'角質剥離・抗菌 (耐性誘導なし)。衣類・タオル・寝具を 脱色 (白斑化) → 使用後の付着注意。乾燥・刺激強め → 少量から・保湿必須。',
-    sideEffects:'乾燥、刺激、紅斑、衣類脱色', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'乾燥、刺激、紅斑、衣類脱色', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'epiduo', genericName:'過酸化ベンゾイル/アダパレン配合', abbreviation:'BPO/アダパレン', brandNames:['エピデュオゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 2.5% + アダパレン 0.1%) 15g'], adultDose:'1日1回 夕 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 夕 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'BPO + アダパレン の配合剤。面皰 + 炎症性皮疹の両方に有効。1剤で2作用の利便性だが刺激感は BPO/アダパレン 単剤より強い → 保湿必須。',
-    sideEffects:'乾燥、紅斑、刺激感 (単剤より強)', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'乾燥、紅斑、刺激感 (単剤より強)', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'duac', genericName:'過酸化ベンゾイル/クリンダマイシン配合', abbreviation:'BPO/クリンダ', brandNames:['デュアック配合ゲル'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['配合ゲル (BPO 3% + クリンダマイシン 1%) 15g'], adultDose:'1日1回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日1回 塗布',notes:'12歳未満は有効性・安全性未確立'},
     ],
     notes:'BPO + 抗菌薬 の配合剤。炎症性皮疹に強い。BPO 併用により クリンダマイシン耐性 P.acnes の出現を抑制。',
-    sideEffects:'乾燥、刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'乾燥、刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'clindamycin-topical', genericName:'クリンダマイシン外用', abbreviation:'クリンダマイシン外用', brandNames:['ダラシンTゲル 1%','ダラシンTローション 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['ゲル 1% 10g','ローション 1% 10mL'], adultDose:'1日2回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'12歳以上',ageMinMonths:144,purpose:'治療',fixedDose:'1日2回 塗布'},
     ],
     notes:'抗菌薬外用。単独で漫然使用すると耐性菌 → BPO と併用または3ヶ月以内に。',
-    sideEffects:'乾燥、刺激、まれに接触皮膚炎', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'乾燥、刺激、まれに接触皮膚炎', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'nadifloxacin-topical', genericName:'ナジフロキサシン外用', abbreviation:'ナジフロキサシン', brandNames:['アクアチムクリーム 1%','アクアチムローション 1%','アクアチム軟膏 1%'], category:'外用薬', subcategory:'ざ瘡治療薬', route:'外用', formulations:['クリーム 1% 10g','ローション 1% 10mL','軟膏 1% 10g'], adultDose:'1日2回 洗顔後に塗布',
     pediatricDoses:[
       {ageLabel:'小児 (添付文書で年齢制限なし)',ageMinMonths:0,purpose:'治療',fixedDose:'1日2回 塗布',notes:'低年齢小児の臨床データは限定的'},
     ],
     notes:'ニューキノロン外用。クリンダマイシン外用の代替。',
-    sideEffects:'刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017']},
+    sideEffects:'刺激、紅斑', references:['尋常性痤瘡治療ガイドライン 2017'], pending:true},
   { id:'doxycycline', genericName:'ドキシサイクリン', abbreviation:'DOXY', brandNames:['ビブラマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg'], adultDose:'初日 200mg (分2)、以降 100mg/日 (分1)',
     pediatricDoses:[
       {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
     ],
     notes:'8歳未満禁忌 (歯牙着色・骨発育抑制)。食道刺激 → 多量の水で服用し就寝前は避ける。光線過敏に注意。',
     sideEffects:'悪心、下痢、光線過敏、食道刺激、歯牙着色 (8歳未満)',
-    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版']},
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true},
   { id:'minocycline', genericName:'ミノサイクリン', abbreviation:'MINO', brandNames:['ミノマイシン'], category:'テトラサイクリン系', route:'内服', formulations:['錠 50mg','錠 100mg','顆粒 2%'], adultDose:'初回 100〜200mg、以降 100mg × 2回/日 (または 50mg × 2回/日)',
     pediatricDoses:[
       {ageLabel:'8歳以上',ageMinMonths:96,purpose:'治療',dosePerKgMin:2,dosePerKgMax:4,maxDosePerDay:200,frequency:'分1〜2',notes:'ざ瘡では 50〜100 mg × 1〜2回/日 を 3ヶ月以内'},
     ],
     notes:'8歳未満禁忌。長期使用で めまい・皮膚色素沈着・血清病様反応・SLE様症状の報告 → 短期間 (3ヶ月以内) に。',
     sideEffects:'めまい、悪心、光線過敏、色素沈着、血清病様反応、SLE 様症状、歯牙着色 (8歳未満)',
-    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版']},
+    contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true},
 ]
 
 // ============================================================
@@ -6285,7 +6327,7 @@ function renderDiseaseDetail(disease) {
   const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
 
   const pointsHtml = (disease.points || []).length > 0 ? `
-    <div class="shadow-sm border border-blue-100 overflow-hidden">
+    <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
       <div class="flex bg-blue-50">
         <div class="w-1.5 bg-blue-500 shrink-0"></div>
         <div class="flex-1 px-4 py-3">
@@ -6308,16 +6350,61 @@ function renderDiseaseDetail(disease) {
         </div>`).join('')}
     </div>` : ''
 
-  const sectionsHtml = (disease.sections || []).map(sec => `
-    <div class="shadow-sm border border-blue-100 overflow-hidden">
-      <div class="flex bg-blue-50">
-        <div class="w-1.5 bg-blue-500 shrink-0"></div>
-        <div class="flex-1 px-4 py-3">
-          <h3 class="text-base font-bold text-gray-900">${esc(sec.title)}</h3>
+  const sectionsHtml = (disease.sections || []).map(sec => {
+    // 処方セットのカード表示
+    if (sec.type === 'prescriptionCards' && Array.isArray(sec.cards)) {
+      const palette = {
+        sky:    { bg:'bg-sky-50',    border:'border-sky-300',    bar:'bg-sky-500',    head:'bg-sky-100',    text:'text-sky-800',    rxBg:'bg-white',       chip:'bg-sky-600' },
+        emerald:{ bg:'bg-emerald-50',border:'border-emerald-300',bar:'bg-emerald-500',head:'bg-emerald-100',text:'text-emerald-800',rxBg:'bg-white',       chip:'bg-emerald-600' },
+        amber:  { bg:'bg-amber-50',  border:'border-amber-300',  bar:'bg-amber-500',  head:'bg-amber-100',  text:'text-amber-900',  rxBg:'bg-white',       chip:'bg-amber-600' },
+        rose:   { bg:'bg-rose-50',   border:'border-rose-300',   bar:'bg-rose-500',   head:'bg-rose-100',   text:'text-rose-800',   rxBg:'bg-white',       chip:'bg-rose-600' },
+        violet: { bg:'bg-violet-50', border:'border-violet-300', bar:'bg-violet-500', head:'bg-violet-100', text:'text-violet-800', rxBg:'bg-white',       chip:'bg-violet-600' },
+      }
+      const cards = sec.cards.map(c => {
+        const p = palette[c.color] || palette.sky
+        const rxItems = (c.rx || []).map((r, i) => `
+          <div class="${r.or ? 'mt-1' : ''} flex items-start gap-2 ${r.or ? 'pl-6' : ''}">
+            ${r.or ? '<span class="text-xs text-gray-500 shrink-0 -ml-6 mt-0.5">または</span>' : '<span class="text-base shrink-0 mt-0.5">📋</span>'}
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-gray-900 leading-snug">${esc(r.drug)}${r.amount?`　<span class="text-xs text-gray-600 font-normal">${esc(r.amount)}</span>`:''}</div>
+              <div class="text-xs text-gray-600 mt-0.5">${r.target?esc(r.target)+' ・ ':''}${esc(r.freq||'')}</div>
+            </div>
+          </div>`).join('')
+        return `
+          <div class="rounded-xl border-2 ${p.border} ${p.bg} overflow-hidden">
+            <div class="${p.head} px-3 py-2 flex items-baseline gap-2 flex-wrap">
+              <span class="${p.chip} text-white text-[11px] font-bold px-2 py-0.5 rounded">${esc(c.label||'')}</span>
+              <span class="text-xs font-semibold ${p.text} flex-1 min-w-0">${esc(c.sub||'')}</span>
+            </div>
+            <div class="${p.rxBg} px-3 py-2.5 space-y-1.5">${rxItems}</div>
+            ${c.intent ? `<div class="px-3 pb-2 pt-1"><div class="text-xs text-gray-700"><span class="font-semibold">狙い:</span> ${esc(c.intent)}</div></div>` : ''}
+            ${c.warn ? `<div class="mx-3 mb-3 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] rounded-lg px-2 py-1.5 leading-relaxed">⚠ ${esc(c.warn)}</div>` : ''}
+            ${c.alt ? `<div class="mx-3 mb-3 bg-blue-50 border border-blue-200 text-blue-800 text-[11px] rounded-lg px-2 py-1.5 leading-relaxed">💡 ${esc(c.alt)}</div>` : ''}
+          </div>`
+      }).join('')
+      return `
+        <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+          <div class="flex bg-blue-50">
+            <div class="w-1.5 bg-blue-500 shrink-0"></div>
+            <div class="flex-1 px-4 py-3">
+              <h3 class="text-base font-bold text-gray-900">${esc(sec.title)}</h3>
+            </div>
+          </div>
+          <div class="bg-white px-3 py-3 space-y-3">${cards}</div>
+        </div>`
+    }
+    // 通常セクション
+    return `
+      <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+        <div class="flex bg-blue-50">
+          <div class="w-1.5 bg-blue-500 shrink-0"></div>
+          <div class="flex-1 px-4 py-3">
+            <h3 class="text-base font-bold text-gray-900">${esc(sec.title)}</h3>
+          </div>
         </div>
-      </div>
-      <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
-    </div>`).join('')
+        <div class="bg-white px-4 py-3 text-sm text-gray-700 leading-relaxed">${renderSectionContent(sec.content)}</div>
+      </div>`
+  }).join('')
 
   const relatedDrugsHtml = relatedDrugs.length > 0 ? `
     <div class="rounded-xl shadow-sm border border-green-100 overflow-hidden">
