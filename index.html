@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-50">
 <div id="app" class="h-dvh flex flex-col max-w-lg mx-auto"></div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v105 / check-sync-fix</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:6px;z-index:9999;font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;pointer-events:none;font-family:monospace">build v106 / seizure-pages</div>
 <script>
 // ============================================================
 // バージョン管理 / cache busting
@@ -40,7 +40,7 @@
 //   3. ローカル: 起動時に localStorage の version と比較し、不一致なら旧 SW を解除して
 //      1度だけリロードして新コードを確実に読み込む
 // ============================================================
-const BUILD_VERSION = '105'
+const BUILD_VERSION = '106'
 ;(async () => {
   if (!('serviceWorker' in navigator)) return
   const stored = localStorage.getItem('app_build_version')
@@ -78,7 +78,8 @@ let CATEGORIES = [
   '抗ウイルス薬','βラクタム系','マクロライド系','セフェム系',
   'アミノグリコシド系','テトラサイクリン系','その他の抗菌薬',
   '抗真菌薬','抗アレルギー薬','喘息薬','解熱鎮痛薬',
-  '制吐薬','整腸薬・止痢薬','便秘治療薬','消化器','点眼薬','点鼻薬','外用薬','その他',
+  '制吐薬','整腸薬・止痢薬','便秘治療薬','消化器','点眼薬','点鼻薬','外用薬',
+  'けいれん治療薬','その他',
 ]
 
 // ============================================================
@@ -243,6 +244,97 @@ let DISEASES = [
     relatedDrugIds:['bpo','adapalene','duac','epiduo','clindamycin-topical','nadifloxacin-topical','doxycycline','minocycline','clarithromycin'],
     references:['尋常性痤瘡治療ガイドライン 2017 (日本皮膚科学会)','小児科処方せん読み方・考え方 (処方箋21・22)','皮膚科外用薬の使い方・考え方 (G-2 最近の痤瘡治療薬)'],
     notes:'小児科外来では 中学生以降の軽〜中等症に外用で対応可。重症・瘢痕傾向は皮膚科紹介を躊躇しない。',
+  },
+
+  // ────────────────────────────────────────────────
+  // 【熱性けいれん (Febrile seizure)】熱性けいれん診療ガイドライン 2023 準拠
+  // ────────────────────────────────────────────────
+  {
+    id:'febrile-seizure',
+    preferEmbedded:true,
+    name:'熱性けいれん',
+    englishName:'Febrile seizure',
+    category:'神経',
+    tags:['熱性けいれん','FS','ひきつけ','痙攣','ダイアップ'],
+    emergency:{
+      level:'medium',
+      message:'5分以上続く・反復するけいれんは "複雑型" または重積に移行 → 救急対応へ',
+      actions:[
+        '2〜3分以内に止まれば様子見でOK。横向きに寝かせ気道確保、口に物を入れない',
+        '5分以上続く → 重積移行を疑い救急搬送 or ダイアップ坐剤 or ミダゾラム経鼻',
+        '焦点性・24h以内複数回・意識回復遅延のいずれかあれば "複雑型" として精査',
+      ],
+    },
+    points:[
+      '生後6ヶ月〜5歳の 発熱 (≥38℃) 時に起こる非感染性けいれん。感染症 (髄膜炎・脳炎) を除外することが前提',
+      '単純型 (全般性/<15分/24h内に1回のみ) と 複雑型 (焦点性/≥15分/24h内複数回) で対応が異なる',
+      '多くは 2〜3分以内に自然止止 → 予後良好。原則、抗けいれん薬の慢性投与は不要',
+      '再発予防 (ダイアップ坐剤) の適応は 2017GL で厳格化: 遷延/焦点性/複数回/15分以上/発達遅滞 のいずれか',
+      '保護者の最大の不安 "脳に悪いか" "てんかん化するか" への説明が重要 (単純型は長期予後に影響しない)',
+    ],
+    sections:[
+      { title:'📊 単純型 vs 複雑型 (まずこれで分類)',
+        content:'【単純型 (全てを満たす)】\n• 全般性 (左右対称、焦点性ではない)\n• 持続 < 15分\n• 24時間以内に 1回のみ\n→ 発熱時のみ、予後良好、予防薬不要 (原則)\n\n【複雑型 (いずれかを満たす)】\n• 焦点性 (左右差あり・一側のみ)\n• 持続 ≥ 15分 (遷延性)\n• 24時間以内に 2回以上\n→ 髄膜炎・脳炎・てんかんの精査 (血液・画像・脳波)\n→ ダイアップ再発予防を検討' },
+      { title:'💉 ダイアップ坐剤 (再発予防) の使い方',
+        content:'【適応 (2017GL)】次の5項目のいずれか\n• 遷延性けいれん (15分以上)\n• 焦点性けいれん\n• 24時間以内に複数回\n• 発作後の意識障害・麻痺\n• もともと 発達遅滞・神経学的異常あり\n\n【用量 (体重別)】\n• 10kg未満: 4mg 坐剤 1個\n• 10〜25kg: 6mg 坐剤 1個\n• 25kg以上: 10mg 坐剤 1個\n\n【タイミング】\n• 37.5〜38.0℃ になった時点で 1回目を挿入\n• 8時間後にまだ熱があれば 2回目を挿入\n• 3回目は原則不要 (発熱 24時間後はけいれん再発リスクが下がる)\n\n【処方例】\n   ダイアップ坐剤 10mg (または 6mg/4mg)  1個\n   発熱時 (37.5℃以上) に挿肛、8時間後に発熱が続いていれば追加挿入\n   7日分 (次回受診時に残量確認)' },
+      { title:'👨‍⚕️ 発作中の家族指導 (そのまま伝えて OK)',
+        content:'• 「あわてず時計で時間を測ってください」\n• 「横向きに寝かせて、口の中に何も入れないで」\n• 「頭を軽く支えて周りの危ないものを除けて」\n• 「2〜3分以内に止まれば様子を見て受診で OK」\n• 「5分以上続く、または止まった後も意識が戻らない時は 119番 (救急車)」\n• 「体をゆすったり叩いたりしないで」\n× 舌を噛むから何かを噛ませる → 絶対にしない (窒息の原因)' },
+      { title:'❓ 保護者 Q&A',
+        content:'Q. 熱性けいれんは脳に悪影響がありますか？\nA. 単純型は 長期的な脳の発達・知能に影響なし と証明されています。遷延性 (30分以上) や繰り返す場合のみ影響の可能性があります。\n\nQ. てんかんになりますか？\nA. 単純型のてんかん移行率は 2〜4% (一般小児の 1〜2% と比べ やや高いが低リスク)。複雑型では 10% 程度に上がる。\n\nQ. また起こしますか？\nA. 熱性けいれんの再発率は約 30%。初回年齢が若い (1歳未満)・家族歴・初回が複雑型・低熱で発症 の場合は再発リスク上昇。\n\nQ. ダイアップは毎回使う必要がありますか？\nA. 適応がある場合のみ (遷延/焦点性/複数回/発達遅滞)。単純型初回なら通常不要。\n\nQ. 予防接種は受けて良いですか？\nA. 原則 OK。接種後の発熱に備えてダイアップ適応例なら準備しておく。' },
+      { title:'🏥 救急搬送・精査が必要なケース',
+        content:'• 5分以上続くけいれん (重積移行)\n• 24時間以内に複数回けいれん\n• 焦点性 (左右差あり) のけいれん\n• 発作後の意識障害が長引く (30分以上)\n• 髄膜刺激症状 (項部硬直、Kernig/Brudzinski)\n• 大泉門膨隆、嘔吐、意識障害 → 髄膜炎・脳炎を疑う\n• 1歳未満 (髄膜炎の除外が難しい年齢)\n• 発熱なし のけいれん → 急性症候性 or てんかん疑い' },
+      { title:'📚 参考文献・資料',
+        content:'• 熱性けいれん (熱性発作) 診療ガイドライン 2023 (日本小児神経学会)\n• 小児急性脳症診療ガイドライン 2016\n• 新 小児薬用量 改訂第10版 (ジアゼパム の項)' },
+    ],
+    relatedDrugIds:['diazepam','midazolam'],
+    references:['熱性けいれん (熱性発作) 診療ガイドライン 2023 (日本小児神経学会)','新 小児薬用量 改訂第10版'],
+    notes:'処方セット (症状別) は次回打ち合わせで追加予定。急性けいれん が止まらない場合は「けいれん重積」ページを参照。',
+  },
+
+  // ────────────────────────────────────────────────
+  // 【けいれん重積 (Status epilepticus)】ILAE 2015 / 日本神経学会 ガイドライン
+  // ────────────────────────────────────────────────
+  {
+    id:'status-epilepticus',
+    preferEmbedded:true,
+    name:'けいれん重積状態',
+    englishName:'Convulsive Status Epilepticus',
+    abbreviation:'CSE',
+    category:'神経',
+    tags:['重積','SE','てんかん重積','CSE','ジアゼパム','ミダゾラム','ホスフェニトイン','ILAE'],
+    emergency:{
+      level:'critical',
+      message:'5分以上続くけいれんは 重積状態 — 直ちに止めに行く',
+      actions:[
+        'ABC 確保 (酸素・SpO2・心電図モニター・ライン確保)',
+        '血糖 (低血糖なら 10% ブドウ糖 2〜5mL/kg) + 電解質 (Na, Ca, Mg)',
+        '第1選択: ジアゼパム 0.3mg/kg 静注 or ミダゾラム 0.3mg/kg 静注・経鼻',
+        '5分で止まらなければ 10分以内に 第2選択 (ホスフェニトイン or レベチラセタム or フェノバル)',
+        '30分で止まらなければ ICU・挿管・持続ミダゾラム or チオペンタール',
+      ],
+    },
+    points:[
+      '定義 (ILAE 2015): けいれんが 5分以上続く または 間欠期に意識回復しない反復けいれん',
+      '時間軸で区切る: 0-5分 (initial)、5-30分 (established)、30-60分 (refractory)、>60分 (super-refractory)',
+      '長引くほど止まりにくくなり、神経学的予後が悪化 → "できるだけ早く止める" が原則',
+      '第1選択は benzodiazepine (静注が最強、ライン無ければ経鼻ミダゾラム)',
+      '並行して ABC 評価・原因検索 (低血糖・電解質・感染・外傷・中毒) を',
+    ],
+    sections:[
+      { title:'⏱ 時系列タイムライン (この順序で動く)',
+        content:'【0〜5分 — Early (急性期)】\n• ABC 確保 (気道・酸素・SpO2・バイタル)\n• 末梢ライン 1本以上確保 (難しければ 骨髄針/IO も)\n• 血糖・血液ガス・電解質 (Na/K/Ca/Mg/ブドウ糖)\n• 体位: 側臥位、吸引準備\n\n【5〜30分 — Established (確立期)】\n• 第1選択: ジアゼパム 0.3mg/kg 静注 or ミダゾラム 0.3mg/kg 静注\n• ライン未確保 → ミダゾラム 0.3〜0.5mg/kg 経鼻 or 頬粘膜\n• 5分で止まらなければ 2回目まで反復可\n\n【30〜60分 — Refractory (難治)】\n• 第2選択を 追加 (benzo で止まらなくても併用で):\n  - ホスフェニトイン 15〜20mgPE/kg (心電図モニター必須)\n  - または レベチラセタム 60mg/kg 15分点滴\n  - または フェノバルビタール 20mg/kg (呼吸抑制強い)\n\n【>60分 — Super-refractory (超難治)】\n• ICU 搬送、挿管、人工呼吸\n• 持続ミダゾラム 0.1〜0.3mg/kg/hr 開始 → 1mg/kg/hr まで漸増\n• 効果不十分なら チオペンタール 3〜5mg/kg 導入 → 1〜5mg/kg/hr 持続 (脳波 burst suppression)\n• 原因検索を再開 (CT, MRI, 髄液, 代謝疾患)' },
+      { title:'🎯 抗けいれん薬 使い分けマップ',
+        content:'【ジアゼパム (ホリゾン・ダイアップ)】\n• 得意: 速効性・入手性・ダイアップ坐剤で院外対応可\n• 苦手: 作用時間短い (再発あり)、反復で呼吸抑制\n• ポジション: 第1選択の benzo\n\n【ミダゾラム (ドルミカム・ミダフレッサ)】\n• 得意: 経鼻・頬粘膜・筋注の多ルート、持続投与可、ミダフレッサは小児重積適応\n• 苦手: 呼吸抑制 (benzo 共通)\n• ポジション: ライン確保困難時の第1選択・難治重積の持続\n\n【ホスフェニトイン (ホストイン)】\n• 得意: 従来のフェニトインより組織障害少、沈殿なし、ライン外漏出に強い\n• 苦手: 投与時間が長い (15〜20分)、QT延長・徐脈 (モニター必須)\n• 禁忌: 洞不全・II度以上AVB\n• ポジション: 第2選択の筆頭\n\n【フェノバルビタール (ノーベルバール)】\n• 得意: 新生児けいれんの第1選択、半減期長く効果持続\n• 苦手: 強い呼吸抑制 (benzo 併用で特に)、過鎮静・意識回復遅延\n• ポジション: 新生児 第1選択 / 年長児 第2選択\n\n【レベチラセタム (イーケプラ)】\n• 得意: 相互作用なし、心・肝への影響少ない、安全性高い\n• 苦手: 日本ではまだ重積の 保険適応外 (使用経験は増加)\n• ポジション: 第2選択の有力候補 (ESETT 2019 で有効性確認)\n\n【チオペンタール (ラボナール)】\n• 得意: 確実に全身麻酔レベルに持ち込める\n• 苦手: 強い心・呼吸抑制、長時間鎮静、免疫抑制、腸管麻痺\n• ポジション: 第3選択・難治重積の深鎮静 (ICU 必須)' },
+      { title:'🏥 ICU 搬送基準',
+        content:'• 第2選択薬を 2剤 使っても止まらない (= refractory status)\n• 挿管・人工呼吸が必要になった\n• 持続鎮静 (ミダゾラム・チオペンタール) を開始した\n• 原因不明で全身管理が必要 (脳炎疑い、代謝疾患疑い)\n• 発作後の意識回復が遅延 (postictal state 持続)' },
+      { title:'🔍 鑑別・原因検索 (並行して進める)',
+        content:'【血液検査】\n• 血糖 (低血糖性けいれん除外): BG < 60 → 10% ブドウ糖 2〜5mL/kg\n• 電解質 (Na, Ca, Mg): 低 Na, 低 Ca, 低 Mg 全てけいれん誘発\n• アンモニア (代謝疾患・肝性脳症)\n• 血液ガス (アシドーシス)\n\n【画像】\n• 頭部 CT (急性期の頭蓋内出血・外傷・脳浮腫)\n• MRI (CT 陰性で原因不明の場合)\n\n【髄液】\n• 髄膜炎・脳炎を疑えば必須 (安定後)\n• ヘルペス脳炎疑いなら アシクロビル 開始\n\n【脳波】\n• 非けいれん性重積 (NCSE) 疑いなら持続脳波モニター\n• 熱性けいれん後の長引く意識障害でも考慮' },
+      { title:'📚 参考文献・資料',
+        content:'• ILAE 2015: Status epilepticus の操作的定義 (5分以上)\n• てんかん診療ガイドライン 2018 (日本神経学会)\n• 小児けいれん重積状態 診療ガイドライン 2017 (日本小児神経学会)\n• ESETT trial 2019 (NEJM): levetiracetam vs fosphenytoin vs valproate — 等効果\n• 新 小児薬用量 改訂第10版' },
+    ],
+    relatedDrugIds:['diazepam','midazolam','fosphenytoin','phenobarbital','levetiracetam','thiopental'],
+    references:['てんかん診療ガイドライン 2018','小児けいれん重積状態 診療ガイドライン 2017 (日本小児神経学会)','ILAE 2015 Status epilepticus 操作的定義','ESETT trial 2019 (NEJM)','新 小児薬用量 改訂第10版'],
+    notes:'処方セット (段階別) は次回打ち合わせで追加予定。各薬剤の詳細は 関連薬剤 からリンク参照。',
   },
 ]
 
@@ -872,6 +964,84 @@ let DRUGS = [
     notes:'8歳未満禁忌。長期使用で めまい・皮膚色素沈着・血清病様反応・SLE様症状の報告 → 短期間 (3ヶ月以内) に。',
     sideEffects:'めまい、悪心、光線過敏、色素沈着、血清病様反応、SLE 様症状、歯牙着色 (8歳未満)',
     contraindications:'8歳未満の小児、妊婦', references:['尋常性痤瘡治療ガイドライン 2017','抗菌薬 Essence 第3版'], pending:true, preferEmbedded:true},
+  // ────────────────────────────────────────────────
+  // けいれん治療薬 (急性けいれん・重積・再発予防)
+  // ────────────────────────────────────────────────
+  { id:'diazepam', genericName:'ジアゼパム', abbreviation:'ジアゼパム', brandNames:['ホリゾン','セルシン','ダイアップ'], category:'けいれん治療薬', subcategory:'ベンゾジアゼピン系', route:'静注・筋注・坐剤',
+    formulations:['注射液 10mg/2mL','錠 2mg/5mg','散 1%','ダイアップ坐剤 4mg/6mg/10mg'],
+    adultDose:'けいれん時: 1回 5〜10mg 静注 (2mg/分以下)。鎮静: 2〜10mg 1日2〜4回',
+    pediatricDoses:[
+      {ageLabel:'けいれん時 静注 (全年齢)',ageMinMonths:0,purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.5,maxDosePerDay:10,unit:'mg',frequency:'1回',notes:'1回最大 10mg。2mg/分以下で緩徐静注。5分で止まらなければ 10〜15分あけて反復 (計2回まで)'},
+      {ageLabel:'ダイアップ坐剤 (10kg未満)',ageMinMonths:0,purpose:'治療',fixedDose:'4mg 1個 挿肛',notes:'発熱時 (37.5〜38℃以上) に挿入。8時間後に再挿入可。再発予防'},
+      {ageLabel:'ダイアップ坐剤 (10〜25kg)',ageMinMonths:0,purpose:'治療',fixedDose:'6mg 1個 挿肛',notes:'発熱時 (37.5〜38℃以上) に挿入。8時間後に再挿入可。再発予防'},
+      {ageLabel:'ダイアップ坐剤 (25kg以上)',ageMinMonths:0,purpose:'治療',fixedDose:'10mg 1個 挿肛',notes:'発熱時 (37.5〜38℃以上) に挿入。8時間後に再挿入可。再発予防'},
+    ],
+    notes:'第一選択の benzodiazepine。急性けいれん (静注) + 熱性けいれん再発予防 (ダイアップ坐剤) に広く使用。',
+    sideEffects:'呼吸抑制、鎮静、ふらつき、無呼吸 (特に新生児・反復投与時)',
+    contraindications:'急性狭隅角緑内障、重症筋無力症', references:['新 小児薬用量 改訂第10版','熱性けいれん診療ガイドライン 2023'],
+    pending:true, preferEmbedded:true},
+
+  { id:'midazolam', genericName:'ミダゾラム', abbreviation:'ミダゾラム', brandNames:['ドルミカム','ミダフレッサ'], category:'けいれん治療薬', subcategory:'ベンゾジアゼピン系', route:'静注・筋注・経鼻・頬粘膜・持続',
+    formulations:['注射液 10mg/2mL (ドルミカム)','静注用 0.1% 5mL (ミダフレッサ・小児重積適応)'],
+    adultDose:'麻酔前・鎮静: 0.025〜0.05mg/kg 緩徐静注。けいれん重積: 0.15mg/kg 静注',
+    pediatricDoses:[
+      {ageLabel:'静注 (全年齢)',ageMinMonths:0,purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.3,maxDosePerDay:10,unit:'mg',frequency:'1回',notes:'1回最大 10mg。ミダフレッサは 0.15mg/kg (小児重積適応)。5分で止まらなければ反復可'},
+      {ageLabel:'筋注 (ライン未確保時)',ageMinMonths:0,purpose:'治療',dosePerKg:0.3,maxDosePerDay:10,unit:'mg',frequency:'1回',notes:'IV なければ IM で速やかに'},
+      {ageLabel:'経鼻・頬粘膜 (ライン確保困難時)',ageMinMonths:0,purpose:'治療',dosePerKgMin:0.3,dosePerKgMax:0.5,unit:'mg',frequency:'1回',notes:'両鼻腔に半量ずつ or 頬粘膜に滴下。注射液をそのまま使用'},
+      {ageLabel:'持続静注 (難治重積)',ageMinMonths:0,purpose:'治療',dosePerKgMin:0.1,dosePerKgMax:0.3,unit:'mg',frequency:'1時間',notes:'初期 0.1〜0.3mg/kg/hr、効果見ながら 1mg/kg/hr まで漸増。ICU 管理'},
+    ],
+    notes:'第一選択の benzodiazepine 代替。ライン確保困難時の経鼻・頬粘膜ルートが大きな利点。日本では ミダフレッサ (0.1%) が小児重積に承認。',
+    sideEffects:'呼吸抑制、血圧低下、鎮静、まれに逆説的興奮',
+    contraindications:'急性狭隅角緑内障、重症筋無力症、HIV プロテアーゼ阻害薬併用', references:['新 小児薬用量 改訂第10版','熱性けいれん診療ガイドライン 2023'],
+    pending:true, preferEmbedded:true},
+
+  { id:'fosphenytoin', genericName:'ホスフェニトイン', abbreviation:'fPHT', brandNames:['ホストイン'], category:'けいれん治療薬', subcategory:'ヒダントイン系', route:'静注',
+    formulations:['静注 750mg/10mL (= フェニトイン換算 500mg = 500mgPE)'],
+    adultDose:'初回 15〜18mgPE/kg を 150mgPE/分以下で静注',
+    pediatricDoses:[
+      {ageLabel:'急性けいれん・重積 (2歳以上)',ageMinMonths:24,purpose:'治療',dosePerKgMin:15,dosePerKgMax:20,unit:'mgPE',frequency:'1回',notes:'3mgPE/kg/分以下 (最大 150mgPE/分) で緩徐静注。心電図・血圧モニター必須'},
+      {ageLabel:'新生児〜2歳未満',ageMinMonths:0,ageMaxMonths:24,purpose:'治療',dosePerKg:15,unit:'mgPE',frequency:'1回',notes:'適応外使用。使用経験は蓄積。モニター下で慎重に'},
+    ],
+    notes:'フェニトインのプロドラッグ。従来のフェニトインに比べ組織障害・沈殿が少なく、ライン外漏出時の壊死リスクが低い。第二選択の筆頭。',
+    sideEffects:'血圧低下、徐脈、不整脈 (QT延長・AVB)、めまい、眼振、紅斑、Stevens-Johnson 症候群',
+    contraindications:'洞不全、第II〜III度AVB、Adams-Stokes症候群、重篤な肝障害', references:['新 小児薬用量 改訂第10版','てんかん診療ガイドライン 2018'],
+    pending:true, preferEmbedded:true},
+
+  { id:'phenobarbital', genericName:'フェノバルビタール', abbreviation:'PB', brandNames:['ノーベルバール','フェノバール'], category:'けいれん治療薬', subcategory:'バルビタール系', route:'静注・坐剤・散',
+    formulations:['静注用 ノーベルバール 250mg (新生児・小児けいれん重積適応)','坐剤 5mg/15mg/25mg (ワコビタール)','散 10%','錠 30mg'],
+    adultDose:'けいれん重積: 15〜20mg/kg を 100mg/分以下で静注',
+    pediatricDoses:[
+      {ageLabel:'急性けいれん・重積 (全年齢・静注)',ageMinMonths:0,purpose:'治療',dosePerKgMin:15,dosePerKgMax:20,unit:'mg',frequency:'1回',notes:'100mg/分以下で緩徐静注。新生児けいれんの第一選択。1回で止まらなければ 10mg/kg 追加可 (計 40mg/kg まで)'},
+      {ageLabel:'坐剤 (ワコビタール) 一時的鎮静',ageMinMonths:0,purpose:'治療',dosePerKgMin:4,dosePerKgMax:7,maxDosePerDay:200,unit:'mg',frequency:'1回',notes:'1回 4〜7mg/kg (最大 200mg)。発熱時の鎮静・不穏に'},
+    ],
+    notes:'新生児けいれんの第一選択。年長児では benzo + fosphenytoin で止まらない場合の第二選択。呼吸抑制が強いため挿管準備下で使用。',
+    sideEffects:'強い呼吸抑制 (特に benzo 併用)、低血圧、過鎮静、Stevens-Johnson 症候群、注射部位障害 (静注後)',
+    contraindications:'重篤な呼吸抑制、ポルフィリン症', references:['新 小児薬用量 改訂第10版','てんかん診療ガイドライン 2018'],
+    pending:true, preferEmbedded:true},
+
+  { id:'levetiracetam', genericName:'レベチラセタム', abbreviation:'LEV', brandNames:['イーケプラ'], category:'けいれん治療薬', subcategory:'新規抗てんかん薬', route:'静注・内服',
+    formulations:['点滴静注 500mg/5mL','錠 250mg/500mg','DS 50%','ドライシロップ'],
+    adultDose:'けいれん重積: 60mg/kg を 15分で点滴静注 (最大 4500mg)',
+    pediatricDoses:[
+      {ageLabel:'急性けいれん・重積 (全年齢)',ageMinMonths:0,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,maxDosePerDay:4500,unit:'mg',frequency:'15分で点滴',notes:'生食・5%ブドウ糖で希釈し 15分で投与。小児重積では 60mg/kg が推奨 (ESETT 試験)'},
+      {ageLabel:'維持 (経口・4歳以上)',ageMinMonths:48,purpose:'治療',dosePerKgMin:20,dosePerKgMax:60,maxDosePerDay:3000,unit:'mg',frequency:'分2',notes:'初期 20mg/kg/日 分2 で開始、2週ごとに増量'},
+    ],
+    notes:'新規抗てんかん薬。腎排泄のみで薬物相互作用がほぼない。心・肝への影響が少なく、安全性が高いため第二選択として急速に普及。',
+    sideEffects:'傾眠、頭痛、易怒性・攻撃性・不安 (特に小児で頻度高い)、鼻咽頭炎',
+    contraindications:'過敏症既往', references:['新 小児薬用量 改訂第10版','てんかん診療ガイドライン 2018','ESETT 2019 (NEJM)'],
+    pending:true, preferEmbedded:true},
+
+  { id:'thiopental', genericName:'チオペンタール', abbreviation:'TPS', brandNames:['ラボナール'], category:'けいれん治療薬', subcategory:'バルビタール系', route:'静注',
+    formulations:['静注用 500mg バイアル'],
+    adultDose:'全身麻酔導入: 3〜5mg/kg 静注。重積 深鎮静: 1〜5mg/kg/hr 持続',
+    pediatricDoses:[
+      {ageLabel:'難治重積 導入 (全年齢)',ageMinMonths:0,purpose:'治療',dosePerKgMin:3,dosePerKgMax:5,unit:'mg',frequency:'1回',notes:'ICU・挿管・人工呼吸・昇圧薬の準備下で。導入後は持続投与'},
+      {ageLabel:'難治重積 持続 (全年齢)',ageMinMonths:0,purpose:'治療',dosePerKgMin:1,dosePerKgMax:5,unit:'mg',frequency:'1時間',notes:'脳波モニター (burst suppression) で用量調節。24〜48時間維持後に漸減'},
+    ],
+    notes:'第三選択。難治けいれん重積 (benzo + 2nd line で止まらない症例) の深鎮静。ICU 必須。',
+    sideEffects:'強い心抑制・呼吸抑制、血圧低下、徐脈、長時間鎮静、免疫抑制、腸管麻痺',
+    contraindications:'急性間欠性ポルフィリン症、気管支喘息、重篤な心・肝障害', references:['新 小児薬用量 改訂第10版','てんかん重積状態 診療ガイドライン'],
+    pending:true, preferEmbedded:true},
 ]
 
 // ============================================================
@@ -6418,6 +6588,32 @@ function renderDiseaseDetail(disease) {
   const isFav = state.diseaseFavorites.has(disease.id)
   const relatedDrugs = (disease.relatedDrugIds || []).map(id => getDrugById(id)).filter(Boolean)
 
+  // 🚨 救急バナー (disease.emergency が設定されていれば先頭に大きく表示)
+  const emergencyHtml = disease.emergency ? (() => {
+    const e = disease.emergency
+    const palette = {
+      critical: { bg:'bg-red-600',    text:'text-white',    sub:'bg-red-50 text-red-900 border-red-200',    icon:'🚨', label:'重症' },
+      high:     { bg:'bg-orange-500', text:'text-white',    sub:'bg-orange-50 text-orange-900 border-orange-200', icon:'⚠️', label:'緊急' },
+      medium:   { bg:'bg-amber-500',  text:'text-white',    sub:'bg-amber-50 text-amber-900 border-amber-200',    icon:'⚠',  label:'注意' },
+    }
+    const p = palette[e.level] || palette.high
+    const actions = Array.isArray(e.actions) ? e.actions : (e.action ? [e.action] : [])
+    const actionsHtml = actions.length > 0
+      ? `<ul class="space-y-1.5">${actions.map(a => `<li class="text-sm flex gap-2 leading-snug"><span class="shrink-0 font-bold text-current">▶</span><span>${esc(a)}</span></li>`).join('')}</ul>`
+      : ''
+    return `
+      <div class="rounded-xl overflow-hidden border-2 border-red-700 shadow-md">
+        <div class="${p.bg} ${p.text} px-4 py-3 flex items-center gap-2">
+          <span class="text-2xl">${p.icon}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold opacity-90">${esc(p.label)}</div>
+            <div class="text-base font-bold leading-tight">${esc(e.message || e.title || '緊急対応が必要')}</div>
+          </div>
+        </div>
+        ${actionsHtml ? `<div class="${p.sub} border-t px-4 py-3">${actionsHtml}</div>` : ''}
+      </div>`
+  })() : ''
+
   const pointsHtml = (disease.points || []).length > 0 ? `
     <div class="rounded-xl shadow-sm border border-blue-100 overflow-hidden">
       <div class="flex bg-blue-50">
@@ -6555,6 +6751,7 @@ function renderDiseaseDetail(disease) {
       ${isPending ? '<div class="mt-1 text-center"><span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">未確認</span></div>' : ''}
     </div>
     <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      ${emergencyHtml}
       ${pointsHtml}
       ${imagesHtml}
       ${sectionsHtml}
